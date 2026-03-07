@@ -1,0 +1,388 @@
+openapi: 3.0.3
+info:
+  title: Notification Service API
+  description: Multi-channel notification service with template-based messaging
+  version: 1.0.0
+
+paths:
+  /v1/channels:
+    post:
+      summary: Create a notification channel
+      operationId: CreateChannel
+      tags: [Channels]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChannelRequest'
+      responses:
+        '200':
+          description: Channel created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateChannelResponse'
+    get:
+      summary: List notification channels
+      operationId: ListChannels
+      tags: [Channels]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: pageSize
+          in: query
+          schema: { type: integer }
+        - name: type
+          in: query
+          schema: { type: string, enum: [EMAIL, SMS, SLACK, SSE] }
+      responses:
+        '200':
+          description: List of channels
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListChannelsResponse'
+
+  /v1/channels/{id}:
+    get:
+      summary: Get a channel by ID
+      operationId: GetChannel
+      tags: [Channels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Channel details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetChannelResponse'
+    put:
+      summary: Update a channel
+      operationId: UpdateChannel
+      tags: [Channels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChannelRequest'
+      responses:
+        '200':
+          description: Channel updated
+    delete:
+      summary: Delete a channel
+      operationId: DeleteChannel
+      tags: [Channels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Channel deleted
+
+  /v1/templates:
+    post:
+      summary: Create a notification template
+      operationId: CreateTemplate
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateRequest'
+      responses:
+        '200':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateTemplateResponse'
+    get:
+      summary: List notification templates
+      operationId: ListTemplates
+      tags: [Templates]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: pageSize
+          in: query
+          schema: { type: integer }
+        - name: channelType
+          in: query
+          schema: { type: string, enum: [EMAIL, SMS, SLACK, SSE] }
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTemplatesResponse'
+
+  /v1/templates/{id}:
+    get:
+      summary: Get a template
+      operationId: GetTemplate
+      tags: [Templates]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Template details
+    put:
+      summary: Update a template
+      operationId: UpdateTemplate
+      tags: [Templates]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Template updated
+    delete:
+      summary: Delete a template
+      operationId: DeleteTemplate
+      tags: [Templates]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Template deleted
+
+  /v1/templates/preview:
+    post:
+      summary: Preview a template with sample data
+      operationId: PreviewTemplate
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewTemplateRequest'
+      responses:
+        '200':
+          description: Rendered template
+
+  /v1/notifications/send:
+    post:
+      summary: Send a notification
+      operationId: SendNotification
+      tags: [Notifications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendNotificationRequest'
+      responses:
+        '200':
+          description: Notification sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendNotificationResponse'
+
+  /v1/notifications/{id}:
+    get:
+      summary: Get a notification log entry
+      operationId: GetNotification
+      tags: [Notifications]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Notification details
+
+  /v1/notifications:
+    get:
+      summary: List notification logs
+      operationId: ListNotifications
+      tags: [Notifications]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: pageSize
+          in: query
+          schema: { type: integer }
+        - name: channelType
+          in: query
+          schema: { type: string, enum: [EMAIL, SMS, SLACK, SSE] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, SENT, FAILED] }
+        - name: recipient
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: List of notification logs
+
+components:
+  schemas:
+    CreateChannelRequest:
+      type: object
+      required: [name, type, config]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [EMAIL, SMS, SLACK, SSE] }
+        config: { type: string, description: "JSON-encoded channel configuration" }
+        enabled: { type: boolean }
+        isDefault: { type: boolean }
+
+    CreateChannelResponse:
+      type: object
+      properties:
+        channel:
+          $ref: '#/components/schemas/NotificationChannel'
+
+    GetChannelResponse:
+      type: object
+      properties:
+        channel:
+          $ref: '#/components/schemas/NotificationChannel'
+
+    ListChannelsResponse:
+      type: object
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationChannel'
+        total: { type: integer }
+
+    UpdateChannelRequest:
+      type: object
+      properties:
+        name: { type: string }
+        config: { type: string }
+        enabled: { type: boolean }
+        isDefault: { type: boolean }
+
+    NotificationChannel:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: integer }
+        name: { type: string }
+        type: { type: string }
+        config: { type: string }
+        enabled: { type: boolean }
+        isDefault: { type: boolean }
+        createdBy: { type: integer }
+        updatedBy: { type: integer }
+        createTime: { type: string, format: date-time }
+        updateTime: { type: string, format: date-time }
+
+    CreateTemplateRequest:
+      type: object
+      required: [name, channelType, subject, body]
+      properties:
+        name: { type: string }
+        channelType: { type: string, enum: [EMAIL, SMS, SLACK, SSE] }
+        subject: { type: string }
+        body: { type: string }
+        variables: { type: string }
+        isDefault: { type: boolean }
+
+    CreateTemplateResponse:
+      type: object
+      properties:
+        template:
+          $ref: '#/components/schemas/NotificationTemplate'
+
+    ListTemplatesResponse:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationTemplate'
+        total: { type: integer }
+
+    NotificationTemplate:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: integer }
+        name: { type: string }
+        channelType: { type: string }
+        subject: { type: string }
+        body: { type: string }
+        variables: { type: string }
+        isDefault: { type: boolean }
+        createdBy: { type: integer }
+        updatedBy: { type: integer }
+        createTime: { type: string, format: date-time }
+        updateTime: { type: string, format: date-time }
+
+    PreviewTemplateRequest:
+      type: object
+      required: [subject, body]
+      properties:
+        subject: { type: string }
+        body: { type: string }
+        channelType: { type: string }
+        variables:
+          type: object
+          additionalProperties: { type: string }
+
+    SendNotificationRequest:
+      type: object
+      required: [templateId, recipient]
+      properties:
+        templateId: { type: string }
+        channelId: { type: string }
+        recipient: { type: string }
+        variables:
+          type: object
+          additionalProperties: { type: string }
+
+    SendNotificationResponse:
+      type: object
+      properties:
+        notification:
+          $ref: '#/components/schemas/NotificationLog'
+
+    NotificationLog:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: integer }
+        channelId: { type: string }
+        channelType: { type: string }
+        templateId: { type: string }
+        recipient: { type: string }
+        renderedSubject: { type: string }
+        renderedBody: { type: string }
+        status: { type: string, enum: [PENDING, SENT, FAILED] }
+        errorMessage: { type: string }
+        createdBy: { type: integer }
+        createTime: { type: string, format: date-time }
+        sentAt: { type: string, format: date-time }

@@ -1,0 +1,108 @@
+module:
+  id: notification
+  name: Notification
+  description: Multi-channel notification service with template-based messaging
+
+menus:
+  - id: notification
+    parent_id: null
+    type: CATALOG
+    name: Notification
+    path: /notification
+    icon: lucide:bell
+    order: 500
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: notification-channels
+    parent_id: notification
+    type: MENU
+    name: Channels
+    path: channels
+    component: app/notification/channels/index.vue
+    icon: lucide:radio
+    order: 1
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: notification-templates
+    parent_id: notification
+    type: MENU
+    name: Templates
+    path: templates
+    component: app/notification/templates/index.vue
+    icon: lucide:file-text
+    order: 2
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: notification-logs
+    parent_id: notification
+    type: MENU
+    name: Notification Logs
+    path: logs
+    component: app/notification/logs/index.vue
+    icon: lucide:scroll-text
+    order: 3
+    authority:
+      - platform:admin
+      - tenant:manager
+
+permission_groups:
+  - name: Notification
+    module: notification
+    description: Notification Module Permissions
+    permissions:
+      - name: View Channels
+        code: notification.channel.view
+        description: View notification channels
+      - name: Manage Channels
+        code: notification.channel.manage
+        description: Create, update, and delete notification channels
+      - name: View Templates
+        code: notification.template.view
+        description: View notification templates
+      - name: Manage Templates
+        code: notification.template.manage
+        description: Create, update, and delete notification templates
+      - name: Send Notifications
+        code: notification.send
+        description: Send notifications
+      - name: View Logs
+        code: notification.log.view
+        description: View notification delivery logs
+
+roles:
+  - name: Notification Administrator
+    code: notification.admin
+    description: Full access to Notification module
+    is_system: true
+    permissions:
+      - notification.channel.view
+      - notification.channel.manage
+      - notification.template.view
+      - notification.template.manage
+      - notification.send
+      - notification.log.view
+
+  - name: Notification Operator
+    code: notification.operator
+    description: Can send notifications and view logs
+    is_system: true
+    permissions:
+      - notification.channel.view
+      - notification.template.view
+      - notification.send
+      - notification.log.view
+
+  - name: Notification Viewer
+    code: notification.viewer
+    description: Read-only access to Notification module
+    is_system: true
+    permissions:
+      - notification.channel.view
+      - notification.template.view
+      - notification.log.view

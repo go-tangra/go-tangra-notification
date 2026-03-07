@@ -1,0 +1,250 @@
+syntax = "proto3";
+
+package notification.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+import "notification/service/v1/channel.proto";
+
+// Template Service - manages message templates for notification channels
+service NotificationTemplateService {
+  // Create a new notification template
+  rpc CreateTemplate(CreateTemplateRequest) returns (CreateTemplateResponse) {
+    option (google.api.http) = {
+      post: "/v1/templates"
+      body: "*"
+    };
+  }
+
+  // Get a template by ID
+  rpc GetTemplate(GetTemplateRequest) returns (GetTemplateResponse) {
+    option (google.api.http) = {
+      get: "/v1/templates/{id}"
+    };
+  }
+
+  // List templates for the current tenant
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse) {
+    option (google.api.http) = {
+      get: "/v1/templates"
+    };
+  }
+
+  // Update a template
+  rpc UpdateTemplate(UpdateTemplateRequest) returns (UpdateTemplateResponse) {
+    option (google.api.http) = {
+      put: "/v1/templates/{id}"
+      body: "*"
+    };
+  }
+
+  // Delete a template
+  rpc DeleteTemplate(DeleteTemplateRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/templates/{id}"
+    };
+  }
+
+  // Preview a template with sample variables
+  rpc PreviewTemplate(PreviewTemplateRequest) returns (PreviewTemplateResponse) {
+    option (google.api.http) = {
+      post: "/v1/templates/preview"
+      body: "*"
+    };
+  }
+}
+
+// Notification template entity
+message NotificationTemplate {
+  string id = 1 [json_name = "id"];
+  uint32 tenant_id = 2 [json_name = "tenantId"];
+  string name = 3 [json_name = "name"];
+  ChannelType channel_type = 4 [json_name = "channelType"];
+  // Subject line template (Go text/template). Used for Email subject, Slack title, etc.
+  string subject = 5 [json_name = "subject"];
+  // Body template (Go text/template for plaintext, html/template for Email HTML)
+  string body = 6 [json_name = "body"];
+  // Comma-separated list of variable names this template expects (for documentation/validation)
+  string variables = 7 [json_name = "variables"];
+  bool is_default = 8 [json_name = "isDefault"];
+  optional uint32 created_by = 9 [json_name = "createdBy"];
+  optional uint32 updated_by = 10 [json_name = "updatedBy"];
+  google.protobuf.Timestamp create_time = 11 [json_name = "createTime"];
+  optional google.protobuf.Timestamp update_time = 12 [json_name = "updateTime"];
+}
+
+// Request to create a template
+message CreateTemplateRequest {
+  string name = 1 [
+    json_name = "name",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 255
+    }
+  ];
+
+  ChannelType channel_type = 2 [
+    json_name = "channelType",
+    (google.api.field_behavior) = REQUIRED
+  ];
+
+  string subject = 3 [
+    json_name = "subject",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 1024
+    }
+  ];
+
+  string body = 4 [
+    json_name = "body",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 65536
+    }
+  ];
+
+  // Comma-separated list of expected variable names
+  string variables = 5 [
+    json_name = "variables",
+    (buf.validate.field).string = {
+      max_len: 2048
+    }
+  ];
+
+  bool is_default = 6 [json_name = "isDefault"];
+}
+
+message CreateTemplateResponse {
+  NotificationTemplate template = 1 [json_name = "template"];
+}
+
+// Request to get a template
+message GetTemplateRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+}
+
+message GetTemplateResponse {
+  NotificationTemplate template = 1 [json_name = "template"];
+}
+
+// Request to list templates
+message ListTemplatesRequest {
+  optional uint32 page = 1 [json_name = "page"];
+  optional uint32 page_size = 2 [json_name = "pageSize"];
+  optional ChannelType channel_type = 3 [json_name = "channelType"];
+}
+
+message ListTemplatesResponse {
+  repeated NotificationTemplate templates = 1 [json_name = "templates"];
+  uint32 total = 2 [json_name = "total"];
+}
+
+// Request to update a template
+message UpdateTemplateRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+
+  optional string name = 2 [
+    json_name = "name",
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 255
+    }
+  ];
+
+  optional string subject = 3 [
+    json_name = "subject",
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 1024
+    }
+  ];
+
+  optional string body = 4 [
+    json_name = "body",
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 65536
+    }
+  ];
+
+  optional string variables = 5 [
+    json_name = "variables",
+    (buf.validate.field).string = {
+      max_len: 2048
+    }
+  ];
+
+  optional bool is_default = 6 [json_name = "isDefault"];
+}
+
+message UpdateTemplateResponse {
+  NotificationTemplate template = 1 [json_name = "template"];
+}
+
+// Request to delete a template
+message DeleteTemplateRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+}
+
+// Request to preview a template
+message PreviewTemplateRequest {
+  string subject = 1 [
+    json_name = "subject",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 1024
+    }
+  ];
+
+  string body = 2 [
+    json_name = "body",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 65536
+    }
+  ];
+
+  ChannelType channel_type = 3 [json_name = "channelType"];
+
+  // Sample variables for rendering
+  map<string, string> variables = 4 [json_name = "variables"];
+}
+
+message PreviewTemplateResponse {
+  string rendered_subject = 1 [json_name = "renderedSubject"];
+  string rendered_body = 2 [json_name = "renderedBody"];
+}

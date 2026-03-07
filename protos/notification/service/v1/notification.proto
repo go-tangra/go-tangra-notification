@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package notification.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+import "notification/service/v1/channel.proto";
+
+// Notification Service - sends notifications and tracks delivery
+service NotificationService {
+  // Send a notification using a template
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse) {
+    option (google.api.http) = {
+      post: "/v1/notifications/send"
+      body: "*"
+    };
+  }
+
+  // Get a notification log entry by ID
+  rpc GetNotification(GetNotificationRequest) returns (GetNotificationResponse) {
+    option (google.api.http) = {
+      get: "/v1/notifications/{id}"
+    };
+  }
+
+  // List notification logs
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse) {
+    option (google.api.http) = {
+      get: "/v1/notifications"
+    };
+  }
+}
+
+// Delivery status
+enum DeliveryStatus {
+  DELIVERY_STATUS_UNSPECIFIED = 0;
+  DELIVERY_STATUS_PENDING = 1;
+  DELIVERY_STATUS_SENT = 2;
+  DELIVERY_STATUS_FAILED = 3;
+}
+
+// Notification log entity
+message NotificationLog {
+  string id = 1 [json_name = "id"];
+  uint32 tenant_id = 2 [json_name = "tenantId"];
+  string channel_id = 3 [json_name = "channelId"];
+  ChannelType channel_type = 4 [json_name = "channelType"];
+  string template_id = 5 [json_name = "templateId"];
+  // Recipient address (email, phone number, slack channel, etc.)
+  string recipient = 6 [json_name = "recipient"];
+  string rendered_subject = 7 [json_name = "renderedSubject"];
+  string rendered_body = 8 [json_name = "renderedBody"];
+  DeliveryStatus status = 9 [json_name = "status"];
+  string error_message = 10 [json_name = "errorMessage"];
+  optional uint32 created_by = 11 [json_name = "createdBy"];
+  google.protobuf.Timestamp create_time = 12 [json_name = "createTime"];
+  optional google.protobuf.Timestamp sent_at = 13 [json_name = "sentAt"];
+}
+
+// Request to send a notification
+message SendNotificationRequest {
+  // Template ID to use for rendering
+  string template_id = 1 [
+    json_name = "templateId",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+    }
+  ];
+
+  // Optional channel ID. If not set, uses the default channel for the template's channel type.
+  optional string channel_id = 2 [
+    json_name = "channelId",
+    (buf.validate.field).string = {
+      max_len: 36
+    }
+  ];
+
+  // Recipient address (email address, phone number, slack channel, etc.)
+  string recipient = 3 [
+    json_name = "recipient",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 512
+    }
+  ];
+
+  // Template variables (key/value pairs for template rendering)
+  map<string, string> variables = 4 [json_name = "variables"];
+}
+
+message SendNotificationResponse {
+  NotificationLog notification = 1 [json_name = "notification"];
+}
+
+// Request to get a notification log
+message GetNotificationRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+}
+
+message GetNotificationResponse {
+  NotificationLog notification = 1 [json_name = "notification"];
+}
+
+// Request to list notification logs
+message ListNotificationsRequest {
+  optional uint32 page = 1 [json_name = "page"];
+  optional uint32 page_size = 2 [json_name = "pageSize"];
+  optional ChannelType channel_type = 3 [json_name = "channelType"];
+  optional DeliveryStatus status = 4 [json_name = "status"];
+  optional string recipient = 5 [json_name = "recipient"];
+}
+
+message ListNotificationsResponse {
+  repeated NotificationLog notifications = 1 [json_name = "notifications"];
+  uint32 total = 2 [json_name = "total"];
+}

@@ -1,0 +1,189 @@
+syntax = "proto3";
+
+package notification.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Channel Service - manages notification channels (Email, SMS, Slack, SSE)
+service NotificationChannelService {
+  // Create a new notification channel
+  rpc CreateChannel(CreateChannelRequest) returns (CreateChannelResponse) {
+    option (google.api.http) = {
+      post: "/v1/channels"
+      body: "*"
+    };
+  }
+
+  // Get a channel by ID
+  rpc GetChannel(GetChannelRequest) returns (GetChannelResponse) {
+    option (google.api.http) = {
+      get: "/v1/channels/{id}"
+    };
+  }
+
+  // List channels for the current tenant
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse) {
+    option (google.api.http) = {
+      get: "/v1/channels"
+    };
+  }
+
+  // Update a channel
+  rpc UpdateChannel(UpdateChannelRequest) returns (UpdateChannelResponse) {
+    option (google.api.http) = {
+      put: "/v1/channels/{id}"
+      body: "*"
+    };
+  }
+
+  // Delete a channel
+  rpc DeleteChannel(DeleteChannelRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/channels/{id}"
+    };
+  }
+}
+
+// Channel types
+enum ChannelType {
+  CHANNEL_TYPE_UNSPECIFIED = 0;
+  CHANNEL_TYPE_EMAIL = 1;
+  CHANNEL_TYPE_SMS = 2;
+  CHANNEL_TYPE_SLACK = 3;
+  CHANNEL_TYPE_SSE = 4;
+}
+
+// Notification channel entity
+message NotificationChannel {
+  string id = 1 [json_name = "id"];
+  uint32 tenant_id = 2 [json_name = "tenantId"];
+  string name = 3 [json_name = "name"];
+  ChannelType type = 4 [json_name = "type"];
+  // JSON-encoded channel-specific configuration
+  // Email: {"host","port","username","password","from","tls_mode"}
+  // SMS: {"provider","api_key","from_number"}
+  // Slack: {"webhook_url","bot_token","default_channel"}
+  // SSE: (no config needed, handled internally)
+  string config = 5 [json_name = "config"];
+  bool enabled = 6 [json_name = "enabled"];
+  bool is_default = 7 [json_name = "isDefault"];
+  optional uint32 created_by = 8 [json_name = "createdBy"];
+  optional uint32 updated_by = 9 [json_name = "updatedBy"];
+  google.protobuf.Timestamp create_time = 10 [json_name = "createTime"];
+  optional google.protobuf.Timestamp update_time = 11 [json_name = "updateTime"];
+}
+
+// Request to create a channel
+message CreateChannelRequest {
+  string name = 1 [
+    json_name = "name",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 255
+    }
+  ];
+
+  ChannelType type = 2 [
+    json_name = "type",
+    (google.api.field_behavior) = REQUIRED
+  ];
+
+  string config = 3 [
+    json_name = "config",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 2
+      max_len: 8192
+    }
+  ];
+
+  bool enabled = 4 [json_name = "enabled"];
+  bool is_default = 5 [json_name = "isDefault"];
+}
+
+message CreateChannelResponse {
+  NotificationChannel channel = 1 [json_name = "channel"];
+}
+
+// Request to get a channel
+message GetChannelRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+}
+
+message GetChannelResponse {
+  NotificationChannel channel = 1 [json_name = "channel"];
+}
+
+// Request to list channels
+message ListChannelsRequest {
+  optional uint32 page = 1 [json_name = "page"];
+  optional uint32 page_size = 2 [json_name = "pageSize"];
+  optional ChannelType type = 3 [json_name = "type"];
+}
+
+message ListChannelsResponse {
+  repeated NotificationChannel channels = 1 [json_name = "channels"];
+  uint32 total = 2 [json_name = "total"];
+}
+
+// Request to update a channel
+message UpdateChannelRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+
+  optional string name = 2 [
+    json_name = "name",
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 255
+    }
+  ];
+
+  optional string config = 3 [
+    json_name = "config",
+    (buf.validate.field).string = {
+      min_len: 2
+      max_len: 8192
+    }
+  ];
+
+  optional bool enabled = 4 [json_name = "enabled"];
+  optional bool is_default = 5 [json_name = "isDefault"];
+}
+
+message UpdateChannelResponse {
+  NotificationChannel channel = 1 [json_name = "channel"];
+}
+
+// Request to delete a channel
+message DeleteChannelRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+}
