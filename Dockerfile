@@ -30,15 +30,8 @@ RUN curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(un
 
 WORKDIR /src
 
-ENV GOPRIVATE=github.com/go-tangra/*
-
 COPY go.mod go.sum ./
-RUN --mount=type=secret,id=github_token \
-    TOKEN_FILE=/run/secrets/github_token; \
-    if [ -f "$TOKEN_FILE" ]; then \
-      git config --global url."https://x-access-token:$(cat $TOKEN_FILE)@github.com/".insteadOf "https://github.com/"; \
-    fi && \
-    go mod download
+RUN go mod download
 
 COPY . .
 

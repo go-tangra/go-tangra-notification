@@ -17,7 +17,6 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  GOPRIVATE: github.com/go-tangra/*
 
 permissions:
   contents: read
@@ -51,9 +50,6 @@ jobs:
         with:
           go-version: '1.23'
           cache: true
-
-      - name: Configure Git for private modules
-        run: git config --global url."https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Download dependencies
         run: go mod download
@@ -169,8 +165,6 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             APP_VERSION=${{ github.ref_name }}
-          secrets: |
-            github_token=${{ secrets.GITHUB_TOKEN }}
 
   cleanup-ghcr:
     name: Cleanup Old GHCR Images
