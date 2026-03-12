@@ -44,6 +44,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile || pnpm install
           pnpm build
+          mkdir -p ../cmd/server/assets/frontend-dist
           cp -r dist/* ../cmd/server/assets/frontend-dist/
 
       - name: Setup Go
