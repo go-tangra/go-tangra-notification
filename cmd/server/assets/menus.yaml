@@ -20,7 +20,7 @@ menus:
     type: MENU
     name: Channels
     path: channels
-    component: app/notification/channels/index.vue
+    component: app/notification/channel/index.vue
     icon: lucide:radio
     order: 1
     authority:
@@ -32,7 +32,7 @@ menus:
     type: MENU
     name: Templates
     path: templates
-    component: app/notification/templates/index.vue
+    component: app/notification/template/index.vue
     icon: lucide:file-text
     order: 2
     authority:
@@ -44,7 +44,7 @@ menus:
     type: MENU
     name: Notification Logs
     path: logs
-    component: app/notification/logs/index.vue
+    component: app/notification/log/index.vue
     icon: lucide:scroll-text
     order: 3
     authority:

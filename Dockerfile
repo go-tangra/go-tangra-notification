@@ -1,4 +1,18 @@
 ##################################
+# Stage 0: Build frontend module
+##################################
+
+FROM node:20-alpine AS frontend-builder
+
+RUN npm install -g pnpm@9
+
+WORKDIR /frontend
+COPY frontend/package.json frontend/pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile || pnpm install
+COPY frontend/ .
+RUN pnpm build
+
+##################################
 # Stage 1: Build Go executable
 ##################################
 
@@ -16,6 +30,9 @@ RUN curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(un
 
 WORKDIR /src
 
+# Copy go-tangra-common (local replace directive, provided via additional_contexts)
+COPY --from=common . /go-tangra-common/
+
 COPY go.mod go.sum ./
 RUN go mod download
 
@@ -23,6 +40,9 @@ COPY . .
 
 # Regenerate proto descriptor
 RUN buf build -o cmd/server/assets/descriptor.bin
+
+# Copy frontend dist into assets for go:embed
+COPY --from=frontend-builder /frontend/dist cmd/server/assets/frontend-dist/
 
 # Build the server
 RUN CGO_ENABLED=0 \
@@ -55,7 +75,7 @@ RUN addgroup -g 1000 notification && \
 
 USER notification:notification
 
-EXPOSE 10300
+EXPOSE 10300 10301
 
 CMD ["/app/bin/notification-server", "-c", "/app/configs"]
 

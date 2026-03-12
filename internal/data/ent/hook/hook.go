@@ -45,6 +45,18 @@ func (f TemplateFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TemplateMutation", m)
 }
 
+// The TemplatePermissionFunc type is an adapter to allow the use of ordinary
+// function as TemplatePermission mutator.
+type TemplatePermissionFunc func(context.Context, *ent.TemplatePermissionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TemplatePermissionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.TemplatePermissionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TemplatePermissionMutation", m)
+}
+
 // Condition is a hook condition function.
 type Condition func(context.Context, ent.Mutation) bool
 

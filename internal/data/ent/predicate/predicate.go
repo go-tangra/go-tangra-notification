@@ -14,3 +14,6 @@ type NotificationLog func(*sql.Selector)
 
 // Template is the predicate function for template builders.
 type Template func(*sql.Selector)
+
+// TemplatePermission is the predicate function for templatepermission builders.
+type TemplatePermission func(*sql.Selector)

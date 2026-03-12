@@ -63,7 +63,7 @@ message NotificationTemplate {
   string id = 1 [json_name = "id"];
   uint32 tenant_id = 2 [json_name = "tenantId"];
   string name = 3 [json_name = "name"];
-  ChannelType channel_type = 4 [json_name = "channelType"];
+  string channel_id = 4 [json_name = "channelId"];
   // Subject line template (Go text/template). Used for Email subject, Slack title, etc.
   string subject = 5 [json_name = "subject"];
   // Body template (Go text/template for plaintext, html/template for Email HTML)
@@ -75,6 +75,8 @@ message NotificationTemplate {
   optional uint32 updated_by = 10 [json_name = "updatedBy"];
   google.protobuf.Timestamp create_time = 11 [json_name = "createTime"];
   optional google.protobuf.Timestamp update_time = 12 [json_name = "updateTime"];
+  // Read-only: channel type resolved from the referenced channel
+  ChannelType channel_type = 13 [json_name = "channelType"];
 }
 
 // Request to create a template
@@ -88,9 +90,13 @@ message CreateTemplateRequest {
     }
   ];
 
-  ChannelType channel_type = 2 [
-    json_name = "channelType",
-    (google.api.field_behavior) = REQUIRED
+  string channel_id = 2 [
+    json_name = "channelId",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+    }
   ];
 
   string subject = 3 [
@@ -147,7 +153,7 @@ message GetTemplateResponse {
 message ListTemplatesRequest {
   optional uint32 page = 1 [json_name = "page"];
   optional uint32 page_size = 2 [json_name = "pageSize"];
-  optional ChannelType channel_type = 3 [json_name = "channelType"];
+  optional string channel_id = 3 [json_name = "channelId"];
 }
 
 message ListTemplatesResponse {
@@ -199,6 +205,14 @@ message UpdateTemplateRequest {
   ];
 
   optional bool is_default = 6 [json_name = "isDefault"];
+
+  optional string channel_id = 7 [
+    json_name = "channelId",
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+    }
+  ];
 }
 
 message UpdateTemplateResponse {
@@ -238,7 +252,8 @@ message PreviewTemplateRequest {
     }
   ];
 
-  ChannelType channel_type = 3 [json_name = "channelType"];
+  // Channel ID to determine rendering mode (HTML for email, plain for others)
+  string channel_id = 3 [json_name = "channelId"];
 
   // Sample variables for rendering
   map<string, string> variables = 4 [json_name = "variables"];

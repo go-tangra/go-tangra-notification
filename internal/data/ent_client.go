@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"os"
 
 	"entgo.io/ent/dialect/sql"
 
@@ -31,12 +32,15 @@ func NewEntClient(ctx *bootstrap.Context) (*entCrud.EntClient[*ent.Client], func
 	}
 
 	cli := entBootstrap.NewEntClient(cfg, func(drv *sql.Driver) *ent.Client {
-		client := ent.NewClient(
-			ent.Driver(drv),
-			ent.Log(func(a ...any) {
-				l.Info(a...)
-			}),
-		)
+		opts := []ent.Option{ent.Driver(drv)}
+		// M3: Only enable SQL query logging when explicitly requested
+		// to prevent accidental exposure of secrets in query parameters.
+		if os.Getenv("DEBUG_SQL") == "true" {
+			opts = append(opts, ent.Log(func(a ...any) {
+				l.Debug(a...)
+			}))
+		}
+		client := ent.NewClient(opts...)
 		if client == nil {
 			l.Fatalf("failed creating ent client")
 			return nil

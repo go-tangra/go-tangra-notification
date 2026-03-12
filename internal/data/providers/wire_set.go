@@ -17,4 +17,5 @@ var ProviderSet = wire.NewSet(
 	data.NewChannelRepo,
 	data.NewTemplateRepo,
 	data.NewNotificationLogRepo,
+	data.NewPermissionRepo,
 )

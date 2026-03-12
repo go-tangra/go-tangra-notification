@@ -15,6 +15,7 @@ import (
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/notificationlog"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/predicate"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/template"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/templatepermission"
 )
 
 const (
@@ -26,9 +27,10 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeChannel         = "Channel"
-	TypeNotificationLog = "NotificationLog"
-	TypeTemplate        = "Template"
+	TypeChannel            = "Channel"
+	TypeNotificationLog    = "NotificationLog"
+	TypeTemplate           = "Template"
+	TypeTemplatePermission = "TemplatePermission"
 )
 
 // ChannelMutation represents an operation that mutates the Channel nodes in the graph.
@@ -2363,7 +2365,7 @@ type TemplateMutation struct {
 	tenant_id     *uint32
 	addtenant_id  *int32
 	name          *string
-	channel_type  *template.ChannelType
+	channel_id    *string
 	subject       *string
 	body          *string
 	variables     *string
@@ -2871,40 +2873,40 @@ func (m *TemplateMutation) ResetName() {
 	m.name = nil
 }
 
-// SetChannelType sets the "channel_type" field.
-func (m *TemplateMutation) SetChannelType(tt template.ChannelType) {
-	m.channel_type = &tt
+// SetChannelID sets the "channel_id" field.
+func (m *TemplateMutation) SetChannelID(s string) {
+	m.channel_id = &s
 }
 
-// ChannelType returns the value of the "channel_type" field in the mutation.
-func (m *TemplateMutation) ChannelType() (r template.ChannelType, exists bool) {
-	v := m.channel_type
+// ChannelID returns the value of the "channel_id" field in the mutation.
+func (m *TemplateMutation) ChannelID() (r string, exists bool) {
+	v := m.channel_id
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldChannelType returns the old "channel_type" field's value of the Template entity.
+// OldChannelID returns the old "channel_id" field's value of the Template entity.
 // If the Template object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *TemplateMutation) OldChannelType(ctx context.Context) (v template.ChannelType, err error) {
+func (m *TemplateMutation) OldChannelID(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldChannelType is only allowed on UpdateOne operations")
+		return v, errors.New("OldChannelID is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldChannelType requires an ID field in the mutation")
+		return v, errors.New("OldChannelID requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldChannelType: %w", err)
+		return v, fmt.Errorf("querying old value for OldChannelID: %w", err)
 	}
-	return oldValue.ChannelType, nil
+	return oldValue.ChannelID, nil
 }
 
-// ResetChannelType resets all changes to the "channel_type" field.
-func (m *TemplateMutation) ResetChannelType() {
-	m.channel_type = nil
+// ResetChannelID resets all changes to the "channel_id" field.
+func (m *TemplateMutation) ResetChannelID() {
+	m.channel_id = nil
 }
 
 // SetSubject sets the "subject" field.
@@ -3107,8 +3109,8 @@ func (m *TemplateMutation) Fields() []string {
 	if m.name != nil {
 		fields = append(fields, template.FieldName)
 	}
-	if m.channel_type != nil {
-		fields = append(fields, template.FieldChannelType)
+	if m.channel_id != nil {
+		fields = append(fields, template.FieldChannelID)
 	}
 	if m.subject != nil {
 		fields = append(fields, template.FieldSubject)
@@ -3144,8 +3146,8 @@ func (m *TemplateMutation) Field(name string) (ent.Value, bool) {
 		return m.TenantID()
 	case template.FieldName:
 		return m.Name()
-	case template.FieldChannelType:
-		return m.ChannelType()
+	case template.FieldChannelID:
+		return m.ChannelID()
 	case template.FieldSubject:
 		return m.Subject()
 	case template.FieldBody:
@@ -3177,8 +3179,8 @@ func (m *TemplateMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldTenantID(ctx)
 	case template.FieldName:
 		return m.OldName(ctx)
-	case template.FieldChannelType:
-		return m.OldChannelType(ctx)
+	case template.FieldChannelID:
+		return m.OldChannelID(ctx)
 	case template.FieldSubject:
 		return m.OldSubject(ctx)
 	case template.FieldBody:
@@ -3245,12 +3247,12 @@ func (m *TemplateMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetName(v)
 		return nil
-	case template.FieldChannelType:
-		v, ok := value.(template.ChannelType)
+	case template.FieldChannelID:
+		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetChannelType(v)
+		m.SetChannelID(v)
 		return nil
 	case template.FieldSubject:
 		v, ok := value.(string)
@@ -3428,8 +3430,8 @@ func (m *TemplateMutation) ResetField(name string) error {
 	case template.FieldName:
 		m.ResetName()
 		return nil
-	case template.FieldChannelType:
-		m.ResetChannelType()
+	case template.FieldChannelID:
+		m.ResetChannelID()
 		return nil
 	case template.FieldSubject:
 		m.ResetSubject()
@@ -3493,4 +3495,1058 @@ func (m *TemplateMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *TemplateMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Template edge %s", name)
+}
+
+// TemplatePermissionMutation represents an operation that mutates the TemplatePermission nodes in the graph.
+type TemplatePermissionMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	create_time   *time.Time
+	update_time   *time.Time
+	delete_time   *time.Time
+	tenant_id     *uint32
+	addtenant_id  *int32
+	resource_type *templatepermission.ResourceType
+	resource_id   *string
+	relation      *templatepermission.Relation
+	subject_type  *templatepermission.SubjectType
+	subject_id    *string
+	granted_by    *uint32
+	addgranted_by *int32
+	expires_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*TemplatePermission, error)
+	predicates    []predicate.TemplatePermission
+}
+
+var _ ent.Mutation = (*TemplatePermissionMutation)(nil)
+
+// templatepermissionOption allows management of the mutation configuration using functional options.
+type templatepermissionOption func(*TemplatePermissionMutation)
+
+// newTemplatePermissionMutation creates new mutation for the TemplatePermission entity.
+func newTemplatePermissionMutation(c config, op Op, opts ...templatepermissionOption) *TemplatePermissionMutation {
+	m := &TemplatePermissionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTemplatePermission,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTemplatePermissionID sets the ID field of the mutation.
+func withTemplatePermissionID(id int) templatepermissionOption {
+	return func(m *TemplatePermissionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *TemplatePermission
+		)
+		m.oldValue = func(ctx context.Context) (*TemplatePermission, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().TemplatePermission.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTemplatePermission sets the old TemplatePermission of the mutation.
+func withTemplatePermission(node *TemplatePermission) templatepermissionOption {
+	return func(m *TemplatePermissionMutation) {
+		m.oldValue = func(context.Context) (*TemplatePermission, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TemplatePermissionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TemplatePermissionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TemplatePermissionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TemplatePermissionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().TemplatePermission.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreateTime sets the "create_time" field.
+func (m *TemplatePermissionMutation) SetCreateTime(t time.Time) {
+	m.create_time = &t
+}
+
+// CreateTime returns the value of the "create_time" field in the mutation.
+func (m *TemplatePermissionMutation) CreateTime() (r time.Time, exists bool) {
+	v := m.create_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreateTime returns the old "create_time" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldCreateTime(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreateTime: %w", err)
+	}
+	return oldValue.CreateTime, nil
+}
+
+// ClearCreateTime clears the value of the "create_time" field.
+func (m *TemplatePermissionMutation) ClearCreateTime() {
+	m.create_time = nil
+	m.clearedFields[templatepermission.FieldCreateTime] = struct{}{}
+}
+
+// CreateTimeCleared returns if the "create_time" field was cleared in this mutation.
+func (m *TemplatePermissionMutation) CreateTimeCleared() bool {
+	_, ok := m.clearedFields[templatepermission.FieldCreateTime]
+	return ok
+}
+
+// ResetCreateTime resets all changes to the "create_time" field.
+func (m *TemplatePermissionMutation) ResetCreateTime() {
+	m.create_time = nil
+	delete(m.clearedFields, templatepermission.FieldCreateTime)
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (m *TemplatePermissionMutation) SetUpdateTime(t time.Time) {
+	m.update_time = &t
+}
+
+// UpdateTime returns the value of the "update_time" field in the mutation.
+func (m *TemplatePermissionMutation) UpdateTime() (r time.Time, exists bool) {
+	v := m.update_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdateTime returns the old "update_time" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldUpdateTime(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdateTime: %w", err)
+	}
+	return oldValue.UpdateTime, nil
+}
+
+// ClearUpdateTime clears the value of the "update_time" field.
+func (m *TemplatePermissionMutation) ClearUpdateTime() {
+	m.update_time = nil
+	m.clearedFields[templatepermission.FieldUpdateTime] = struct{}{}
+}
+
+// UpdateTimeCleared returns if the "update_time" field was cleared in this mutation.
+func (m *TemplatePermissionMutation) UpdateTimeCleared() bool {
+	_, ok := m.clearedFields[templatepermission.FieldUpdateTime]
+	return ok
+}
+
+// ResetUpdateTime resets all changes to the "update_time" field.
+func (m *TemplatePermissionMutation) ResetUpdateTime() {
+	m.update_time = nil
+	delete(m.clearedFields, templatepermission.FieldUpdateTime)
+}
+
+// SetDeleteTime sets the "delete_time" field.
+func (m *TemplatePermissionMutation) SetDeleteTime(t time.Time) {
+	m.delete_time = &t
+}
+
+// DeleteTime returns the value of the "delete_time" field in the mutation.
+func (m *TemplatePermissionMutation) DeleteTime() (r time.Time, exists bool) {
+	v := m.delete_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeleteTime returns the old "delete_time" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldDeleteTime(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeleteTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeleteTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeleteTime: %w", err)
+	}
+	return oldValue.DeleteTime, nil
+}
+
+// ClearDeleteTime clears the value of the "delete_time" field.
+func (m *TemplatePermissionMutation) ClearDeleteTime() {
+	m.delete_time = nil
+	m.clearedFields[templatepermission.FieldDeleteTime] = struct{}{}
+}
+
+// DeleteTimeCleared returns if the "delete_time" field was cleared in this mutation.
+func (m *TemplatePermissionMutation) DeleteTimeCleared() bool {
+	_, ok := m.clearedFields[templatepermission.FieldDeleteTime]
+	return ok
+}
+
+// ResetDeleteTime resets all changes to the "delete_time" field.
+func (m *TemplatePermissionMutation) ResetDeleteTime() {
+	m.delete_time = nil
+	delete(m.clearedFields, templatepermission.FieldDeleteTime)
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (m *TemplatePermissionMutation) SetTenantID(u uint32) {
+	m.tenant_id = &u
+	m.addtenant_id = nil
+}
+
+// TenantID returns the value of the "tenant_id" field in the mutation.
+func (m *TemplatePermissionMutation) TenantID() (r uint32, exists bool) {
+	v := m.tenant_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTenantID returns the old "tenant_id" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldTenantID(ctx context.Context) (v *uint32, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTenantID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTenantID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTenantID: %w", err)
+	}
+	return oldValue.TenantID, nil
+}
+
+// AddTenantID adds u to the "tenant_id" field.
+func (m *TemplatePermissionMutation) AddTenantID(u int32) {
+	if m.addtenant_id != nil {
+		*m.addtenant_id += u
+	} else {
+		m.addtenant_id = &u
+	}
+}
+
+// AddedTenantID returns the value that was added to the "tenant_id" field in this mutation.
+func (m *TemplatePermissionMutation) AddedTenantID() (r int32, exists bool) {
+	v := m.addtenant_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (m *TemplatePermissionMutation) ClearTenantID() {
+	m.tenant_id = nil
+	m.addtenant_id = nil
+	m.clearedFields[templatepermission.FieldTenantID] = struct{}{}
+}
+
+// TenantIDCleared returns if the "tenant_id" field was cleared in this mutation.
+func (m *TemplatePermissionMutation) TenantIDCleared() bool {
+	_, ok := m.clearedFields[templatepermission.FieldTenantID]
+	return ok
+}
+
+// ResetTenantID resets all changes to the "tenant_id" field.
+func (m *TemplatePermissionMutation) ResetTenantID() {
+	m.tenant_id = nil
+	m.addtenant_id = nil
+	delete(m.clearedFields, templatepermission.FieldTenantID)
+}
+
+// SetResourceType sets the "resource_type" field.
+func (m *TemplatePermissionMutation) SetResourceType(tt templatepermission.ResourceType) {
+	m.resource_type = &tt
+}
+
+// ResourceType returns the value of the "resource_type" field in the mutation.
+func (m *TemplatePermissionMutation) ResourceType() (r templatepermission.ResourceType, exists bool) {
+	v := m.resource_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResourceType returns the old "resource_type" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldResourceType(ctx context.Context) (v templatepermission.ResourceType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResourceType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResourceType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResourceType: %w", err)
+	}
+	return oldValue.ResourceType, nil
+}
+
+// ResetResourceType resets all changes to the "resource_type" field.
+func (m *TemplatePermissionMutation) ResetResourceType() {
+	m.resource_type = nil
+}
+
+// SetResourceID sets the "resource_id" field.
+func (m *TemplatePermissionMutation) SetResourceID(s string) {
+	m.resource_id = &s
+}
+
+// ResourceID returns the value of the "resource_id" field in the mutation.
+func (m *TemplatePermissionMutation) ResourceID() (r string, exists bool) {
+	v := m.resource_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResourceID returns the old "resource_id" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldResourceID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResourceID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResourceID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResourceID: %w", err)
+	}
+	return oldValue.ResourceID, nil
+}
+
+// ResetResourceID resets all changes to the "resource_id" field.
+func (m *TemplatePermissionMutation) ResetResourceID() {
+	m.resource_id = nil
+}
+
+// SetRelation sets the "relation" field.
+func (m *TemplatePermissionMutation) SetRelation(t templatepermission.Relation) {
+	m.relation = &t
+}
+
+// Relation returns the value of the "relation" field in the mutation.
+func (m *TemplatePermissionMutation) Relation() (r templatepermission.Relation, exists bool) {
+	v := m.relation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRelation returns the old "relation" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldRelation(ctx context.Context) (v templatepermission.Relation, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRelation is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRelation requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRelation: %w", err)
+	}
+	return oldValue.Relation, nil
+}
+
+// ResetRelation resets all changes to the "relation" field.
+func (m *TemplatePermissionMutation) ResetRelation() {
+	m.relation = nil
+}
+
+// SetSubjectType sets the "subject_type" field.
+func (m *TemplatePermissionMutation) SetSubjectType(tt templatepermission.SubjectType) {
+	m.subject_type = &tt
+}
+
+// SubjectType returns the value of the "subject_type" field in the mutation.
+func (m *TemplatePermissionMutation) SubjectType() (r templatepermission.SubjectType, exists bool) {
+	v := m.subject_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubjectType returns the old "subject_type" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldSubjectType(ctx context.Context) (v templatepermission.SubjectType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubjectType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubjectType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubjectType: %w", err)
+	}
+	return oldValue.SubjectType, nil
+}
+
+// ResetSubjectType resets all changes to the "subject_type" field.
+func (m *TemplatePermissionMutation) ResetSubjectType() {
+	m.subject_type = nil
+}
+
+// SetSubjectID sets the "subject_id" field.
+func (m *TemplatePermissionMutation) SetSubjectID(s string) {
+	m.subject_id = &s
+}
+
+// SubjectID returns the value of the "subject_id" field in the mutation.
+func (m *TemplatePermissionMutation) SubjectID() (r string, exists bool) {
+	v := m.subject_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubjectID returns the old "subject_id" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldSubjectID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubjectID: %w", err)
+	}
+	return oldValue.SubjectID, nil
+}
+
+// ResetSubjectID resets all changes to the "subject_id" field.
+func (m *TemplatePermissionMutation) ResetSubjectID() {
+	m.subject_id = nil
+}
+
+// SetGrantedBy sets the "granted_by" field.
+func (m *TemplatePermissionMutation) SetGrantedBy(u uint32) {
+	m.granted_by = &u
+	m.addgranted_by = nil
+}
+
+// GrantedBy returns the value of the "granted_by" field in the mutation.
+func (m *TemplatePermissionMutation) GrantedBy() (r uint32, exists bool) {
+	v := m.granted_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGrantedBy returns the old "granted_by" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldGrantedBy(ctx context.Context) (v *uint32, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGrantedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGrantedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGrantedBy: %w", err)
+	}
+	return oldValue.GrantedBy, nil
+}
+
+// AddGrantedBy adds u to the "granted_by" field.
+func (m *TemplatePermissionMutation) AddGrantedBy(u int32) {
+	if m.addgranted_by != nil {
+		*m.addgranted_by += u
+	} else {
+		m.addgranted_by = &u
+	}
+}
+
+// AddedGrantedBy returns the value that was added to the "granted_by" field in this mutation.
+func (m *TemplatePermissionMutation) AddedGrantedBy() (r int32, exists bool) {
+	v := m.addgranted_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearGrantedBy clears the value of the "granted_by" field.
+func (m *TemplatePermissionMutation) ClearGrantedBy() {
+	m.granted_by = nil
+	m.addgranted_by = nil
+	m.clearedFields[templatepermission.FieldGrantedBy] = struct{}{}
+}
+
+// GrantedByCleared returns if the "granted_by" field was cleared in this mutation.
+func (m *TemplatePermissionMutation) GrantedByCleared() bool {
+	_, ok := m.clearedFields[templatepermission.FieldGrantedBy]
+	return ok
+}
+
+// ResetGrantedBy resets all changes to the "granted_by" field.
+func (m *TemplatePermissionMutation) ResetGrantedBy() {
+	m.granted_by = nil
+	m.addgranted_by = nil
+	delete(m.clearedFields, templatepermission.FieldGrantedBy)
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *TemplatePermissionMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *TemplatePermissionMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the TemplatePermission entity.
+// If the TemplatePermission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TemplatePermissionMutation) OldExpiresAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (m *TemplatePermissionMutation) ClearExpiresAt() {
+	m.expires_at = nil
+	m.clearedFields[templatepermission.FieldExpiresAt] = struct{}{}
+}
+
+// ExpiresAtCleared returns if the "expires_at" field was cleared in this mutation.
+func (m *TemplatePermissionMutation) ExpiresAtCleared() bool {
+	_, ok := m.clearedFields[templatepermission.FieldExpiresAt]
+	return ok
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *TemplatePermissionMutation) ResetExpiresAt() {
+	m.expires_at = nil
+	delete(m.clearedFields, templatepermission.FieldExpiresAt)
+}
+
+// Where appends a list predicates to the TemplatePermissionMutation builder.
+func (m *TemplatePermissionMutation) Where(ps ...predicate.TemplatePermission) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TemplatePermissionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TemplatePermissionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.TemplatePermission, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TemplatePermissionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TemplatePermissionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (TemplatePermission).
+func (m *TemplatePermissionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TemplatePermissionMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.create_time != nil {
+		fields = append(fields, templatepermission.FieldCreateTime)
+	}
+	if m.update_time != nil {
+		fields = append(fields, templatepermission.FieldUpdateTime)
+	}
+	if m.delete_time != nil {
+		fields = append(fields, templatepermission.FieldDeleteTime)
+	}
+	if m.tenant_id != nil {
+		fields = append(fields, templatepermission.FieldTenantID)
+	}
+	if m.resource_type != nil {
+		fields = append(fields, templatepermission.FieldResourceType)
+	}
+	if m.resource_id != nil {
+		fields = append(fields, templatepermission.FieldResourceID)
+	}
+	if m.relation != nil {
+		fields = append(fields, templatepermission.FieldRelation)
+	}
+	if m.subject_type != nil {
+		fields = append(fields, templatepermission.FieldSubjectType)
+	}
+	if m.subject_id != nil {
+		fields = append(fields, templatepermission.FieldSubjectID)
+	}
+	if m.granted_by != nil {
+		fields = append(fields, templatepermission.FieldGrantedBy)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, templatepermission.FieldExpiresAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TemplatePermissionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case templatepermission.FieldCreateTime:
+		return m.CreateTime()
+	case templatepermission.FieldUpdateTime:
+		return m.UpdateTime()
+	case templatepermission.FieldDeleteTime:
+		return m.DeleteTime()
+	case templatepermission.FieldTenantID:
+		return m.TenantID()
+	case templatepermission.FieldResourceType:
+		return m.ResourceType()
+	case templatepermission.FieldResourceID:
+		return m.ResourceID()
+	case templatepermission.FieldRelation:
+		return m.Relation()
+	case templatepermission.FieldSubjectType:
+		return m.SubjectType()
+	case templatepermission.FieldSubjectID:
+		return m.SubjectID()
+	case templatepermission.FieldGrantedBy:
+		return m.GrantedBy()
+	case templatepermission.FieldExpiresAt:
+		return m.ExpiresAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TemplatePermissionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case templatepermission.FieldCreateTime:
+		return m.OldCreateTime(ctx)
+	case templatepermission.FieldUpdateTime:
+		return m.OldUpdateTime(ctx)
+	case templatepermission.FieldDeleteTime:
+		return m.OldDeleteTime(ctx)
+	case templatepermission.FieldTenantID:
+		return m.OldTenantID(ctx)
+	case templatepermission.FieldResourceType:
+		return m.OldResourceType(ctx)
+	case templatepermission.FieldResourceID:
+		return m.OldResourceID(ctx)
+	case templatepermission.FieldRelation:
+		return m.OldRelation(ctx)
+	case templatepermission.FieldSubjectType:
+		return m.OldSubjectType(ctx)
+	case templatepermission.FieldSubjectID:
+		return m.OldSubjectID(ctx)
+	case templatepermission.FieldGrantedBy:
+		return m.OldGrantedBy(ctx)
+	case templatepermission.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown TemplatePermission field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TemplatePermissionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case templatepermission.FieldCreateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreateTime(v)
+		return nil
+	case templatepermission.FieldUpdateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdateTime(v)
+		return nil
+	case templatepermission.FieldDeleteTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeleteTime(v)
+		return nil
+	case templatepermission.FieldTenantID:
+		v, ok := value.(uint32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTenantID(v)
+		return nil
+	case templatepermission.FieldResourceType:
+		v, ok := value.(templatepermission.ResourceType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResourceType(v)
+		return nil
+	case templatepermission.FieldResourceID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResourceID(v)
+		return nil
+	case templatepermission.FieldRelation:
+		v, ok := value.(templatepermission.Relation)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRelation(v)
+		return nil
+	case templatepermission.FieldSubjectType:
+		v, ok := value.(templatepermission.SubjectType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubjectType(v)
+		return nil
+	case templatepermission.FieldSubjectID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubjectID(v)
+		return nil
+	case templatepermission.FieldGrantedBy:
+		v, ok := value.(uint32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGrantedBy(v)
+		return nil
+	case templatepermission.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TemplatePermission field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TemplatePermissionMutation) AddedFields() []string {
+	var fields []string
+	if m.addtenant_id != nil {
+		fields = append(fields, templatepermission.FieldTenantID)
+	}
+	if m.addgranted_by != nil {
+		fields = append(fields, templatepermission.FieldGrantedBy)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TemplatePermissionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case templatepermission.FieldTenantID:
+		return m.AddedTenantID()
+	case templatepermission.FieldGrantedBy:
+		return m.AddedGrantedBy()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TemplatePermissionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case templatepermission.FieldTenantID:
+		v, ok := value.(int32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTenantID(v)
+		return nil
+	case templatepermission.FieldGrantedBy:
+		v, ok := value.(int32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddGrantedBy(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TemplatePermission numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TemplatePermissionMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(templatepermission.FieldCreateTime) {
+		fields = append(fields, templatepermission.FieldCreateTime)
+	}
+	if m.FieldCleared(templatepermission.FieldUpdateTime) {
+		fields = append(fields, templatepermission.FieldUpdateTime)
+	}
+	if m.FieldCleared(templatepermission.FieldDeleteTime) {
+		fields = append(fields, templatepermission.FieldDeleteTime)
+	}
+	if m.FieldCleared(templatepermission.FieldTenantID) {
+		fields = append(fields, templatepermission.FieldTenantID)
+	}
+	if m.FieldCleared(templatepermission.FieldGrantedBy) {
+		fields = append(fields, templatepermission.FieldGrantedBy)
+	}
+	if m.FieldCleared(templatepermission.FieldExpiresAt) {
+		fields = append(fields, templatepermission.FieldExpiresAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TemplatePermissionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TemplatePermissionMutation) ClearField(name string) error {
+	switch name {
+	case templatepermission.FieldCreateTime:
+		m.ClearCreateTime()
+		return nil
+	case templatepermission.FieldUpdateTime:
+		m.ClearUpdateTime()
+		return nil
+	case templatepermission.FieldDeleteTime:
+		m.ClearDeleteTime()
+		return nil
+	case templatepermission.FieldTenantID:
+		m.ClearTenantID()
+		return nil
+	case templatepermission.FieldGrantedBy:
+		m.ClearGrantedBy()
+		return nil
+	case templatepermission.FieldExpiresAt:
+		m.ClearExpiresAt()
+		return nil
+	}
+	return fmt.Errorf("unknown TemplatePermission nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TemplatePermissionMutation) ResetField(name string) error {
+	switch name {
+	case templatepermission.FieldCreateTime:
+		m.ResetCreateTime()
+		return nil
+	case templatepermission.FieldUpdateTime:
+		m.ResetUpdateTime()
+		return nil
+	case templatepermission.FieldDeleteTime:
+		m.ResetDeleteTime()
+		return nil
+	case templatepermission.FieldTenantID:
+		m.ResetTenantID()
+		return nil
+	case templatepermission.FieldResourceType:
+		m.ResetResourceType()
+		return nil
+	case templatepermission.FieldResourceID:
+		m.ResetResourceID()
+		return nil
+	case templatepermission.FieldRelation:
+		m.ResetRelation()
+		return nil
+	case templatepermission.FieldSubjectType:
+		m.ResetSubjectType()
+		return nil
+	case templatepermission.FieldSubjectID:
+		m.ResetSubjectID()
+		return nil
+	case templatepermission.FieldGrantedBy:
+		m.ResetGrantedBy()
+		return nil
+	case templatepermission.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	}
+	return fmt.Errorf("unknown TemplatePermission field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TemplatePermissionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TemplatePermissionMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TemplatePermissionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TemplatePermissionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TemplatePermissionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TemplatePermissionMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TemplatePermissionMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown TemplatePermission unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TemplatePermissionMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown TemplatePermission edge %s", name)
 }

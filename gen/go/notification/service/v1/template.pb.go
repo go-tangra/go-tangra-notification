@@ -27,22 +27,24 @@ const (
 
 // Notification template entity
 type NotificationTemplate struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId    uint32                 `protobuf:"varint,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Name        string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	ChannelType ChannelType            `protobuf:"varint,4,opt,name=channel_type,json=channelType,proto3,enum=notification.service.v1.ChannelType" json:"channel_type,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId  uint32                 `protobuf:"varint,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name      string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	ChannelId string                 `protobuf:"bytes,4,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
 	// Subject line template (Go text/template). Used for Email subject, Slack title, etc.
 	Subject string `protobuf:"bytes,5,opt,name=subject,proto3" json:"subject,omitempty"`
 	// Body template (Go text/template for plaintext, html/template for Email HTML)
 	Body string `protobuf:"bytes,6,opt,name=body,proto3" json:"body,omitempty"`
 	// Comma-separated list of variable names this template expects (for documentation/validation)
-	Variables     string                 `protobuf:"bytes,7,opt,name=variables,proto3" json:"variables,omitempty"`
-	IsDefault     bool                   `protobuf:"varint,8,opt,name=is_default,json=isDefault,proto3" json:"is_default,omitempty"`
-	CreatedBy     *uint32                `protobuf:"varint,9,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
-	UpdatedBy     *uint32                `protobuf:"varint,10,opt,name=updated_by,json=updatedBy,proto3,oneof" json:"updated_by,omitempty"`
-	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=update_time,json=updateTime,proto3,oneof" json:"update_time,omitempty"`
+	Variables  string                 `protobuf:"bytes,7,opt,name=variables,proto3" json:"variables,omitempty"`
+	IsDefault  bool                   `protobuf:"varint,8,opt,name=is_default,json=isDefault,proto3" json:"is_default,omitempty"`
+	CreatedBy  *uint32                `protobuf:"varint,9,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	UpdatedBy  *uint32                `protobuf:"varint,10,opt,name=updated_by,json=updatedBy,proto3,oneof" json:"updated_by,omitempty"`
+	CreateTime *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	UpdateTime *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=update_time,json=updateTime,proto3,oneof" json:"update_time,omitempty"`
+	// Read-only: channel type resolved from the referenced channel
+	ChannelType   ChannelType `protobuf:"varint,13,opt,name=channel_type,json=channelType,proto3,enum=notification.service.v1.ChannelType" json:"channel_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -98,11 +100,11 @@ func (x *NotificationTemplate) GetName() string {
 	return ""
 }
 
-func (x *NotificationTemplate) GetChannelType() ChannelType {
+func (x *NotificationTemplate) GetChannelId() string {
 	if x != nil {
-		return x.ChannelType
+		return x.ChannelId
 	}
-	return ChannelType_CHANNEL_TYPE_UNSPECIFIED
+	return ""
 }
 
 func (x *NotificationTemplate) GetSubject() string {
@@ -161,13 +163,20 @@ func (x *NotificationTemplate) GetUpdateTime() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *NotificationTemplate) GetChannelType() ChannelType {
+	if x != nil {
+		return x.ChannelType
+	}
+	return ChannelType_CHANNEL_TYPE_UNSPECIFIED
+}
+
 // Request to create a template
 type CreateTemplateRequest struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	Name        string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	ChannelType ChannelType            `protobuf:"varint,2,opt,name=channel_type,json=channelType,proto3,enum=notification.service.v1.ChannelType" json:"channel_type,omitempty"`
-	Subject     string                 `protobuf:"bytes,3,opt,name=subject,proto3" json:"subject,omitempty"`
-	Body        string                 `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Name      string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	ChannelId string                 `protobuf:"bytes,2,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
+	Subject   string                 `protobuf:"bytes,3,opt,name=subject,proto3" json:"subject,omitempty"`
+	Body      string                 `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
 	// Comma-separated list of expected variable names
 	Variables     string `protobuf:"bytes,5,opt,name=variables,proto3" json:"variables,omitempty"`
 	IsDefault     bool   `protobuf:"varint,6,opt,name=is_default,json=isDefault,proto3" json:"is_default,omitempty"`
@@ -212,11 +221,11 @@ func (x *CreateTemplateRequest) GetName() string {
 	return ""
 }
 
-func (x *CreateTemplateRequest) GetChannelType() ChannelType {
+func (x *CreateTemplateRequest) GetChannelId() string {
 	if x != nil {
-		return x.ChannelType
+		return x.ChannelId
 	}
-	return ChannelType_CHANNEL_TYPE_UNSPECIFIED
+	return ""
 }
 
 func (x *CreateTemplateRequest) GetSubject() string {
@@ -385,7 +394,7 @@ type ListTemplatesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Page          *uint32                `protobuf:"varint,1,opt,name=page,proto3,oneof" json:"page,omitempty"`
 	PageSize      *uint32                `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
-	ChannelType   *ChannelType           `protobuf:"varint,3,opt,name=channel_type,json=channelType,proto3,enum=notification.service.v1.ChannelType,oneof" json:"channel_type,omitempty"`
+	ChannelId     *string                `protobuf:"bytes,3,opt,name=channel_id,json=channelId,proto3,oneof" json:"channel_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -434,11 +443,11 @@ func (x *ListTemplatesRequest) GetPageSize() uint32 {
 	return 0
 }
 
-func (x *ListTemplatesRequest) GetChannelType() ChannelType {
-	if x != nil && x.ChannelType != nil {
-		return *x.ChannelType
+func (x *ListTemplatesRequest) GetChannelId() string {
+	if x != nil && x.ChannelId != nil {
+		return *x.ChannelId
 	}
-	return ChannelType_CHANNEL_TYPE_UNSPECIFIED
+	return ""
 }
 
 type ListTemplatesResponse struct {
@@ -502,6 +511,7 @@ type UpdateTemplateRequest struct {
 	Body          *string                `protobuf:"bytes,4,opt,name=body,proto3,oneof" json:"body,omitempty"`
 	Variables     *string                `protobuf:"bytes,5,opt,name=variables,proto3,oneof" json:"variables,omitempty"`
 	IsDefault     *bool                  `protobuf:"varint,6,opt,name=is_default,json=isDefault,proto3,oneof" json:"is_default,omitempty"`
+	ChannelId     *string                `protobuf:"bytes,7,opt,name=channel_id,json=channelId,proto3,oneof" json:"channel_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -576,6 +586,13 @@ func (x *UpdateTemplateRequest) GetIsDefault() bool {
 		return *x.IsDefault
 	}
 	return false
+}
+
+func (x *UpdateTemplateRequest) GetChannelId() string {
+	if x != nil && x.ChannelId != nil {
+		return *x.ChannelId
+	}
+	return ""
 }
 
 type UpdateTemplateResponse struct {
@@ -669,10 +686,11 @@ func (x *DeleteTemplateRequest) GetId() string {
 
 // Request to preview a template
 type PreviewTemplateRequest struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	Subject     string                 `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
-	Body        string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	ChannelType ChannelType            `protobuf:"varint,3,opt,name=channel_type,json=channelType,proto3,enum=notification.service.v1.ChannelType" json:"channel_type,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Subject string                 `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
+	Body    string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	// Channel ID to determine rendering mode (HTML for email, plain for others)
+	ChannelId string `protobuf:"bytes,3,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
 	// Sample variables for rendering
 	Variables     map[string]string `protobuf:"bytes,4,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
@@ -723,11 +741,11 @@ func (x *PreviewTemplateRequest) GetBody() string {
 	return ""
 }
 
-func (x *PreviewTemplateRequest) GetChannelType() ChannelType {
+func (x *PreviewTemplateRequest) GetChannelId() string {
 	if x != nil {
-		return x.ChannelType
+		return x.ChannelId
 	}
-	return ChannelType_CHANNEL_TYPE_UNSPECIFIED
+	return ""
 }
 
 func (x *PreviewTemplateRequest) GetVariables() map[string]string {
@@ -793,12 +811,13 @@ var File_notification_service_v1_template_proto protoreflect.FileDescriptor
 
 const file_notification_service_v1_template_proto_rawDesc = "" +
 	"\n" +
-	"&notification/service/v1/template.proto\x12\x17notification.service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a%notification/service/v1/channel.proto\"\x80\x04\n" +
+	"&notification/service/v1/template.proto\x12\x17notification.service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a%notification/service/v1/channel.proto\"\x9f\x04\n" +
 	"\x14NotificationTemplate\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\rR\btenantId\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12G\n" +
-	"\fchannel_type\x18\x04 \x01(\x0e2$.notification.service.v1.ChannelTypeR\vchannelType\x12\x18\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"channel_id\x18\x04 \x01(\tR\tchannelId\x12\x18\n" +
 	"\asubject\x18\x05 \x01(\tR\asubject\x12\x12\n" +
 	"\x04body\x18\x06 \x01(\tR\x04body\x12\x1c\n" +
 	"\tvariables\x18\a \x01(\tR\tvariables\x12\x1d\n" +
@@ -812,13 +831,15 @@ const file_notification_service_v1_template_proto_rawDesc = "" +
 	"\vcreate_time\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"createTime\x12@\n" +
 	"\vupdate_time\x18\f \x01(\v2\x1a.google.protobuf.TimestampH\x02R\n" +
-	"updateTime\x88\x01\x01B\r\n" +
+	"updateTime\x88\x01\x01\x12G\n" +
+	"\fchannel_type\x18\r \x01(\x0e2$.notification.service.v1.ChannelTypeR\vchannelTypeB\r\n" +
 	"\v_created_byB\r\n" +
 	"\v_updated_byB\x0e\n" +
-	"\f_update_time\"\x9c\x02\n" +
+	"\f_update_time\"\xfb\x01\n" +
 	"\x15CreateTemplateRequest\x12!\n" +
-	"\x04name\x18\x01 \x01(\tB\r\xe0A\x02\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12L\n" +
-	"\fchannel_type\x18\x02 \x01(\x0e2$.notification.service.v1.ChannelTypeB\x03\xe0A\x02R\vchannelType\x12'\n" +
+	"\x04name\x18\x01 \x01(\tB\r\xe0A\x02\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12+\n" +
+	"\n" +
+	"channel_id\x18\x02 \x01(\tB\f\xe0A\x02\xbaH\x06r\x04\x10\x01\x18$R\tchannelId\x12'\n" +
 	"\asubject\x18\x03 \x01(\tB\r\xe0A\x02\xbaH\ar\x05\x10\x01\x18\x80\bR\asubject\x12\"\n" +
 	"\x04body\x18\x04 \x01(\tB\x0e\xe0A\x02\xbaH\br\x06\x10\x01\x18\x80\x80\x04R\x04body\x12&\n" +
 	"\tvariables\x18\x05 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10R\tvariables\x12\x1d\n" +
@@ -829,18 +850,19 @@ const file_notification_service_v1_template_proto_rawDesc = "" +
 	"\x12GetTemplateRequest\x12.\n" +
 	"\x02id\x18\x01 \x01(\tB\x1e\xe0A\x02\xbaH\x18r\x16\x10\x01\x18$2\x10^[a-fA-F0-9\\-]+$R\x02id\"`\n" +
 	"\x13GetTemplateResponse\x12I\n" +
-	"\btemplate\x18\x01 \x01(\v2-.notification.service.v1.NotificationTemplateR\btemplate\"\xc7\x01\n" +
+	"\btemplate\x18\x01 \x01(\v2-.notification.service.v1.NotificationTemplateR\btemplate\"\x9b\x01\n" +
 	"\x14ListTemplatesRequest\x12\x17\n" +
 	"\x04page\x18\x01 \x01(\rH\x00R\x04page\x88\x01\x01\x12 \n" +
-	"\tpage_size\x18\x02 \x01(\rH\x01R\bpageSize\x88\x01\x01\x12L\n" +
-	"\fchannel_type\x18\x03 \x01(\x0e2$.notification.service.v1.ChannelTypeH\x02R\vchannelType\x88\x01\x01B\a\n" +
+	"\tpage_size\x18\x02 \x01(\rH\x01R\bpageSize\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"channel_id\x18\x03 \x01(\tH\x02R\tchannelId\x88\x01\x01B\a\n" +
 	"\x05_pageB\f\n" +
 	"\n" +
-	"_page_sizeB\x0f\n" +
-	"\r_channel_type\"z\n" +
+	"_page_sizeB\r\n" +
+	"\v_channel_id\"z\n" +
 	"\x15ListTemplatesResponse\x12K\n" +
 	"\ttemplates\x18\x01 \x03(\v2-.notification.service.v1.NotificationTemplateR\ttemplates\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\rR\x05total\"\xc9\x02\n" +
+	"\x05total\x18\x02 \x01(\rR\x05total\"\x87\x03\n" +
 	"\x15UpdateTemplateRequest\x12.\n" +
 	"\x02id\x18\x01 \x01(\tB\x1e\xe0A\x02\xbaH\x18r\x16\x10\x01\x18$2\x10^[a-fA-F0-9\\-]+$R\x02id\x12#\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -850,22 +872,26 @@ const file_notification_service_v1_template_proto_rawDesc = "" +
 	"\x04body\x18\x04 \x01(\tB\v\xbaH\br\x06\x10\x01\x18\x80\x80\x04H\x02R\x04body\x88\x01\x01\x12+\n" +
 	"\tvariables\x18\x05 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10H\x03R\tvariables\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"is_default\x18\x06 \x01(\bH\x04R\tisDefault\x88\x01\x01B\a\n" +
+	"is_default\x18\x06 \x01(\bH\x04R\tisDefault\x88\x01\x01\x12-\n" +
+	"\n" +
+	"channel_id\x18\a \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18$H\x05R\tchannelId\x88\x01\x01B\a\n" +
 	"\x05_nameB\n" +
 	"\n" +
 	"\b_subjectB\a\n" +
 	"\x05_bodyB\f\n" +
 	"\n" +
 	"_variablesB\r\n" +
-	"\v_is_default\"c\n" +
+	"\v_is_defaultB\r\n" +
+	"\v_channel_id\"c\n" +
 	"\x16UpdateTemplateResponse\x12I\n" +
 	"\btemplate\x18\x01 \x01(\v2-.notification.service.v1.NotificationTemplateR\btemplate\"G\n" +
 	"\x15DeleteTemplateRequest\x12.\n" +
-	"\x02id\x18\x01 \x01(\tB\x1e\xe0A\x02\xbaH\x18r\x16\x10\x01\x18$2\x10^[a-fA-F0-9\\-]+$R\x02id\"\xca\x02\n" +
+	"\x02id\x18\x01 \x01(\tB\x1e\xe0A\x02\xbaH\x18r\x16\x10\x01\x18$2\x10^[a-fA-F0-9\\-]+$R\x02id\"\xa0\x02\n" +
 	"\x16PreviewTemplateRequest\x12'\n" +
 	"\asubject\x18\x01 \x01(\tB\r\xe0A\x02\xbaH\ar\x05\x10\x01\x18\x80\bR\asubject\x12\"\n" +
-	"\x04body\x18\x02 \x01(\tB\x0e\xe0A\x02\xbaH\br\x06\x10\x01\x18\x80\x80\x04R\x04body\x12G\n" +
-	"\fchannel_type\x18\x03 \x01(\x0e2$.notification.service.v1.ChannelTypeR\vchannelType\x12\\\n" +
+	"\x04body\x18\x02 \x01(\tB\x0e\xe0A\x02\xbaH\br\x06\x10\x01\x18\x80\x80\x04R\x04body\x12\x1d\n" +
+	"\n" +
+	"channel_id\x18\x03 \x01(\tR\tchannelId\x12\\\n" +
 	"\tvariables\x18\x04 \x03(\v2>.notification.service.v1.PreviewTemplateRequest.VariablesEntryR\tvariables\x1a<\n" +
 	"\x0eVariablesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -909,39 +935,36 @@ var file_notification_service_v1_template_proto_goTypes = []any{
 	(*PreviewTemplateRequest)(nil),  // 10: notification.service.v1.PreviewTemplateRequest
 	(*PreviewTemplateResponse)(nil), // 11: notification.service.v1.PreviewTemplateResponse
 	nil,                             // 12: notification.service.v1.PreviewTemplateRequest.VariablesEntry
-	(ChannelType)(0),                // 13: notification.service.v1.ChannelType
-	(*timestamppb.Timestamp)(nil),   // 14: google.protobuf.Timestamp
+	(*timestamppb.Timestamp)(nil),   // 13: google.protobuf.Timestamp
+	(ChannelType)(0),                // 14: notification.service.v1.ChannelType
 	(*emptypb.Empty)(nil),           // 15: google.protobuf.Empty
 }
 var file_notification_service_v1_template_proto_depIdxs = []int32{
-	13, // 0: notification.service.v1.NotificationTemplate.channel_type:type_name -> notification.service.v1.ChannelType
-	14, // 1: notification.service.v1.NotificationTemplate.create_time:type_name -> google.protobuf.Timestamp
-	14, // 2: notification.service.v1.NotificationTemplate.update_time:type_name -> google.protobuf.Timestamp
-	13, // 3: notification.service.v1.CreateTemplateRequest.channel_type:type_name -> notification.service.v1.ChannelType
-	0,  // 4: notification.service.v1.CreateTemplateResponse.template:type_name -> notification.service.v1.NotificationTemplate
-	0,  // 5: notification.service.v1.GetTemplateResponse.template:type_name -> notification.service.v1.NotificationTemplate
-	13, // 6: notification.service.v1.ListTemplatesRequest.channel_type:type_name -> notification.service.v1.ChannelType
-	0,  // 7: notification.service.v1.ListTemplatesResponse.templates:type_name -> notification.service.v1.NotificationTemplate
-	0,  // 8: notification.service.v1.UpdateTemplateResponse.template:type_name -> notification.service.v1.NotificationTemplate
-	13, // 9: notification.service.v1.PreviewTemplateRequest.channel_type:type_name -> notification.service.v1.ChannelType
-	12, // 10: notification.service.v1.PreviewTemplateRequest.variables:type_name -> notification.service.v1.PreviewTemplateRequest.VariablesEntry
-	1,  // 11: notification.service.v1.NotificationTemplateService.CreateTemplate:input_type -> notification.service.v1.CreateTemplateRequest
-	3,  // 12: notification.service.v1.NotificationTemplateService.GetTemplate:input_type -> notification.service.v1.GetTemplateRequest
-	5,  // 13: notification.service.v1.NotificationTemplateService.ListTemplates:input_type -> notification.service.v1.ListTemplatesRequest
-	7,  // 14: notification.service.v1.NotificationTemplateService.UpdateTemplate:input_type -> notification.service.v1.UpdateTemplateRequest
-	9,  // 15: notification.service.v1.NotificationTemplateService.DeleteTemplate:input_type -> notification.service.v1.DeleteTemplateRequest
-	10, // 16: notification.service.v1.NotificationTemplateService.PreviewTemplate:input_type -> notification.service.v1.PreviewTemplateRequest
-	2,  // 17: notification.service.v1.NotificationTemplateService.CreateTemplate:output_type -> notification.service.v1.CreateTemplateResponse
-	4,  // 18: notification.service.v1.NotificationTemplateService.GetTemplate:output_type -> notification.service.v1.GetTemplateResponse
-	6,  // 19: notification.service.v1.NotificationTemplateService.ListTemplates:output_type -> notification.service.v1.ListTemplatesResponse
-	8,  // 20: notification.service.v1.NotificationTemplateService.UpdateTemplate:output_type -> notification.service.v1.UpdateTemplateResponse
-	15, // 21: notification.service.v1.NotificationTemplateService.DeleteTemplate:output_type -> google.protobuf.Empty
-	11, // 22: notification.service.v1.NotificationTemplateService.PreviewTemplate:output_type -> notification.service.v1.PreviewTemplateResponse
-	17, // [17:23] is the sub-list for method output_type
-	11, // [11:17] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	13, // 0: notification.service.v1.NotificationTemplate.create_time:type_name -> google.protobuf.Timestamp
+	13, // 1: notification.service.v1.NotificationTemplate.update_time:type_name -> google.protobuf.Timestamp
+	14, // 2: notification.service.v1.NotificationTemplate.channel_type:type_name -> notification.service.v1.ChannelType
+	0,  // 3: notification.service.v1.CreateTemplateResponse.template:type_name -> notification.service.v1.NotificationTemplate
+	0,  // 4: notification.service.v1.GetTemplateResponse.template:type_name -> notification.service.v1.NotificationTemplate
+	0,  // 5: notification.service.v1.ListTemplatesResponse.templates:type_name -> notification.service.v1.NotificationTemplate
+	0,  // 6: notification.service.v1.UpdateTemplateResponse.template:type_name -> notification.service.v1.NotificationTemplate
+	12, // 7: notification.service.v1.PreviewTemplateRequest.variables:type_name -> notification.service.v1.PreviewTemplateRequest.VariablesEntry
+	1,  // 8: notification.service.v1.NotificationTemplateService.CreateTemplate:input_type -> notification.service.v1.CreateTemplateRequest
+	3,  // 9: notification.service.v1.NotificationTemplateService.GetTemplate:input_type -> notification.service.v1.GetTemplateRequest
+	5,  // 10: notification.service.v1.NotificationTemplateService.ListTemplates:input_type -> notification.service.v1.ListTemplatesRequest
+	7,  // 11: notification.service.v1.NotificationTemplateService.UpdateTemplate:input_type -> notification.service.v1.UpdateTemplateRequest
+	9,  // 12: notification.service.v1.NotificationTemplateService.DeleteTemplate:input_type -> notification.service.v1.DeleteTemplateRequest
+	10, // 13: notification.service.v1.NotificationTemplateService.PreviewTemplate:input_type -> notification.service.v1.PreviewTemplateRequest
+	2,  // 14: notification.service.v1.NotificationTemplateService.CreateTemplate:output_type -> notification.service.v1.CreateTemplateResponse
+	4,  // 15: notification.service.v1.NotificationTemplateService.GetTemplate:output_type -> notification.service.v1.GetTemplateResponse
+	6,  // 16: notification.service.v1.NotificationTemplateService.ListTemplates:output_type -> notification.service.v1.ListTemplatesResponse
+	8,  // 17: notification.service.v1.NotificationTemplateService.UpdateTemplate:output_type -> notification.service.v1.UpdateTemplateResponse
+	15, // 18: notification.service.v1.NotificationTemplateService.DeleteTemplate:output_type -> google.protobuf.Empty
+	11, // 19: notification.service.v1.NotificationTemplateService.PreviewTemplate:output_type -> notification.service.v1.PreviewTemplateResponse
+	14, // [14:20] is the sub-list for method output_type
+	8,  // [8:14] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_notification_service_v1_template_proto_init() }

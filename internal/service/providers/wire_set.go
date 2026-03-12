@@ -8,6 +8,8 @@ package providers
 import (
 	"github.com/google/wire"
 
+	"github.com/go-tangra/go-tangra-notification/internal/client"
+	"github.com/go-tangra/go-tangra-notification/internal/metrics"
 	"github.com/go-tangra/go-tangra-notification/internal/service"
 )
 
@@ -15,4 +17,12 @@ var ProviderSet = wire.NewSet(
 	service.NewChannelService,
 	service.NewTemplateService,
 	service.NewNotificationService,
+	service.NewPermissionService,
+	service.NewUserService,
+	client.NewAdminClient,
+	metrics.NewCollector,
+	ProvideResourceLookup,
+	ProvidePermissionStore,
+	ProvideAuthzEngine,
+	ProvideAuthzChecker,
 )

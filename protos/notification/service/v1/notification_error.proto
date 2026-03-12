@@ -14,6 +14,10 @@ enum NotificationErrorReason {
   INVALID_RECIPIENT = 3 [(errors.code) = 400];
   INVALID_CHANNEL_CONFIG = 4 [(errors.code) = 400];
 
+  // 403 - Forbidden
+  ACCESS_DENIED = 100 [(errors.code) = 403];
+  PERMISSION_ALREADY_EXISTS = 101 [(errors.code) = 409];
+
   // 404 - Not Found
   NOT_FOUND = 400 [(errors.code) = 404];
   CHANNEL_NOT_FOUND = 401 [(errors.code) = 404];

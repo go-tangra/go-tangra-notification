@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // EmailConfig holds SMTP connection settings.
@@ -20,6 +22,16 @@ type EmailConfig struct {
 	From     string `json:"from"`
 	// TLS mode: "none", "starttls", "implicit"
 	TLSMode string `json:"tls_mode"`
+}
+
+// String returns a safe representation of EmailConfig that never includes the password.
+func (c EmailConfig) String() string {
+	return fmt.Sprintf("EmailConfig{Host:%s, Port:%d, From:%s, TLSMode:%s}", c.Host, c.Port, c.From, c.TLSMode)
+}
+
+// GoString implements fmt.GoStringer to prevent password leaks via %#v.
+func (c EmailConfig) GoString() string {
+	return c.String()
 }
 
 // ParseEmailConfig parses a JSON config string into EmailConfig.
@@ -37,8 +49,17 @@ func ParseEmailConfig(configJSON string) (*EmailConfig, error) {
 	if cfg.From == "" {
 		return nil, fmt.Errorf("email config: from is required")
 	}
+	if _, err := mail.ParseAddress(cfg.From); err != nil {
+		return nil, fmt.Errorf("email config: invalid from address: %w", err)
+	}
 	if cfg.TLSMode == "" {
 		cfg.TLSMode = "starttls"
+	}
+	switch cfg.TLSMode {
+	case "none", "starttls", "implicit":
+		// valid modes
+	default:
+		return nil, fmt.Errorf("email config: invalid tls_mode %q (must be none, starttls, or implicit)", cfg.TLSMode)
 	}
 	return &cfg, nil
 }
@@ -62,12 +83,17 @@ func (s *EmailSender) Type() string {
 }
 
 func (s *EmailSender) Send(ctx context.Context, msg *Message) error {
+	// Validate recipient is a well-formed email address
+	if strings.ContainsAny(msg.Recipient, "\r\n") {
+		return fmt.Errorf("invalid recipient: contains newline characters")
+	}
+
 	addr := net.JoinHostPort(s.config.Host, strconv.Itoa(s.config.Port))
 
 	headers := map[string]string{
-		"From":         s.config.From,
-		"To":           msg.Recipient,
-		"Subject":      msg.Subject,
+		"From":         sanitizeHeaderValue(s.config.From),
+		"To":           sanitizeHeaderValue(msg.Recipient),
+		"Subject":      sanitizeHeaderValue(msg.Subject),
 		"MIME-Version": "1.0",
 		"Content-Type": "text/html; charset=\"UTF-8\"",
 	}
@@ -90,23 +116,57 @@ func (s *EmailSender) Send(ctx context.Context, msg *Message) error {
 	}
 
 	switch s.config.TLSMode {
+	case "none":
+		return s.sendPlaintext(addr, auth, body, msg.Recipient)
 	case "implicit":
 		return s.sendImplicitTLS(addr, auth, body, msg.Recipient)
-	case "starttls":
+	default: // "starttls" — validated in ParseEmailConfig
 		return s.sendSTARTTLS(addr, auth, body, msg.Recipient)
-	default:
-		return smtp.SendMail(addr, auth, s.config.From, []string{msg.Recipient}, []byte(body))
 	}
 }
 
-func (s *EmailSender) sendSTARTTLS(addr string, auth smtp.Auth, body, recipient string) error {
-	c, err := smtp.Dial(addr)
+// smtpDialTimeout is the maximum time to wait for an SMTP connection.
+const smtpDialTimeout = 30 * time.Second
+
+func (s *EmailSender) sendPlaintext(addr string, auth smtp.Auth, body, recipient string) error {
+	conn, err := net.DialTimeout("tcp", addr, smtpDialTimeout)
 	if err != nil {
 		return fmt.Errorf("smtp dial: %w", err)
 	}
+	c, err := smtp.NewClient(conn, s.config.Host)
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("smtp client: %w", err)
+	}
 	defer c.Close()
 
-	tlsConfig := &tls.Config{ServerName: s.config.Host}
+	if auth != nil {
+		if err := c.Auth(auth); err != nil {
+			return fmt.Errorf("smtp auth: %w", err)
+		}
+	}
+
+	return s.sendMailViaSMTPClient(c, body, recipient)
+}
+
+func (s *EmailSender) sendSTARTTLS(addr string, auth smtp.Auth, body, recipient string) error {
+	conn, err := net.DialTimeout("tcp", addr, smtpDialTimeout)
+	if err != nil {
+		return fmt.Errorf("smtp dial: %w", err)
+	}
+	c, err := smtp.NewClient(conn, s.config.Host)
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("smtp client: %w", err)
+	}
+	defer c.Close()
+
+	// Verify the server advertises STARTTLS before attempting upgrade
+	if ok, _ := c.Extension("STARTTLS"); !ok {
+		return fmt.Errorf("starttls: server does not support STARTTLS, refusing to send credentials in plaintext")
+	}
+
+	tlsConfig := &tls.Config{ServerName: s.config.Host, MinVersion: tls.VersionTLS12}
 	if err := c.StartTLS(tlsConfig); err != nil {
 		return fmt.Errorf("starttls: %w", err)
 	}
@@ -121,8 +181,9 @@ func (s *EmailSender) sendSTARTTLS(addr string, auth smtp.Auth, body, recipient 
 }
 
 func (s *EmailSender) sendImplicitTLS(addr string, auth smtp.Auth, body, recipient string) error {
-	tlsConfig := &tls.Config{ServerName: s.config.Host}
-	conn, err := tls.Dial("tcp", addr, tlsConfig)
+	tlsConfig := &tls.Config{ServerName: s.config.Host, MinVersion: tls.VersionTLS12}
+	dialer := &net.Dialer{Timeout: smtpDialTimeout}
+	conn, err := tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
 	if err != nil {
 		return fmt.Errorf("tls dial: %w", err)
 	}
@@ -141,6 +202,11 @@ func (s *EmailSender) sendImplicitTLS(addr string, auth smtp.Auth, body, recipie
 	}
 
 	return s.sendMailViaSMTPClient(c, body, recipient)
+}
+
+// sanitizeHeaderValue strips CR and LF characters to prevent SMTP header injection.
+func sanitizeHeaderValue(s string) string {
+	return strings.NewReplacer("\r", "", "\n", "").Replace(s)
 }
 
 func (s *EmailSender) sendMailViaSMTPClient(c *smtp.Client, body, recipient string) error {

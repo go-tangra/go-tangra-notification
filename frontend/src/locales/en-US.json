@@ -1,0 +1,97 @@
+{
+  "menu": {
+    "notification": "Notifications",
+    "channel": "Channels",
+    "template": "Templates",
+    "log": "Delivery Log",
+    "permissions": "Permissions"
+  },
+  "page": {
+    "channelType": {
+      "EMAIL": "Email",
+      "SMS": "SMS",
+      "SLACK": "Slack",
+      "SSE": "SSE"
+    },
+    "deliveryStatus": {
+      "PENDING": "Pending",
+      "SENT": "Sent",
+      "FAILED": "Failed"
+    },
+    "common": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "channel": {
+      "name": "Channel Name",
+      "channelType": "Channel Type",
+      "config": "Configuration",
+      "isDefault": "Default",
+      "moduleName": "Channel",
+      "create": "Create Channel",
+      "edit": "Edit Channel",
+      "confirmDelete": "Are you sure you want to delete this channel?",
+      "button": {
+        "create": "Create Channel"
+      }
+    },
+    "template": {
+      "name": "Template Name",
+      "channel": "Channel",
+      "channelType": "Channel Type",
+      "subject": "Subject",
+      "body": "Body",
+      "variables": "Variables",
+      "isDefault": "Default",
+      "moduleName": "Template",
+      "create": "Create Template",
+      "edit": "Edit Template",
+      "confirmDelete": "Are you sure you want to delete this template?",
+      "button": {
+        "create": "Create Template"
+      }
+    },
+    "log": {
+      "channelType": "Channel Type",
+      "status": "Status",
+      "recipient": "Recipient",
+      "renderedSubject": "Subject",
+      "errorMessage": "Error",
+      "sentAt": "Sent At"
+    },
+    "permission": {
+      "title": "Permissions",
+      "grant": "Grant Permission",
+      "grantAccess": "Grant Access",
+      "revoke": "Revoke",
+      "revokeAccess": "Revoke Access",
+      "confirmRevoke": "Are you sure you want to revoke this permission?",
+      "user": "User",
+      "role": "Role",
+      "client": "Client (mTLS)",
+      "clientId": "Client ID",
+      "clientIdPlaceholder": "Service CN or * for all services",
+      "allServices": "All Services (*)",
+      "subjectType": "Subject Type",
+      "subjectId": "Subject ID",
+      "subject": "Subject",
+      "relation": "Permission Level",
+      "resourceType": "Resource Type",
+      "resourceTypeTemplate": "Template",
+      "resourceTypeChannel": "Channel",
+      "resourceId": "Resource ID",
+      "expiresAt": "Expires At",
+      "grantedBy": "Granted By",
+      "noExpiry": "No Expiry",
+      "owner": "Owner",
+      "editor": "Editor",
+      "viewer": "Viewer",
+      "sharer": "Sharer",
+      "template": "Template",
+      "channel": "Channel",
+      "grantSuccess": "Access granted successfully",
+      "revokeSuccess": "Access revoked successfully",
+      "revokeConfirm": "Are you sure you want to revoke this access?"
+    }
+  }
+}

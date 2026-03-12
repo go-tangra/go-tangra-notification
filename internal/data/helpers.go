@@ -2,7 +2,6 @@ package data
 
 import (
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/channel"
-	"github.com/go-tangra/go-tangra-notification/internal/data/ent/template"
 
 	notificationpb "github.com/go-tangra/go-tangra-notification/gen/go/notification/service/v1"
 )
@@ -29,17 +28,3 @@ func channelTypeToProto(t channel.Type) notificationpb.ChannelType {
 	}
 }
 
-func templateChannelTypeToProto(t template.ChannelType) notificationpb.ChannelType {
-	switch t {
-	case template.ChannelTypeEMAIL:
-		return notificationpb.ChannelType_CHANNEL_TYPE_EMAIL
-	case template.ChannelTypeSMS:
-		return notificationpb.ChannelType_CHANNEL_TYPE_SMS
-	case template.ChannelTypeSLACK:
-		return notificationpb.ChannelType_CHANNEL_TYPE_SLACK
-	case template.ChannelTypeSSE:
-		return notificationpb.ChannelType_CHANNEL_TYPE_SSE
-	default:
-		return notificationpb.ChannelType_CHANNEL_TYPE_UNSPECIFIED
-	}
-}

@@ -18,6 +18,8 @@ type Tx struct {
 	NotificationLog *NotificationLogClient
 	// Template is the client for interacting with the Template builders.
 	Template *TemplateClient
+	// TemplatePermission is the client for interacting with the TemplatePermission builders.
+	TemplatePermission *TemplatePermissionClient
 
 	// lazily loaded.
 	client     *Client
@@ -152,6 +154,7 @@ func (tx *Tx) init() {
 	tx.Channel = NewChannelClient(tx.config)
 	tx.NotificationLog = NewNotificationLogClient(tx.config)
 	tx.Template = NewTemplateClient(tx.config)
+	tx.TemplatePermission = NewTemplatePermissionClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

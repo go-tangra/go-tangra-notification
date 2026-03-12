@@ -32,15 +32,15 @@ type Template struct {
 	TenantID *uint32 `json:"tenant_id,omitempty"`
 	// Template name
 	Name string `json:"name,omitempty"`
-	// Channel type this template is for
-	ChannelType template.ChannelType `json:"channel_type,omitempty"`
+	// References notification_channels.id
+	ChannelID string `json:"channel_id,omitempty"`
 	// Subject template (Go text/template)
 	Subject string `json:"subject,omitempty"`
 	// Body template (Go text/template or html/template for email)
 	Body string `json:"body,omitempty"`
 	// Comma-separated list of expected variable names
 	Variables string `json:"variables,omitempty"`
-	// Whether this is the default template for its channel type
+	// Whether this is the default template for its channel
 	IsDefault    bool `json:"is_default,omitempty"`
 	selectValues sql.SelectValues
 }
@@ -54,7 +54,7 @@ func (*Template) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case template.FieldCreateBy, template.FieldUpdateBy, template.FieldTenantID:
 			values[i] = new(sql.NullInt64)
-		case template.FieldID, template.FieldName, template.FieldChannelType, template.FieldSubject, template.FieldBody, template.FieldVariables:
+		case template.FieldID, template.FieldName, template.FieldChannelID, template.FieldSubject, template.FieldBody, template.FieldVariables:
 			values[i] = new(sql.NullString)
 		case template.FieldCreateTime, template.FieldUpdateTime, template.FieldDeleteTime:
 			values[i] = new(sql.NullTime)
@@ -127,11 +127,11 @@ func (_m *Template) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Name = value.String
 			}
-		case template.FieldChannelType:
+		case template.FieldChannelID:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field channel_type", values[i])
+				return fmt.Errorf("unexpected type %T for field channel_id", values[i])
 			} else if value.Valid {
-				_m.ChannelType = template.ChannelType(value.String)
+				_m.ChannelID = value.String
 			}
 		case template.FieldSubject:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -226,8 +226,8 @@ func (_m *Template) String() string {
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
 	builder.WriteString(", ")
-	builder.WriteString("channel_type=")
-	builder.WriteString(fmt.Sprintf("%v", _m.ChannelType))
+	builder.WriteString("channel_id=")
+	builder.WriteString(_m.ChannelID)
 	builder.WriteString(", ")
 	builder.WriteString("subject=")
 	builder.WriteString(_m.Subject)

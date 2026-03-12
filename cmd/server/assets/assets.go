@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"embed"
 	_ "embed"
 )
 
@@ -12,3 +13,6 @@ var MenusData []byte
 
 //go:embed descriptor.bin
 var DescriptorData []byte
+
+//go:embed all:frontend-dist
+var FrontendDist embed.FS

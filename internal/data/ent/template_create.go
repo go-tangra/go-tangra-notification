@@ -113,9 +113,9 @@ func (_c *TemplateCreate) SetName(v string) *TemplateCreate {
 	return _c
 }
 
-// SetChannelType sets the "channel_type" field.
-func (_c *TemplateCreate) SetChannelType(v template.ChannelType) *TemplateCreate {
-	_c.mutation.SetChannelType(v)
+// SetChannelID sets the "channel_id" field.
+func (_c *TemplateCreate) SetChannelID(v string) *TemplateCreate {
+	_c.mutation.SetChannelID(v)
 	return _c
 }
 
@@ -227,12 +227,12 @@ func (_c *TemplateCreate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Template.name": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.ChannelType(); !ok {
-		return &ValidationError{Name: "channel_type", err: errors.New(`ent: missing required field "Template.channel_type"`)}
+	if _, ok := _c.mutation.ChannelID(); !ok {
+		return &ValidationError{Name: "channel_id", err: errors.New(`ent: missing required field "Template.channel_id"`)}
 	}
-	if v, ok := _c.mutation.ChannelType(); ok {
-		if err := template.ChannelTypeValidator(v); err != nil {
-			return &ValidationError{Name: "channel_type", err: fmt.Errorf(`ent: validator failed for field "Template.channel_type": %w`, err)}
+	if v, ok := _c.mutation.ChannelID(); ok {
+		if err := template.ChannelIDValidator(v); err != nil {
+			return &ValidationError{Name: "channel_id", err: fmt.Errorf(`ent: validator failed for field "Template.channel_id": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Subject(); !ok {
@@ -331,9 +331,9 @@ func (_c *TemplateCreate) createSpec() (*Template, *sqlgraph.CreateSpec) {
 		_spec.SetField(template.FieldName, field.TypeString, value)
 		_node.Name = value
 	}
-	if value, ok := _c.mutation.ChannelType(); ok {
-		_spec.SetField(template.FieldChannelType, field.TypeEnum, value)
-		_node.ChannelType = value
+	if value, ok := _c.mutation.ChannelID(); ok {
+		_spec.SetField(template.FieldChannelID, field.TypeString, value)
+		_node.ChannelID = value
 	}
 	if value, ok := _c.mutation.Subject(); ok {
 		_spec.SetField(template.FieldSubject, field.TypeString, value)
@@ -499,15 +499,15 @@ func (u *TemplateUpsert) UpdateName() *TemplateUpsert {
 	return u
 }
 
-// SetChannelType sets the "channel_type" field.
-func (u *TemplateUpsert) SetChannelType(v template.ChannelType) *TemplateUpsert {
-	u.Set(template.FieldChannelType, v)
+// SetChannelID sets the "channel_id" field.
+func (u *TemplateUpsert) SetChannelID(v string) *TemplateUpsert {
+	u.Set(template.FieldChannelID, v)
 	return u
 }
 
-// UpdateChannelType sets the "channel_type" field to the value that was provided on create.
-func (u *TemplateUpsert) UpdateChannelType() *TemplateUpsert {
-	u.SetExcluded(template.FieldChannelType)
+// UpdateChannelID sets the "channel_id" field to the value that was provided on create.
+func (u *TemplateUpsert) UpdateChannelID() *TemplateUpsert {
+	u.SetExcluded(template.FieldChannelID)
 	return u
 }
 
@@ -725,17 +725,17 @@ func (u *TemplateUpsertOne) UpdateName() *TemplateUpsertOne {
 	})
 }
 
-// SetChannelType sets the "channel_type" field.
-func (u *TemplateUpsertOne) SetChannelType(v template.ChannelType) *TemplateUpsertOne {
+// SetChannelID sets the "channel_id" field.
+func (u *TemplateUpsertOne) SetChannelID(v string) *TemplateUpsertOne {
 	return u.Update(func(s *TemplateUpsert) {
-		s.SetChannelType(v)
+		s.SetChannelID(v)
 	})
 }
 
-// UpdateChannelType sets the "channel_type" field to the value that was provided on create.
-func (u *TemplateUpsertOne) UpdateChannelType() *TemplateUpsertOne {
+// UpdateChannelID sets the "channel_id" field to the value that was provided on create.
+func (u *TemplateUpsertOne) UpdateChannelID() *TemplateUpsertOne {
 	return u.Update(func(s *TemplateUpsert) {
-		s.UpdateChannelType()
+		s.UpdateChannelID()
 	})
 }
 
@@ -1128,17 +1128,17 @@ func (u *TemplateUpsertBulk) UpdateName() *TemplateUpsertBulk {
 	})
 }
 
-// SetChannelType sets the "channel_type" field.
-func (u *TemplateUpsertBulk) SetChannelType(v template.ChannelType) *TemplateUpsertBulk {
+// SetChannelID sets the "channel_id" field.
+func (u *TemplateUpsertBulk) SetChannelID(v string) *TemplateUpsertBulk {
 	return u.Update(func(s *TemplateUpsert) {
-		s.SetChannelType(v)
+		s.SetChannelID(v)
 	})
 }
 
-// UpdateChannelType sets the "channel_type" field to the value that was provided on create.
-func (u *TemplateUpsertBulk) UpdateChannelType() *TemplateUpsertBulk {
+// UpdateChannelID sets the "channel_id" field to the value that was provided on create.
+func (u *TemplateUpsertBulk) UpdateChannelID() *TemplateUpsertBulk {
 	return u.Update(func(s *TemplateUpsert) {
-		s.UpdateChannelType()
+		s.UpdateChannelID()
 	})
 }
 

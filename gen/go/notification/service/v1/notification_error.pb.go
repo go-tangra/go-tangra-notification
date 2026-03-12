@@ -31,6 +31,9 @@ const (
 	NotificationErrorReason_INVALID_TEMPLATE       NotificationErrorReason = 2
 	NotificationErrorReason_INVALID_RECIPIENT      NotificationErrorReason = 3
 	NotificationErrorReason_INVALID_CHANNEL_CONFIG NotificationErrorReason = 4
+	// 403 - Forbidden
+	NotificationErrorReason_ACCESS_DENIED             NotificationErrorReason = 100
+	NotificationErrorReason_PERMISSION_ALREADY_EXISTS NotificationErrorReason = 101
 	// 404 - Not Found
 	NotificationErrorReason_NOT_FOUND              NotificationErrorReason = 400
 	NotificationErrorReason_CHANNEL_NOT_FOUND      NotificationErrorReason = 401
@@ -57,6 +60,8 @@ var (
 		2:    "INVALID_TEMPLATE",
 		3:    "INVALID_RECIPIENT",
 		4:    "INVALID_CHANNEL_CONFIG",
+		100:  "ACCESS_DENIED",
+		101:  "PERMISSION_ALREADY_EXISTS",
 		400:  "NOT_FOUND",
 		401:  "CHANNEL_NOT_FOUND",
 		402:  "TEMPLATE_NOT_FOUND",
@@ -71,23 +76,25 @@ var (
 		2301: "CHANNEL_DISABLED",
 	}
 	NotificationErrorReason_value = map[string]int32{
-		"BAD_REQUEST":             0,
-		"INVALID_CHANNEL_TYPE":    1,
-		"INVALID_TEMPLATE":        2,
-		"INVALID_RECIPIENT":       3,
-		"INVALID_CHANNEL_CONFIG":  4,
-		"NOT_FOUND":               400,
-		"CHANNEL_NOT_FOUND":       401,
-		"TEMPLATE_NOT_FOUND":      402,
-		"NOTIFICATION_NOT_FOUND":  403,
-		"CHANNEL_ALREADY_EXISTS":  900,
-		"TEMPLATE_ALREADY_EXISTS": 901,
-		"INTERNAL_SERVER_ERROR":   2000,
-		"SEND_FAILED":             2001,
-		"RENDER_FAILED":           2002,
-		"DATABASE_ERROR":          2003,
-		"SERVICE_UNAVAILABLE":     2300,
-		"CHANNEL_DISABLED":        2301,
+		"BAD_REQUEST":               0,
+		"INVALID_CHANNEL_TYPE":      1,
+		"INVALID_TEMPLATE":          2,
+		"INVALID_RECIPIENT":         3,
+		"INVALID_CHANNEL_CONFIG":    4,
+		"ACCESS_DENIED":             100,
+		"PERMISSION_ALREADY_EXISTS": 101,
+		"NOT_FOUND":                 400,
+		"CHANNEL_NOT_FOUND":         401,
+		"TEMPLATE_NOT_FOUND":        402,
+		"NOTIFICATION_NOT_FOUND":    403,
+		"CHANNEL_ALREADY_EXISTS":    900,
+		"TEMPLATE_ALREADY_EXISTS":   901,
+		"INTERNAL_SERVER_ERROR":     2000,
+		"SEND_FAILED":               2001,
+		"RENDER_FAILED":             2002,
+		"DATABASE_ERROR":            2003,
+		"SERVICE_UNAVAILABLE":       2300,
+		"CHANNEL_DISABLED":          2301,
 	}
 )
 
@@ -122,13 +129,15 @@ var File_notification_service_v1_notification_error_proto protoreflect.FileDescr
 
 const file_notification_service_v1_notification_error_proto_rawDesc = "" +
 	"\n" +
-	"0notification/service/v1/notification_error.proto\x12\x17notification.service.v1\x1a\x13errors/errors.proto*\x9a\x04\n" +
+	"0notification/service/v1/notification_error.proto\x12\x17notification.service.v1\x1a\x13errors/errors.proto*\xd8\x04\n" +
 	"\x17NotificationErrorReason\x12\x15\n" +
 	"\vBAD_REQUEST\x10\x00\x1a\x04\xa8E\x90\x03\x12\x1e\n" +
 	"\x14INVALID_CHANNEL_TYPE\x10\x01\x1a\x04\xa8E\x90\x03\x12\x1a\n" +
 	"\x10INVALID_TEMPLATE\x10\x02\x1a\x04\xa8E\x90\x03\x12\x1b\n" +
 	"\x11INVALID_RECIPIENT\x10\x03\x1a\x04\xa8E\x90\x03\x12 \n" +
-	"\x16INVALID_CHANNEL_CONFIG\x10\x04\x1a\x04\xa8E\x90\x03\x12\x14\n" +
+	"\x16INVALID_CHANNEL_CONFIG\x10\x04\x1a\x04\xa8E\x90\x03\x12\x17\n" +
+	"\rACCESS_DENIED\x10d\x1a\x04\xa8E\x93\x03\x12#\n" +
+	"\x19PERMISSION_ALREADY_EXISTS\x10e\x1a\x04\xa8E\x99\x03\x12\x14\n" +
 	"\tNOT_FOUND\x10\x90\x03\x1a\x04\xa8E\x94\x03\x12\x1c\n" +
 	"\x11CHANNEL_NOT_FOUND\x10\x91\x03\x1a\x04\xa8E\x94\x03\x12\x1d\n" +
 	"\x12TEMPLATE_NOT_FOUND\x10\x92\x03\x1a\x04\xa8E\x94\x03\x12!\n" +

@@ -9,6 +9,7 @@ import (
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/notificationlog"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/schema"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/template"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/templatepermission"
 
 	"entgo.io/ent"
 	"entgo.io/ent/privacy"
@@ -196,6 +197,24 @@ func init() {
 			return nil
 		}
 	}()
+	// templateDescChannelID is the schema descriptor for channel_id field.
+	templateDescChannelID := templateFields[2].Descriptor()
+	// template.ChannelIDValidator is a validator for the "channel_id" field. It is called by the builders before save.
+	template.ChannelIDValidator = func() func(string) error {
+		validators := templateDescChannelID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(channel_id string) error {
+			for _, fn := range fns {
+				if err := fn(channel_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	// templateDescSubject is the schema descriptor for subject field.
 	templateDescSubject := templateFields[3].Descriptor()
 	// template.SubjectValidator is a validator for the "subject" field. It is called by the builders before save.
@@ -232,6 +251,60 @@ func init() {
 	templateDescID := templateFields[0].Descriptor()
 	// template.IDValidator is a validator for the "id" field. It is called by the builders before save.
 	template.IDValidator = templateDescID.Validators[0].(func(string) error)
+	templatepermissionMixin := schema.TemplatePermission{}.Mixin()
+	templatepermission.Policy = privacy.NewPolicies(templatepermissionMixin[1], schema.TemplatePermission{})
+	templatepermission.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := templatepermission.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	templatepermissionMixinFields1 := templatepermissionMixin[1].Fields()
+	_ = templatepermissionMixinFields1
+	templatepermissionFields := schema.TemplatePermission{}.Fields()
+	_ = templatepermissionFields
+	// templatepermissionDescTenantID is the schema descriptor for tenant_id field.
+	templatepermissionDescTenantID := templatepermissionMixinFields1[0].Descriptor()
+	// templatepermission.DefaultTenantID holds the default value on creation for the tenant_id field.
+	templatepermission.DefaultTenantID = templatepermissionDescTenantID.Default.(uint32)
+	// templatepermissionDescResourceID is the schema descriptor for resource_id field.
+	templatepermissionDescResourceID := templatepermissionFields[1].Descriptor()
+	// templatepermission.ResourceIDValidator is a validator for the "resource_id" field. It is called by the builders before save.
+	templatepermission.ResourceIDValidator = func() func(string) error {
+		validators := templatepermissionDescResourceID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(resource_id string) error {
+			for _, fn := range fns {
+				if err := fn(resource_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// templatepermissionDescSubjectID is the schema descriptor for subject_id field.
+	templatepermissionDescSubjectID := templatepermissionFields[4].Descriptor()
+	// templatepermission.SubjectIDValidator is a validator for the "subject_id" field. It is called by the builders before save.
+	templatepermission.SubjectIDValidator = func() func(string) error {
+		validators := templatepermissionDescSubjectID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(subject_id string) error {
+			for _, fn := range fns {
+				if err := fn(subject_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 }
 
 const (

@@ -73,6 +73,32 @@ func ErrorInvalidChannelConfig(format string, args ...interface{}) *errors.Error
 	return errors.New(400, NotificationErrorReason_INVALID_CHANNEL_CONFIG.String(), fmt.Sprintf(format, args...))
 }
 
+// 403 - Forbidden
+func IsAccessDenied(err error) bool {
+	if err == nil {
+		return false
+	}
+	e := errors.FromError(err)
+	return e.Reason == NotificationErrorReason_ACCESS_DENIED.String() && e.Code == 403
+}
+
+// 403 - Forbidden
+func ErrorAccessDenied(format string, args ...interface{}) *errors.Error {
+	return errors.New(403, NotificationErrorReason_ACCESS_DENIED.String(), fmt.Sprintf(format, args...))
+}
+
+func IsPermissionAlreadyExists(err error) bool {
+	if err == nil {
+		return false
+	}
+	e := errors.FromError(err)
+	return e.Reason == NotificationErrorReason_PERMISSION_ALREADY_EXISTS.String() && e.Code == 409
+}
+
+func ErrorPermissionAlreadyExists(format string, args ...interface{}) *errors.Error {
+	return errors.New(409, NotificationErrorReason_PERMISSION_ALREADY_EXISTS.String(), fmt.Sprintf(format, args...))
+}
+
 // 404 - Not Found
 func IsNotFound(err error) bool {
 	if err == nil {

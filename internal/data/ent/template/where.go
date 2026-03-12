@@ -99,6 +99,11 @@ func Name(v string) predicate.Template {
 	return predicate.Template(sql.FieldEQ(FieldName, v))
 }
 
+// ChannelID applies equality check predicate on the "channel_id" field. It's identical to ChannelIDEQ.
+func ChannelID(v string) predicate.Template {
+	return predicate.Template(sql.FieldEQ(FieldChannelID, v))
+}
+
 // Subject applies equality check predicate on the "subject" field. It's identical to SubjectEQ.
 func Subject(v string) predicate.Template {
 	return predicate.Template(sql.FieldEQ(FieldSubject, v))
@@ -484,24 +489,69 @@ func NameContainsFold(v string) predicate.Template {
 	return predicate.Template(sql.FieldContainsFold(FieldName, v))
 }
 
-// ChannelTypeEQ applies the EQ predicate on the "channel_type" field.
-func ChannelTypeEQ(v ChannelType) predicate.Template {
-	return predicate.Template(sql.FieldEQ(FieldChannelType, v))
+// ChannelIDEQ applies the EQ predicate on the "channel_id" field.
+func ChannelIDEQ(v string) predicate.Template {
+	return predicate.Template(sql.FieldEQ(FieldChannelID, v))
 }
 
-// ChannelTypeNEQ applies the NEQ predicate on the "channel_type" field.
-func ChannelTypeNEQ(v ChannelType) predicate.Template {
-	return predicate.Template(sql.FieldNEQ(FieldChannelType, v))
+// ChannelIDNEQ applies the NEQ predicate on the "channel_id" field.
+func ChannelIDNEQ(v string) predicate.Template {
+	return predicate.Template(sql.FieldNEQ(FieldChannelID, v))
 }
 
-// ChannelTypeIn applies the In predicate on the "channel_type" field.
-func ChannelTypeIn(vs ...ChannelType) predicate.Template {
-	return predicate.Template(sql.FieldIn(FieldChannelType, vs...))
+// ChannelIDIn applies the In predicate on the "channel_id" field.
+func ChannelIDIn(vs ...string) predicate.Template {
+	return predicate.Template(sql.FieldIn(FieldChannelID, vs...))
 }
 
-// ChannelTypeNotIn applies the NotIn predicate on the "channel_type" field.
-func ChannelTypeNotIn(vs ...ChannelType) predicate.Template {
-	return predicate.Template(sql.FieldNotIn(FieldChannelType, vs...))
+// ChannelIDNotIn applies the NotIn predicate on the "channel_id" field.
+func ChannelIDNotIn(vs ...string) predicate.Template {
+	return predicate.Template(sql.FieldNotIn(FieldChannelID, vs...))
+}
+
+// ChannelIDGT applies the GT predicate on the "channel_id" field.
+func ChannelIDGT(v string) predicate.Template {
+	return predicate.Template(sql.FieldGT(FieldChannelID, v))
+}
+
+// ChannelIDGTE applies the GTE predicate on the "channel_id" field.
+func ChannelIDGTE(v string) predicate.Template {
+	return predicate.Template(sql.FieldGTE(FieldChannelID, v))
+}
+
+// ChannelIDLT applies the LT predicate on the "channel_id" field.
+func ChannelIDLT(v string) predicate.Template {
+	return predicate.Template(sql.FieldLT(FieldChannelID, v))
+}
+
+// ChannelIDLTE applies the LTE predicate on the "channel_id" field.
+func ChannelIDLTE(v string) predicate.Template {
+	return predicate.Template(sql.FieldLTE(FieldChannelID, v))
+}
+
+// ChannelIDContains applies the Contains predicate on the "channel_id" field.
+func ChannelIDContains(v string) predicate.Template {
+	return predicate.Template(sql.FieldContains(FieldChannelID, v))
+}
+
+// ChannelIDHasPrefix applies the HasPrefix predicate on the "channel_id" field.
+func ChannelIDHasPrefix(v string) predicate.Template {
+	return predicate.Template(sql.FieldHasPrefix(FieldChannelID, v))
+}
+
+// ChannelIDHasSuffix applies the HasSuffix predicate on the "channel_id" field.
+func ChannelIDHasSuffix(v string) predicate.Template {
+	return predicate.Template(sql.FieldHasSuffix(FieldChannelID, v))
+}
+
+// ChannelIDEqualFold applies the EqualFold predicate on the "channel_id" field.
+func ChannelIDEqualFold(v string) predicate.Template {
+	return predicate.Template(sql.FieldEqualFold(FieldChannelID, v))
+}
+
+// ChannelIDContainsFold applies the ContainsFold predicate on the "channel_id" field.
+func ChannelIDContainsFold(v string) predicate.Template {
+	return predicate.Template(sql.FieldContainsFold(FieldChannelID, v))
 }
 
 // SubjectEQ applies the EQ predicate on the "subject" field.

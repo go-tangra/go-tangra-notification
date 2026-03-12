@@ -15,6 +15,7 @@ import (
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/channel"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/notificationlog"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/template"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/templatepermission"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -75,9 +76,10 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			channel.Table:         channel.ValidColumn,
-			notificationlog.Table: notificationlog.ValidColumn,
-			template.Table:        template.ValidColumn,
+			channel.Table:            channel.ValidColumn,
+			notificationlog.Table:    notificationlog.ValidColumn,
+			template.Table:           template.ValidColumn,
+			templatepermission.Table: templatepermission.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

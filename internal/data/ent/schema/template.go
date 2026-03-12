@@ -33,9 +33,10 @@ func (Template) Fields() []ent.Field {
 			MaxLen(255).
 			Comment("Template name"),
 
-		field.Enum("channel_type").
-			Values("EMAIL", "SMS", "SLACK", "SSE").
-			Comment("Channel type this template is for"),
+		field.String("channel_id").
+			NotEmpty().
+			MaxLen(36).
+			Comment("References notification_channels.id"),
 
 		field.String("subject").
 			NotEmpty().
@@ -53,7 +54,7 @@ func (Template) Fields() []ent.Field {
 
 		field.Bool("is_default").
 			Default(false).
-			Comment("Whether this is the default template for its channel type"),
+			Comment("Whether this is the default template for its channel"),
 	}
 }
 
@@ -73,8 +74,8 @@ func (Template) Mixin() []ent.Mixin {
 func (Template) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("tenant_id", "name").Unique(),
-		index.Fields("tenant_id", "channel_type"),
-		index.Fields("tenant_id", "channel_type", "is_default"),
+		index.Fields("tenant_id", "channel_id"),
+		index.Fields("tenant_id", "channel_id", "is_default"),
 		index.Fields("tenant_id"),
 	}
 }

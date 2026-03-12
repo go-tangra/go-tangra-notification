@@ -118,11 +118,11 @@ var (
 		{Name: "delete_time", Type: field.TypeTime, Nullable: true, Comment: "删除时间"},
 		{Name: "tenant_id", Type: field.TypeUint32, Nullable: true, Comment: "租户ID", Default: 0},
 		{Name: "name", Type: field.TypeString, Size: 255, Comment: "Template name"},
-		{Name: "channel_type", Type: field.TypeEnum, Comment: "Channel type this template is for", Enums: []string{"EMAIL", "SMS", "SLACK", "SSE"}},
+		{Name: "channel_id", Type: field.TypeString, Size: 36, Comment: "References notification_channels.id"},
 		{Name: "subject", Type: field.TypeString, Size: 1024, Comment: "Subject template (Go text/template)"},
 		{Name: "body", Type: field.TypeString, Size: 2147483647, Comment: "Body template (Go text/template or html/template for email)"},
 		{Name: "variables", Type: field.TypeString, Size: 2048, Comment: "Comma-separated list of expected variable names", Default: ""},
-		{Name: "is_default", Type: field.TypeBool, Comment: "Whether this is the default template for its channel type", Default: false},
+		{Name: "is_default", Type: field.TypeBool, Comment: "Whether this is the default template for its channel", Default: false},
 	}
 	// NotificationTemplatesTable holds the schema information for the "notification_templates" table.
 	NotificationTemplatesTable = &schema.Table{
@@ -136,12 +136,12 @@ var (
 				Columns: []*schema.Column{NotificationTemplatesColumns[6], NotificationTemplatesColumns[7]},
 			},
 			{
-				Name:    "template_tenant_id_channel_type",
+				Name:    "template_tenant_id_channel_id",
 				Unique:  false,
 				Columns: []*schema.Column{NotificationTemplatesColumns[6], NotificationTemplatesColumns[8]},
 			},
 			{
-				Name:    "template_tenant_id_channel_type_is_default",
+				Name:    "template_tenant_id_channel_id_is_default",
 				Unique:  false,
 				Columns: []*schema.Column{NotificationTemplatesColumns[6], NotificationTemplatesColumns[8], NotificationTemplatesColumns[12]},
 			},
@@ -152,11 +152,60 @@ var (
 			},
 		},
 	}
+	// NotificationTemplatePermissionsColumns holds the columns for the "notification_template_permissions" table.
+	NotificationTemplatePermissionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "create_time", Type: field.TypeTime, Nullable: true, Comment: "创建时间"},
+		{Name: "update_time", Type: field.TypeTime, Nullable: true, Comment: "更新时间"},
+		{Name: "delete_time", Type: field.TypeTime, Nullable: true, Comment: "删除时间"},
+		{Name: "tenant_id", Type: field.TypeUint32, Nullable: true, Comment: "租户ID", Default: 0},
+		{Name: "resource_type", Type: field.TypeEnum, Comment: "Type of resource (template or channel)", Enums: []string{"RESOURCE_TYPE_UNSPECIFIED", "RESOURCE_TYPE_TEMPLATE", "RESOURCE_TYPE_CHANNEL"}},
+		{Name: "resource_id", Type: field.TypeString, Size: 36, Comment: "ID of the resource (UUID)"},
+		{Name: "relation", Type: field.TypeEnum, Comment: "Permission level (owner, editor, viewer, sharer)", Enums: []string{"RELATION_UNSPECIFIED", "RELATION_OWNER", "RELATION_EDITOR", "RELATION_VIEWER", "RELATION_SHARER"}},
+		{Name: "subject_type", Type: field.TypeEnum, Comment: "Type of subject (user, role, or mTLS client)", Enums: []string{"SUBJECT_TYPE_UNSPECIFIED", "SUBJECT_TYPE_USER", "SUBJECT_TYPE_ROLE", "SUBJECT_TYPE_CLIENT"}},
+		{Name: "subject_id", Type: field.TypeString, Size: 255, Comment: "ID of the user, role, or mTLS client name"},
+		{Name: "granted_by", Type: field.TypeUint32, Nullable: true, Comment: "User ID who granted this permission"},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true, Comment: "Optional expiration time for temporary access"},
+	}
+	// NotificationTemplatePermissionsTable holds the schema information for the "notification_template_permissions" table.
+	NotificationTemplatePermissionsTable = &schema.Table{
+		Name:       "notification_template_permissions",
+		Columns:    NotificationTemplatePermissionsColumns,
+		PrimaryKey: []*schema.Column{NotificationTemplatePermissionsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "templatepermission_tenant_id_resource_type_resource_id_relation_subject_type_subject_id",
+				Unique:  true,
+				Columns: []*schema.Column{NotificationTemplatePermissionsColumns[4], NotificationTemplatePermissionsColumns[5], NotificationTemplatePermissionsColumns[6], NotificationTemplatePermissionsColumns[7], NotificationTemplatePermissionsColumns[8], NotificationTemplatePermissionsColumns[9]},
+			},
+			{
+				Name:    "templatepermission_tenant_id_resource_type_resource_id",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationTemplatePermissionsColumns[4], NotificationTemplatePermissionsColumns[5], NotificationTemplatePermissionsColumns[6]},
+			},
+			{
+				Name:    "templatepermission_tenant_id_subject_type_subject_id",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationTemplatePermissionsColumns[4], NotificationTemplatePermissionsColumns[8], NotificationTemplatePermissionsColumns[9]},
+			},
+			{
+				Name:    "templatepermission_tenant_id",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationTemplatePermissionsColumns[4]},
+			},
+			{
+				Name:    "templatepermission_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationTemplatePermissionsColumns[11]},
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		NotificationChannelsTable,
 		NotificationLogsTable,
 		NotificationTemplatesTable,
+		NotificationTemplatePermissionsTable,
 	}
 )
 
@@ -169,5 +218,8 @@ func init() {
 	}
 	NotificationTemplatesTable.Annotation = &entsql.Annotation{
 		Table: "notification_templates",
+	}
+	NotificationTemplatePermissionsTable.Annotation = &entsql.Annotation{
+		Table: "notification_template_permissions",
 	}
 }

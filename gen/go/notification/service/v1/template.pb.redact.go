@@ -124,7 +124,7 @@ func (x *NotificationTemplate) Redact() string {
 
 	// Safe field: Name
 
-	// Safe field: ChannelType
+	// Safe field: ChannelId
 
 	// Safe field: Subject
 
@@ -141,6 +141,8 @@ func (x *NotificationTemplate) Redact() string {
 	// Safe field: CreateTime
 
 	// Safe field: UpdateTime
+
+	// Safe field: ChannelType
 	return x.String()
 }
 
@@ -152,7 +154,7 @@ func (x *CreateTemplateRequest) Redact() string {
 
 	// Safe field: Name
 
-	// Safe field: ChannelType
+	// Safe field: ChannelId
 
 	// Safe field: Subject
 
@@ -204,7 +206,7 @@ func (x *ListTemplatesRequest) Redact() string {
 
 	// Safe field: PageSize
 
-	// Safe field: ChannelType
+	// Safe field: ChannelId
 	return x.String()
 }
 
@@ -237,6 +239,8 @@ func (x *UpdateTemplateRequest) Redact() string {
 	// Safe field: Variables
 
 	// Safe field: IsDefault
+
+	// Safe field: ChannelId
 	return x.String()
 }
 
@@ -270,7 +274,7 @@ func (x *PreviewTemplateRequest) Redact() string {
 
 	// Safe field: Body
 
-	// Safe field: ChannelType
+	// Safe field: ChannelId
 
 	// Safe field: Variables
 	return x.String()

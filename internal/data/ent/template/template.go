@@ -3,8 +3,6 @@
 package template
 
 import (
-	"fmt"
-
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 )
@@ -28,8 +26,8 @@ const (
 	FieldTenantID = "tenant_id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
-	// FieldChannelType holds the string denoting the channel_type field in the database.
-	FieldChannelType = "channel_type"
+	// FieldChannelID holds the string denoting the channel_id field in the database.
+	FieldChannelID = "channel_id"
 	// FieldSubject holds the string denoting the subject field in the database.
 	FieldSubject = "subject"
 	// FieldBody holds the string denoting the body field in the database.
@@ -52,7 +50,7 @@ var Columns = []string{
 	FieldDeleteTime,
 	FieldTenantID,
 	FieldName,
-	FieldChannelType,
+	FieldChannelID,
 	FieldSubject,
 	FieldBody,
 	FieldVariables,
@@ -81,6 +79,8 @@ var (
 	DefaultTenantID uint32
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// ChannelIDValidator is a validator for the "channel_id" field. It is called by the builders before save.
+	ChannelIDValidator func(string) error
 	// SubjectValidator is a validator for the "subject" field. It is called by the builders before save.
 	SubjectValidator func(string) error
 	// BodyValidator is a validator for the "body" field. It is called by the builders before save.
@@ -94,31 +94,6 @@ var (
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.
 	IDValidator func(string) error
 )
-
-// ChannelType defines the type for the "channel_type" enum field.
-type ChannelType string
-
-// ChannelType values.
-const (
-	ChannelTypeEMAIL ChannelType = "EMAIL"
-	ChannelTypeSMS   ChannelType = "SMS"
-	ChannelTypeSLACK ChannelType = "SLACK"
-	ChannelTypeSSE   ChannelType = "SSE"
-)
-
-func (ct ChannelType) String() string {
-	return string(ct)
-}
-
-// ChannelTypeValidator is a validator for the "channel_type" field enum values. It is called by the builders before save.
-func ChannelTypeValidator(ct ChannelType) error {
-	switch ct {
-	case ChannelTypeEMAIL, ChannelTypeSMS, ChannelTypeSLACK, ChannelTypeSSE:
-		return nil
-	default:
-		return fmt.Errorf("template: invalid enum value for channel_type field: %q", ct)
-	}
-}
 
 // OrderOption defines the ordering options for the Template queries.
 type OrderOption func(*sql.Selector)
@@ -163,9 +138,9 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
 }
 
-// ByChannelType orders the results by the channel_type field.
-func ByChannelType(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldChannelType, opts...).ToFunc()
+// ByChannelID orders the results by the channel_id field.
+func ByChannelID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldChannelID, opts...).ToFunc()
 }
 
 // BySubject orders the results by the subject field.

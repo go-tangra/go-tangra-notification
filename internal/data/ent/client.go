@@ -17,6 +17,7 @@ import (
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/channel"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/notificationlog"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/template"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/templatepermission"
 )
 
 // Client is the client that holds all ent builders.
@@ -30,6 +31,8 @@ type Client struct {
 	NotificationLog *NotificationLogClient
 	// Template is the client for interacting with the Template builders.
 	Template *TemplateClient
+	// TemplatePermission is the client for interacting with the TemplatePermission builders.
+	TemplatePermission *TemplatePermissionClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -44,6 +47,7 @@ func (c *Client) init() {
 	c.Channel = NewChannelClient(c.config)
 	c.NotificationLog = NewNotificationLogClient(c.config)
 	c.Template = NewTemplateClient(c.config)
+	c.TemplatePermission = NewTemplatePermissionClient(c.config)
 }
 
 type (
@@ -134,11 +138,12 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:             ctx,
-		config:          cfg,
-		Channel:         NewChannelClient(cfg),
-		NotificationLog: NewNotificationLogClient(cfg),
-		Template:        NewTemplateClient(cfg),
+		ctx:                ctx,
+		config:             cfg,
+		Channel:            NewChannelClient(cfg),
+		NotificationLog:    NewNotificationLogClient(cfg),
+		Template:           NewTemplateClient(cfg),
+		TemplatePermission: NewTemplatePermissionClient(cfg),
 	}, nil
 }
 
@@ -156,11 +161,12 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:             ctx,
-		config:          cfg,
-		Channel:         NewChannelClient(cfg),
-		NotificationLog: NewNotificationLogClient(cfg),
-		Template:        NewTemplateClient(cfg),
+		ctx:                ctx,
+		config:             cfg,
+		Channel:            NewChannelClient(cfg),
+		NotificationLog:    NewNotificationLogClient(cfg),
+		Template:           NewTemplateClient(cfg),
+		TemplatePermission: NewTemplatePermissionClient(cfg),
 	}, nil
 }
 
@@ -192,6 +198,7 @@ func (c *Client) Use(hooks ...Hook) {
 	c.Channel.Use(hooks...)
 	c.NotificationLog.Use(hooks...)
 	c.Template.Use(hooks...)
+	c.TemplatePermission.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
@@ -200,6 +207,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	c.Channel.Intercept(interceptors...)
 	c.NotificationLog.Intercept(interceptors...)
 	c.Template.Intercept(interceptors...)
+	c.TemplatePermission.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
@@ -211,6 +219,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.NotificationLog.mutate(ctx, m)
 	case *TemplateMutation:
 		return c.Template.mutate(ctx, m)
+	case *TemplatePermissionMutation:
+		return c.TemplatePermission.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -618,12 +628,146 @@ func (c *TemplateClient) mutate(ctx context.Context, m *TemplateMutation) (Value
 	}
 }
 
+// TemplatePermissionClient is a client for the TemplatePermission schema.
+type TemplatePermissionClient struct {
+	config
+}
+
+// NewTemplatePermissionClient returns a client for the TemplatePermission from the given config.
+func NewTemplatePermissionClient(c config) *TemplatePermissionClient {
+	return &TemplatePermissionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `templatepermission.Hooks(f(g(h())))`.
+func (c *TemplatePermissionClient) Use(hooks ...Hook) {
+	c.hooks.TemplatePermission = append(c.hooks.TemplatePermission, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `templatepermission.Intercept(f(g(h())))`.
+func (c *TemplatePermissionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TemplatePermission = append(c.inters.TemplatePermission, interceptors...)
+}
+
+// Create returns a builder for creating a TemplatePermission entity.
+func (c *TemplatePermissionClient) Create() *TemplatePermissionCreate {
+	mutation := newTemplatePermissionMutation(c.config, OpCreate)
+	return &TemplatePermissionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TemplatePermission entities.
+func (c *TemplatePermissionClient) CreateBulk(builders ...*TemplatePermissionCreate) *TemplatePermissionCreateBulk {
+	return &TemplatePermissionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TemplatePermissionClient) MapCreateBulk(slice any, setFunc func(*TemplatePermissionCreate, int)) *TemplatePermissionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TemplatePermissionCreateBulk{err: fmt.Errorf("calling to TemplatePermissionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TemplatePermissionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TemplatePermissionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TemplatePermission.
+func (c *TemplatePermissionClient) Update() *TemplatePermissionUpdate {
+	mutation := newTemplatePermissionMutation(c.config, OpUpdate)
+	return &TemplatePermissionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TemplatePermissionClient) UpdateOne(_m *TemplatePermission) *TemplatePermissionUpdateOne {
+	mutation := newTemplatePermissionMutation(c.config, OpUpdateOne, withTemplatePermission(_m))
+	return &TemplatePermissionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TemplatePermissionClient) UpdateOneID(id int) *TemplatePermissionUpdateOne {
+	mutation := newTemplatePermissionMutation(c.config, OpUpdateOne, withTemplatePermissionID(id))
+	return &TemplatePermissionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TemplatePermission.
+func (c *TemplatePermissionClient) Delete() *TemplatePermissionDelete {
+	mutation := newTemplatePermissionMutation(c.config, OpDelete)
+	return &TemplatePermissionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TemplatePermissionClient) DeleteOne(_m *TemplatePermission) *TemplatePermissionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TemplatePermissionClient) DeleteOneID(id int) *TemplatePermissionDeleteOne {
+	builder := c.Delete().Where(templatepermission.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TemplatePermissionDeleteOne{builder}
+}
+
+// Query returns a query builder for TemplatePermission.
+func (c *TemplatePermissionClient) Query() *TemplatePermissionQuery {
+	return &TemplatePermissionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTemplatePermission},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TemplatePermission entity by its id.
+func (c *TemplatePermissionClient) Get(ctx context.Context, id int) (*TemplatePermission, error) {
+	return c.Query().Where(templatepermission.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TemplatePermissionClient) GetX(ctx context.Context, id int) *TemplatePermission {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *TemplatePermissionClient) Hooks() []Hook {
+	hooks := c.hooks.TemplatePermission
+	return append(hooks[:len(hooks):len(hooks)], templatepermission.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *TemplatePermissionClient) Interceptors() []Interceptor {
+	return c.inters.TemplatePermission
+}
+
+func (c *TemplatePermissionClient) mutate(ctx context.Context, m *TemplatePermissionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TemplatePermissionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TemplatePermissionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TemplatePermissionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TemplatePermissionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TemplatePermission mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Channel, NotificationLog, Template []ent.Hook
+		Channel, NotificationLog, Template, TemplatePermission []ent.Hook
 	}
 	inters struct {
-		Channel, NotificationLog, Template []ent.Interceptor
+		Channel, NotificationLog, Template, TemplatePermission []ent.Interceptor
 	}
 )

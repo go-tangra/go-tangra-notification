@@ -9,16 +9,19 @@ package main
 import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-tangra/go-tangra-notification/internal/cert"
+	"github.com/go-tangra/go-tangra-notification/internal/client"
 	"github.com/go-tangra/go-tangra-notification/internal/data"
+	"github.com/go-tangra/go-tangra-notification/internal/metrics"
 	"github.com/go-tangra/go-tangra-notification/internal/server"
 	"github.com/go-tangra/go-tangra-notification/internal/service"
+	"github.com/go-tangra/go-tangra-notification/internal/service/providers"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
 )
 
 // Injectors from wire.go:
 
 func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
-	certManager, err := cert.NewCertManager(context)
+	v, err := cert.NewCertManager(context)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -27,14 +30,34 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		return nil, nil, err
 	}
 	channelRepo := data.NewChannelRepo(context, entClient)
-	channelService := service.NewChannelService(context, channelRepo)
+	permissionRepo := data.NewPermissionRepo(context, entClient)
+	permissionStore := providers.ProvidePermissionStore(permissionRepo)
+	resourceLookup := providers.ProvideResourceLookup()
+	engine := providers.ProvideAuthzEngine(permissionStore, resourceLookup, context)
+	collector := metrics.NewCollector(context)
+	channelService := service.NewChannelService(context, channelRepo, permissionRepo, engine, collector)
 	templateRepo := data.NewTemplateRepo(context, entClient)
-	templateService := service.NewTemplateService(context, templateRepo)
+	templateService := service.NewTemplateService(context, templateRepo, channelRepo, permissionRepo, engine, collector)
 	notificationLogRepo := data.NewNotificationLogRepo(context, entClient)
-	notificationService := service.NewNotificationService(context, channelRepo, templateRepo, notificationLogRepo)
-	grpcServer := server.NewGRPCServer(context, certManager, channelService, templateService, notificationService)
-	app := newApp(context, grpcServer)
+	notificationService := service.NewNotificationService(context, channelRepo, templateRepo, notificationLogRepo, engine, collector)
+	checker := providers.ProvideAuthzChecker(engine)
+	permissionService := service.NewPermissionService(context, permissionRepo, checker, engine)
+	adminClient, cleanup2, err := client.NewAdminClient(context, v)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	userService := service.NewUserService(context, adminClient)
+	grpcServer, err := server.NewGRPCServer(context, v, channelService, templateService, notificationService, permissionService, userService)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	httpServer := server.NewHTTPServer(context)
+	app := newApp(context, grpcServer, httpServer)
 	return app, func() {
+		cleanup2()
 		cleanup()
 	}, nil
 }

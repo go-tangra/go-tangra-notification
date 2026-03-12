@@ -137,16 +137,16 @@ func (_u *TemplateUpdate) SetNillableName(v *string) *TemplateUpdate {
 	return _u
 }
 
-// SetChannelType sets the "channel_type" field.
-func (_u *TemplateUpdate) SetChannelType(v template.ChannelType) *TemplateUpdate {
-	_u.mutation.SetChannelType(v)
+// SetChannelID sets the "channel_id" field.
+func (_u *TemplateUpdate) SetChannelID(v string) *TemplateUpdate {
+	_u.mutation.SetChannelID(v)
 	return _u
 }
 
-// SetNillableChannelType sets the "channel_type" field if the given value is not nil.
-func (_u *TemplateUpdate) SetNillableChannelType(v *template.ChannelType) *TemplateUpdate {
+// SetNillableChannelID sets the "channel_id" field if the given value is not nil.
+func (_u *TemplateUpdate) SetNillableChannelID(v *string) *TemplateUpdate {
 	if v != nil {
-		_u.SetChannelType(*v)
+		_u.SetChannelID(*v)
 	}
 	return _u
 }
@@ -246,9 +246,9 @@ func (_u *TemplateUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Template.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.ChannelType(); ok {
-		if err := template.ChannelTypeValidator(v); err != nil {
-			return &ValidationError{Name: "channel_type", err: fmt.Errorf(`ent: validator failed for field "Template.channel_type": %w`, err)}
+	if v, ok := _u.mutation.ChannelID(); ok {
+		if err := template.ChannelIDValidator(v); err != nil {
+			return &ValidationError{Name: "channel_id", err: fmt.Errorf(`ent: validator failed for field "Template.channel_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Subject(); ok {
@@ -326,8 +326,8 @@ func (_u *TemplateUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(template.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.ChannelType(); ok {
-		_spec.SetField(template.FieldChannelType, field.TypeEnum, value)
+	if value, ok := _u.mutation.ChannelID(); ok {
+		_spec.SetField(template.FieldChannelID, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Subject(); ok {
 		_spec.SetField(template.FieldSubject, field.TypeString, value)
@@ -471,16 +471,16 @@ func (_u *TemplateUpdateOne) SetNillableName(v *string) *TemplateUpdateOne {
 	return _u
 }
 
-// SetChannelType sets the "channel_type" field.
-func (_u *TemplateUpdateOne) SetChannelType(v template.ChannelType) *TemplateUpdateOne {
-	_u.mutation.SetChannelType(v)
+// SetChannelID sets the "channel_id" field.
+func (_u *TemplateUpdateOne) SetChannelID(v string) *TemplateUpdateOne {
+	_u.mutation.SetChannelID(v)
 	return _u
 }
 
-// SetNillableChannelType sets the "channel_type" field if the given value is not nil.
-func (_u *TemplateUpdateOne) SetNillableChannelType(v *template.ChannelType) *TemplateUpdateOne {
+// SetNillableChannelID sets the "channel_id" field if the given value is not nil.
+func (_u *TemplateUpdateOne) SetNillableChannelID(v *string) *TemplateUpdateOne {
 	if v != nil {
-		_u.SetChannelType(*v)
+		_u.SetChannelID(*v)
 	}
 	return _u
 }
@@ -593,9 +593,9 @@ func (_u *TemplateUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Template.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.ChannelType(); ok {
-		if err := template.ChannelTypeValidator(v); err != nil {
-			return &ValidationError{Name: "channel_type", err: fmt.Errorf(`ent: validator failed for field "Template.channel_type": %w`, err)}
+	if v, ok := _u.mutation.ChannelID(); ok {
+		if err := template.ChannelIDValidator(v); err != nil {
+			return &ValidationError{Name: "channel_id", err: fmt.Errorf(`ent: validator failed for field "Template.channel_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Subject(); ok {
@@ -690,8 +690,8 @@ func (_u *TemplateUpdateOne) sqlSave(ctx context.Context) (_node *Template, err 
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(template.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.ChannelType(); ok {
-		_spec.SetField(template.FieldChannelType, field.TypeEnum, value)
+	if value, ok := _u.mutation.ChannelID(); ok {
+		_spec.SetField(template.FieldChannelID, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Subject(); ok {
 		_spec.SetField(template.FieldSubject, field.TypeString, value)

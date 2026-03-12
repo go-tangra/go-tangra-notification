@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
+	kratosHttp "github.com/go-kratos/kratos/v2/transport/http"
 
 	conf "github.com/tx7do/kratos-bootstrap/api/gen/go/conf/v1"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
@@ -27,6 +28,7 @@ var globalRegHelper *registration.RegistrationHelper
 func newApp(
 	ctx *bootstrap.Context,
 	gs *grpc.Server,
+	hs *kratosHttp.Server,
 ) *kratos.App {
 	globalRegHelper = registration.StartRegistration(ctx, ctx.GetLogger(), &registration.Config{
 		ModuleID:          moduleID,
@@ -45,7 +47,7 @@ func newApp(
 		MaxRetries:        60,
 	})
 
-	return bootstrap.NewApp(ctx, gs)
+	return bootstrap.NewApp(ctx, gs, hs)
 }
 
 func runApp() error {
@@ -58,7 +60,12 @@ func runApp() error {
 		},
 	)
 
-	defer globalRegHelper.Stop()
+	// H4: Guard against nil dereference if newApp was never called (early failure)
+	defer func() {
+		if globalRegHelper != nil {
+			globalRegHelper.Stop()
+		}
+	}()
 
 	return bootstrap.RunApp(ctx, initApp)
 }

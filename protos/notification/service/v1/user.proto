@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package notification.service.v1;
+
+import "google/api/annotations.proto";
+
+// Lightweight user representation for notification module dropdowns
+message NotificationUser {
+  uint32 id = 1 [json_name = "id"];
+  string username = 2 [json_name = "username"];
+  string realname = 3 [json_name = "realname"];
+  string email = 4 [json_name = "email"];
+}
+
+message ListNotificationUsersRequest {
+  optional bool no_paging = 1 [json_name = "noPaging"];
+}
+
+message ListNotificationUsersResponse {
+  repeated NotificationUser items = 1 [json_name = "items"];
+  int32 total = 2 [json_name = "total"];
+}
+
+// Lightweight role representation for notification module dropdowns
+message NotificationRole {
+  uint32 id = 1 [json_name = "id"];
+  string name = 2 [json_name = "name"];
+  string code = 3 [json_name = "code"];
+  string description = 4 [json_name = "description"];
+}
+
+message ListNotificationRolesRequest {
+  optional bool no_paging = 1 [json_name = "noPaging"];
+}
+
+message ListNotificationRolesResponse {
+  repeated NotificationRole items = 1 [json_name = "items"];
+  int32 total = 2 [json_name = "total"];
+}
+
+// NotificationUserService provides user and role listing for permission management
+service NotificationUserService {
+  rpc ListUsers(ListNotificationUsersRequest) returns (ListNotificationUsersResponse) {
+    option (google.api.http) = {
+      get: "/v1/users"
+    };
+  }
+
+  rpc ListRoles(ListNotificationRolesRequest) returns (ListNotificationRolesResponse) {
+    option (google.api.http) = {
+      get: "/v1/roles"
+    };
+  }
+}

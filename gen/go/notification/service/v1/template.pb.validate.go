@@ -63,7 +63,7 @@ func (m *NotificationTemplate) validate(all bool) error {
 
 	// no validation rules for Name
 
-	// no validation rules for ChannelType
+	// no validation rules for ChannelId
 
 	// no validation rules for Subject
 
@@ -101,6 +101,8 @@ func (m *NotificationTemplate) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for ChannelType
 
 	if m.CreatedBy != nil {
 		// no validation rules for CreatedBy
@@ -247,7 +249,7 @@ func (m *CreateTemplateRequest) validate(all bool) error {
 
 	// no validation rules for Name
 
-	// no validation rules for ChannelType
+	// no validation rules for ChannelId
 
 	// no validation rules for Subject
 
@@ -733,8 +735,8 @@ func (m *ListTemplatesRequest) validate(all bool) error {
 		// no validation rules for PageSize
 	}
 
-	if m.ChannelType != nil {
-		// no validation rules for ChannelType
+	if m.ChannelId != nil {
+		// no validation rules for ChannelId
 	}
 
 	if len(errors) > 0 {
@@ -997,6 +999,10 @@ func (m *UpdateTemplateRequest) validate(all bool) error {
 
 	if m.IsDefault != nil {
 		// no validation rules for IsDefault
+	}
+
+	if m.ChannelId != nil {
+		// no validation rules for ChannelId
 	}
 
 	if len(errors) > 0 {
@@ -1340,7 +1346,7 @@ func (m *PreviewTemplateRequest) validate(all bool) error {
 
 	// no validation rules for Body
 
-	// no validation rules for ChannelType
+	// no validation rules for ChannelId
 
 	// no validation rules for Variables
 
