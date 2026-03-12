@@ -169,6 +169,8 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             APP_VERSION=${{ github.ref_name }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
 
   cleanup-ghcr:
     name: Cleanup Old GHCR Images
