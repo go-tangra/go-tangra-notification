@@ -14,6 +14,7 @@ import (
 
 	notificationpb "github.com/go-tangra/go-tangra-notification/gen/go/notification/service/v1"
 	"github.com/go-tangra/go-tangra-notification/internal/cert"
+	"github.com/go-tangra/go-tangra-notification/internal/metrics"
 	"github.com/go-tangra/go-tangra-notification/internal/service"
 
 	"github.com/go-tangra/go-tangra-common/middleware/audit"
@@ -36,6 +37,7 @@ func systemViewerMiddleware() middleware.Middleware {
 func NewGRPCServer(
 	ctx *bootstrap.Context,
 	certManager *cert.CertManager,
+	collector *metrics.Collector,
 	channelSvc *service.ChannelService,
 	templateSvc *service.TemplateService,
 	notifSvc *service.NotificationService,
@@ -73,6 +75,7 @@ func NewGRPCServer(
 
 	var ms []middleware.Middleware
 	ms = append(ms, recovery.Recovery())
+	ms = append(ms, collector.Middleware())
 	ms = append(ms, systemViewerMiddleware())
 	ms = append(ms, tracing.Server())
 	ms = append(ms, metadata.Server())

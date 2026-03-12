@@ -48,7 +48,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		return nil, nil, err
 	}
 	userService := service.NewUserService(context, adminClient)
-	grpcServer, err := server.NewGRPCServer(context, v, channelService, templateService, notificationService, permissionService, userService)
+	grpcServer, err := server.NewGRPCServer(context, v, collector, channelService, templateService, notificationService, permissionService, userService)
 	if err != nil {
 		cleanup2()
 		cleanup()

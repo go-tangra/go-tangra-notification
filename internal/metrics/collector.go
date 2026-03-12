@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/go-kratos/kratos/v2/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
 
@@ -31,6 +32,10 @@ type Collector struct {
 	NotificationsByStatus      *prometheus.GaugeVec
 	NotificationsByChannelType *prometheus.GaugeVec
 	NotificationsTotal         prometheus.Gauge
+
+	// gRPC request metrics
+	RequestDuration *prometheus.HistogramVec
+	RequestsTotal   *prometheus.CounterVec
 }
 
 // NewCollector creates and registers all notification Prometheus metrics.
@@ -86,6 +91,21 @@ func NewCollector(ctx *bootstrap.Context) *Collector {
 			Name:      "notifications_total",
 			Help:      "Total number of notification logs.",
 		}),
+
+		RequestDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "grpc_request_duration_seconds",
+			Help:      "Histogram of gRPC request durations in seconds.",
+			Buckets:   prometheus.DefBuckets,
+		}, []string{"method"}),
+
+		RequestsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "grpc_requests_total",
+			Help:      "Total number of gRPC requests by method and status.",
+		}, []string{"method", "status"}),
 	}
 
 	collectors := []prometheus.Collector{
@@ -96,6 +116,8 @@ func NewCollector(ctx *bootstrap.Context) *Collector {
 		c.NotificationsByStatus,
 		c.NotificationsByChannelType,
 		c.NotificationsTotal,
+		c.RequestDuration,
+		c.RequestsTotal,
 	}
 	for _, col := range collectors {
 		if err := prometheus.Register(col); err != nil {
@@ -126,6 +148,11 @@ func NewCollector(ctx *bootstrap.Context) *Collector {
 	}
 
 	return c
+}
+
+// Middleware returns a Kratos middleware that records gRPC request metrics.
+func (c *Collector) Middleware() middleware.Middleware {
+	return commonMetrics.NewServerMiddleware(c.RequestDuration, c.RequestsTotal)
 }
 
 // Stop shuts down the metrics HTTP server.
