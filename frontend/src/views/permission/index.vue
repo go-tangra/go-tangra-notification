@@ -9,10 +9,9 @@ import { LucideTrash, LucidePencil, LucideUsers } from 'shell/vben/icons';
 import { notification, Space, Button, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from 'shell/adapter/vxe-table';
-import { type NotificationPermission } from '../../api/services';
+import { type NotificationPermission, userService } from '../../api/client';
 import { $t } from 'shell/locales';
 import { useNotificationPermissionStore } from '../../stores/notification-permission.state';
-import { listUsers, listRoles } from '../../api/admin-api';
 
 import PermissionDrawer from './permission-drawer.vue';
 
@@ -23,7 +22,10 @@ const roles = ref<any[]>([]);
 
 async function loadSubjects() {
   try {
-    const [usersResp, rolesResp] = await Promise.all([listUsers(), listRoles()]);
+    const [usersResp, rolesResp] = await Promise.all([
+      userService.ListUsers({ noPaging: true }),
+      userService.ListRoles({ noPaging: true }),
+    ]);
     users.value = usersResp.items ?? [];
     roles.value = rolesResp.items ?? [];
   } catch (e) {

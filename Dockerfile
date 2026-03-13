@@ -1,5 +1,21 @@
 ##################################
-# Stage 0: Build frontend module
+# Stage 0: Generate TypeScript API client from protos
+##################################
+
+FROM golang:1.23-alpine AS ts-codegen
+
+RUN apk add --no-cache curl git && \
+    curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf && \
+    chmod +x /usr/local/bin/buf && \
+    go install github.com/go-kratos/protoc-gen-typescript-http@latest
+
+WORKDIR /src
+COPY buf.typescript.gen.yaml buf.yaml buf.lock ./
+COPY protos/ protos/
+RUN buf generate --template buf.typescript.gen.yaml
+
+##################################
+# Stage 1: Build frontend module
 ##################################
 
 FROM node:20-alpine AS frontend-builder
@@ -10,10 +26,11 @@ WORKDIR /frontend
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile || pnpm install
 COPY frontend/ .
+COPY --from=ts-codegen /src/frontend/src/generated/ src/generated/
 RUN pnpm build
 
 ##################################
-# Stage 1: Build Go executable
+# Stage 2: Build Go executable
 ##################################
 
 FROM golang:1.23-alpine AS builder
@@ -50,7 +67,7 @@ RUN CGO_ENABLED=0 \
     ./cmd/server
 
 ##################################
-# Stage 2: Create runtime image
+# Stage 3: Create runtime image
 ##################################
 
 FROM alpine:3.20

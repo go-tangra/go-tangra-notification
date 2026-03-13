@@ -21,11 +21,9 @@ import {
 } from 'ant-design-vue';
 import type { ColumnsType } from 'ant-design-vue/es/table';
 
-import { type NotificationPermission } from '../../api/services';
-import type { AdminUser, AdminRole } from '../../types';
+import { type NotificationPermission, type NotificationUser, type NotificationRole, userService } from '../../api/client';
 import { $t } from 'shell/locales';
 import { useNotificationPermissionStore } from '../../stores/notification-permission.state';
-import { listUsers, listRoles } from '../../api/admin-api';
 
 const permissionStore = useNotificationPermissionStore();
 
@@ -39,8 +37,8 @@ const permissions = ref<NotificationPermission[]>([]);
 const showGrantForm = ref(false);
 const granting = ref(false);
 
-const users = ref<AdminUser[]>([]);
-const roles = ref<AdminRole[]>([]);
+const users = ref<NotificationUser[]>([]);
+const roles = ref<NotificationRole[]>([]);
 const loadingSubjects = ref(false);
 
 const grantForm = ref<{
@@ -80,7 +78,7 @@ async function loadSubjects() {
   loadingSubjects.value = true;
 
   try {
-    const usersResp = await listUsers({ status: 'NORMAL' });
+    const usersResp = await userService.ListUsers({ noPaging: true });
     users.value = usersResp.items ?? [];
   } catch (e) {
     console.error('Failed to load users:', e);
@@ -88,7 +86,7 @@ async function loadSubjects() {
   }
 
   try {
-    const rolesResp = await listRoles();
+    const rolesResp = await userService.ListRoles({ noPaging: true });
     roles.value = rolesResp.items ?? [];
   } catch (e) {
     console.error('Failed to load roles:', e);

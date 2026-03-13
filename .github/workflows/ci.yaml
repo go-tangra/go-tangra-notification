@@ -39,6 +39,23 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm@9
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Install protoc-gen-typescript-http
+        run: go install github.com/go-kratos/protoc-gen-typescript-http@latest
+
+      - name: Generate TypeScript API client
+        run: buf generate --template buf.typescript.gen.yaml
+
       - name: Build frontend
         working-directory: frontend
         run: |
@@ -46,12 +63,6 @@ jobs:
           pnpm build
           mkdir -p ../cmd/server/assets/frontend-dist
           cp -r dist/* ../cmd/server/assets/frontend-dist/
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23'
-          cache: true
 
       - name: Download dependencies
         run: go mod download

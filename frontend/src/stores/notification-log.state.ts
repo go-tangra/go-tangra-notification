@@ -1,9 +1,7 @@
 import { defineStore } from 'pinia';
 
-import {
-  NotificationLogService,
-  type SendNotificationRequest,
-} from '../api/services';
+import { notificationService } from '../api/client';
+import type { SendNotificationRequest } from '../api/client';
 import type { Paging } from '../types';
 
 export const useNotificationLogStore = defineStore(
@@ -13,19 +11,19 @@ export const useNotificationLogStore = defineStore(
       paging?: Paging,
       formValues?: { status?: string; channelType?: string } | null,
     ) {
-      return await NotificationLogService.list({
+      return await notificationService.ListNotifications({
         page: paging?.page,
         pageSize: paging?.pageSize,
         ...(formValues || {}),
-      });
+      } as any);
     }
 
     async function getNotification(id: string) {
-      return await NotificationLogService.get(id);
+      return await notificationService.GetNotification({ id });
     }
 
     async function sendNotification(data: SendNotificationRequest) {
-      return await NotificationLogService.send(data);
+      return await notificationService.SendNotification(data);
     }
 
     function $reset() {}

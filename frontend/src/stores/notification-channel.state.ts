@@ -1,17 +1,14 @@
 import { defineStore } from 'pinia';
 
-import {
-  ChannelService,
-  type CreateChannelRequest,
-  type UpdateChannelRequest,
-} from '../api/services';
+import { channelService } from '../api/client';
+import type { CreateChannelRequest, UpdateChannelRequest } from '../api/client';
 import type { Paging } from '../types';
 
 export const useNotificationChannelStore = defineStore(
   'notification-channel',
   () => {
     async function listChannels(paging?: Paging, formValues?: { name?: string; type?: string } | null) {
-      return await ChannelService.list({
+      return await channelService.ListChannels({
         page: paging?.page,
         pageSize: paging?.pageSize,
         ...(formValues || {}),
@@ -19,19 +16,19 @@ export const useNotificationChannelStore = defineStore(
     }
 
     async function getChannel(id: string) {
-      return await ChannelService.get(id);
+      return await channelService.GetChannel({ id });
     }
 
     async function createChannel(data: CreateChannelRequest) {
-      return await ChannelService.create(data);
+      return await channelService.CreateChannel(data);
     }
 
     async function updateChannel(id: string, data: UpdateChannelRequest) {
-      return await ChannelService.update(id, data);
+      return await channelService.UpdateChannel({ id, ...data });
     }
 
     async function deleteChannel(id: string) {
-      return await ChannelService.delete(id);
+      return await channelService.DeleteChannel({ id });
     }
 
     function $reset() {}

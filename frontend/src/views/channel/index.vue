@@ -9,7 +9,7 @@ import { LucideFilePenLine, LucideTrash2, LucideShield } from 'shell/vben/icons'
 import { notification, Tag, Space, Button } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from 'shell/adapter/vxe-table';
-import { type NotificationChannel } from '../../api/services';
+import { type NotificationChannel } from '../../api/client';
 import { $t } from 'shell/locales';
 import { useNotificationChannelStore } from '../../stores/notification-channel.state';
 import { channelTypeList, channelTypeLabel, channelTypeColor, enableBoolToColor, enableBoolToName } from '../../helpers';

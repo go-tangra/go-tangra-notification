@@ -1,52 +1,81 @@
 import { useAccessStore } from 'shell/vben/stores';
 
-const MODULE_BASE_URL = '/admin/v1/modules/notification/v1';
+import {
+  createNotificationChannelServiceClient,
+  createNotificationServiceClient,
+  createNotificationTemplateServiceClient,
+  createNotificationPermissionServiceClient,
+  createNotificationUserServiceClient,
+} from '../generated/api/notification/service/v1';
 
-export interface RequestOptions {
-  signal?: AbortSignal;
-}
+const MODULE_BASE_URL = '/admin/v1/modules/notification';
 
-async function request<T>(
-  method: string,
-  path: string,
-  body?: unknown,
-  options?: RequestOptions,
-): Promise<T> {
+type RequestType = { path: string; method: string; body: string | null };
+
+async function handler(req: RequestType): Promise<unknown> {
   const accessStore = useAccessStore();
   const token = (accessStore as any).accessToken;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const res = await fetch(`${MODULE_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-    signal: options?.signal,
+  const response = await fetch(`${MODULE_BASE_URL}/${req.path}`, {
+    method: req.method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: req.body,
   });
 
-  if (!res.ok) {
-    const errorBody = await res.json().catch(() => ({}));
-    throw new Error(errorBody.message || `HTTP ${res.status}`);
+  if (!response.ok) {
+    let message = `HTTP error! status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.message) {
+        message = errorBody.message;
+      }
+    } catch {}
+    throw new Error(message);
   }
 
-  const text = await res.text();
-  return text ? JSON.parse(text) : ({} as T);
+  const text = await response.text();
+  return text ? JSON.parse(text) : {};
 }
 
-export const notificationApi = {
-  get: <T>(path: string, options?: RequestOptions) =>
-    request<T>('GET', path, undefined, options),
-  post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>('POST', path, body, options),
-  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>('PUT', path, body, options),
-  patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>('PATCH', path, body, options),
-  delete: <T>(path: string, options?: RequestOptions) =>
-    request<T>('DELETE', path, undefined, options),
-};
+export const channelService = createNotificationChannelServiceClient(handler);
+export const notificationService = createNotificationServiceClient(handler);
+export const templateService = createNotificationTemplateServiceClient(handler);
+export const permissionService = createNotificationPermissionServiceClient(handler);
+export const userService = createNotificationUserServiceClient(handler);
+
+// Re-export generated types for convenience
+export type {
+  NotificationChannel,
+  ChannelType,
+  CreateChannelRequest,
+  UpdateChannelRequest,
+  ListChannelsResponse,
+  NotificationLog,
+  DeliveryStatus,
+  SendNotificationRequest,
+  SendNotificationResponse,
+  ListNotificationsResponse,
+  NotificationTemplate,
+  CreateTemplateRequest,
+  UpdateTemplateRequest,
+  ListTemplatesResponse,
+  PreviewTemplateResponse,
+  NotificationPermission,
+  ResourceType,
+  Relation,
+  SubjectType,
+  PermissionAction,
+  GrantAccessRequest,
+  GrantAccessResponse,
+  CheckAccessRequest,
+  CheckAccessResponse,
+  GetEffectivePermissionsResponse,
+  ListPermissionsResponse,
+  NotificationUser,
+  NotificationRole,
+  ListNotificationUsersResponse,
+  ListNotificationRolesResponse,
+} from '../generated/api/notification/service/v1';

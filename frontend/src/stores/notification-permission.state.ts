@@ -1,16 +1,16 @@
 import { defineStore } from 'pinia';
 
-import {
-  PermissionService,
-  type ListPermissionsResponse,
-  type GrantAccessResponse,
-  type CheckAccessResponse,
-  type GetEffectivePermissionsResponse,
-  type ResourceType,
-  type SubjectType,
-  type RelationType,
-  type PermissionAction,
-} from '../api/services';
+import { permissionService } from '../api/client';
+import type {
+  ListPermissionsResponse,
+  GrantAccessResponse,
+  CheckAccessResponse,
+  GetEffectivePermissionsResponse,
+  ResourceType,
+  SubjectType,
+  Relation,
+  PermissionAction,
+} from '../api/client';
 import type { Paging } from '../types';
 
 export const useNotificationPermissionStore = defineStore(
@@ -19,12 +19,12 @@ export const useNotificationPermissionStore = defineStore(
     async function grantAccess(request: {
       resourceType: ResourceType;
       resourceId: string;
-      relation: RelationType;
+      relation: Relation;
       subjectType: SubjectType;
       subjectId: string;
       expiresAt?: string;
     }): Promise<GrantAccessResponse> {
-      return await PermissionService.grant(request);
+      return await permissionService.GrantAccess(request as any);
     }
 
     async function revokeAccess(request: {
@@ -32,9 +32,9 @@ export const useNotificationPermissionStore = defineStore(
       resourceId?: string;
       subjectType?: SubjectType;
       subjectId?: string;
-      relation?: RelationType;
+      relation?: Relation;
     }): Promise<void> {
-      return await PermissionService.revoke(request);
+      await permissionService.RevokeAccess(request as any);
     }
 
     async function listPermissions(
@@ -46,14 +46,14 @@ export const useNotificationPermissionStore = defineStore(
         subjectId?: string;
       } | null,
     ): Promise<ListPermissionsResponse> {
-      return await PermissionService.list({
+      return await permissionService.ListPermissions({
         resourceType: formValues?.resourceType,
         resourceId: formValues?.resourceId,
         subjectType: formValues?.subjectType,
         subjectId: formValues?.subjectId,
         page: paging?.page,
         pageSize: paging?.pageSize,
-      });
+      } as any);
     }
 
     async function checkAccess(
@@ -63,13 +63,13 @@ export const useNotificationPermissionStore = defineStore(
       resourceId: string,
       permission: PermissionAction,
     ): Promise<CheckAccessResponse> {
-      return await PermissionService.check({
+      return await permissionService.CheckAccess({
         subjectId,
         subjectType,
         resourceType,
         resourceId,
         permission,
-      });
+      } as any);
     }
 
     async function getEffectivePermissions(
@@ -78,12 +78,12 @@ export const useNotificationPermissionStore = defineStore(
       resourceType: ResourceType,
       resourceId: string,
     ): Promise<GetEffectivePermissionsResponse> {
-      return await PermissionService.getEffective({
+      return await permissionService.GetEffectivePermissions({
         subjectId,
         subjectType,
         resourceType,
         resourceId,
-      });
+      } as any);
     }
 
     function $reset() {}

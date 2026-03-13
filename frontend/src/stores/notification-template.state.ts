@@ -1,17 +1,14 @@
 import { defineStore } from 'pinia';
 
-import {
-  TemplateService,
-  type CreateTemplateRequest,
-  type UpdateTemplateRequest,
-} from '../api/services';
+import { templateService } from '../api/client';
+import type { CreateTemplateRequest, UpdateTemplateRequest } from '../api/client';
 import type { Paging } from '../types';
 
 export const useNotificationTemplateStore = defineStore(
   'notification-template',
   () => {
     async function listTemplates(paging?: Paging, formValues?: { name?: string; channelId?: string } | null) {
-      return await TemplateService.list({
+      return await templateService.ListTemplates({
         page: paging?.page,
         pageSize: paging?.pageSize,
         ...(formValues || {}),
@@ -19,27 +16,28 @@ export const useNotificationTemplateStore = defineStore(
     }
 
     async function getTemplate(id: string) {
-      return await TemplateService.get(id);
+      return await templateService.GetTemplate({ id });
     }
 
     async function createTemplate(data: CreateTemplateRequest) {
-      return await TemplateService.create(data);
+      return await templateService.CreateTemplate(data);
     }
 
     async function updateTemplate(id: string, data: UpdateTemplateRequest) {
-      return await TemplateService.update(id, data);
+      return await templateService.UpdateTemplate({ id, ...data });
     }
 
     async function deleteTemplate(id: string) {
-      return await TemplateService.delete(id);
+      return await templateService.DeleteTemplate({ id });
     }
 
     async function previewTemplate(data: {
       subject: string;
       body: string;
+      channelId?: string;
       variables?: Record<string, string>;
     }) {
-      return await TemplateService.preview(data);
+      return await templateService.PreviewTemplate(data as any);
     }
 
     function $reset() {}

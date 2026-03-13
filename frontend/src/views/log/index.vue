@@ -6,7 +6,7 @@ import { Page, type VbenFormProps } from 'shell/vben/common-ui';
 import { Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from 'shell/adapter/vxe-table';
-import { type NotificationLog } from '../../api/services';
+import { type NotificationLog } from '../../api/client';
 import { $t } from 'shell/locales';
 import { useNotificationLogStore } from '../../stores/notification-log.state';
 import { channelTypeList, channelTypeLabel, channelTypeColor, deliveryStatusList, deliveryStatusLabel, deliveryStatusColor } from '../../helpers';

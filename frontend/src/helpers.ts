@@ -1,5 +1,5 @@
 import { $t } from 'shell/locales';
-import type { ChannelType, DeliveryStatus } from './api/services';
+import type { ChannelType, DeliveryStatus } from './api/client';
 
 export function channelTypeList() {
   return [
