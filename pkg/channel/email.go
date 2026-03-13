@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -91,9 +92,9 @@ func (s *EmailSender) Send(ctx context.Context, msg *Message) error {
 	addr := net.JoinHostPort(s.config.Host, strconv.Itoa(s.config.Port))
 
 	headers := map[string]string{
-		"From":         sanitizeHeaderValue(s.config.From),
-		"To":           sanitizeHeaderValue(msg.Recipient),
-		"Subject":      sanitizeHeaderValue(msg.Subject),
+		"From":         encodeHeaderIfNeeded(s.config.From),
+		"To":           encodeHeaderIfNeeded(msg.Recipient),
+		"Subject":      encodeHeaderIfNeeded(msg.Subject),
 		"MIME-Version": "1.0",
 		"Content-Type": "text/html; charset=\"UTF-8\"",
 	}
@@ -207,6 +208,35 @@ func (s *EmailSender) sendImplicitTLS(addr string, auth smtp.Auth, body, recipie
 // sanitizeHeaderValue strips CR and LF characters to prevent SMTP header injection.
 func sanitizeHeaderValue(s string) string {
 	return strings.NewReplacer("\r", "", "\n", "").Replace(s)
+}
+
+// isASCII returns true if s contains only ASCII characters.
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] > 127 {
+			return false
+		}
+	}
+	return true
+}
+
+// encodeHeaderIfNeeded applies RFC 2047 MIME encoding to header values that contain
+// non-ASCII characters. This prevents Postfix from requiring the SMTPUTF8 extension
+// which many mail servers don't support.
+func encodeHeaderIfNeeded(value string) string {
+	value = sanitizeHeaderValue(value)
+	if isASCII(value) {
+		return value
+	}
+
+	// For email addresses with display names like "Имя <user@example.com>",
+	// only encode the display name part.
+	if addr, err := mail.ParseAddress(value); err == nil {
+		encoded := mime.QEncoding.Encode("UTF-8", addr.Name)
+		return fmt.Sprintf("%s <%s>", encoded, addr.Address)
+	}
+
+	return mime.QEncoding.Encode("UTF-8", value)
 }
 
 func (s *EmailSender) sendMailViaSMTPClient(c *smtp.Client, body, recipient string) error {
