@@ -199,7 +199,9 @@ func (s *InternalMessageService) SendMessage(ctx context.Context, req *notificat
 		if err != nil {
 			s.log.Errorf("send message failed, list users failed, %s", err)
 		} else {
+			s.log.Infof("SendMessage: targetAll=true, ListUsers returned %d users for message %d", len(users.GetItems()), msg.GetId())
 			for _, user := range users.Items {
+				s.log.Infof("SendMessage: sending notification to user %d (username=%s) for message %d", user.GetId(), user.GetUsername(), msg.GetId())
 				if err := s.sendNotification(ctx, msg.GetId(), user.GetId(), senderUserId, &now, msg.GetTitle(), msg.GetContent()); err != nil {
 					s.log.Warnf("failed to send notification to user %d: %v", user.GetId(), err)
 				}
@@ -242,14 +244,17 @@ func (s *InternalMessageService) sendNotification(ctx context.Context, messageId
 		return err
 	}
 	recipient.Id = entity.Id
+	s.log.Infof("sendNotification: created recipient record id=%d for user %d, message %d", entity.GetId(), recipientUserId, messageId)
 
 	if s.sseServer == nil {
+		s.log.Warnf("sendNotification: sseServer is nil, skipping SSE publish for user %d", recipientUserId)
 		return nil
 	}
 
 	recipientJson, _ := json.Marshal(recipient)
 
 	recipientStreamIds := s.userToken.GetAccessTokens(ctx, recipientUserId)
+	s.log.Infof("sendNotification: user %d has %d active SSE streams", recipientUserId, len(recipientStreamIds))
 	for _, streamId := range recipientStreamIds {
 		s.sseServer.Publish(ctx, sse.StreamID(streamId), &sse.Event{
 			ID:    []byte(uuid.New().String()),
