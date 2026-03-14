@@ -10,18 +10,18 @@ export const useInternalMessageCategoryStore = defineStore(
       paging?: Paging,
       formValues?: Record<string, string | undefined> | null,
     ) {
-      const queryParts: string[] = [];
+      const filterObj: Record<string, unknown> = {};
       if (formValues) {
         for (const [key, val] of Object.entries(formValues)) {
           if (val !== undefined && val !== null && val !== '') {
-            queryParts.push(`${key}=${val}`);
+            filterObj[key] = val;
           }
         }
       }
       return await internalMessageCategoryService.List({
         page: paging?.page,
         pageSize: paging?.pageSize,
-        query: queryParts.length > 0 ? queryParts.join('&') : undefined,
+        query: Object.keys(filterObj).length > 0 ? JSON.stringify(filterObj) : undefined,
       });
     }
 

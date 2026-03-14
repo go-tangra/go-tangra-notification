@@ -11,18 +11,18 @@ export const useInternalMessageStore = defineStore(
       paging?: Paging,
       formValues?: { status?: string; type?: string; category_id?: string } | null,
     ) {
-      const queryParts: string[] = [];
+      const filterObj: Record<string, unknown> = {};
       if (formValues) {
         for (const [key, val] of Object.entries(formValues)) {
           if (val !== undefined && val !== null && val !== '') {
-            queryParts.push(`${key}=${val}`);
+            filterObj[key] = val;
           }
         }
       }
       return await internalMessageService.ListMessage({
         page: paging?.page,
         pageSize: paging?.pageSize,
-        query: queryParts.length > 0 ? queryParts.join('&') : undefined,
+        query: Object.keys(filterObj).length > 0 ? JSON.stringify(filterObj) : undefined,
       });
     }
 
@@ -57,19 +57,29 @@ export const useInternalMessageStore = defineStore(
       _fieldMask?: null | string,
       orderBy?: null | string[],
     ) {
-      const queryParts: string[] = [];
+      const filterObj: Record<string, unknown> = {};
       if (formValues) {
         for (const [key, val] of Object.entries(formValues)) {
           if (val !== undefined && val !== null && val !== '') {
-            queryParts.push(`${key}=${val}`);
+            filterObj[key] = val;
           }
         }
+      }
+      // Convert "-field" prefix notation to AIP format "field desc"
+      let aipOrderBy: string | undefined;
+      if (orderBy) {
+        aipOrderBy = orderBy.map((field) => {
+          if (field.startsWith('-')) {
+            return `${field.slice(1)} desc`;
+          }
+          return `${field} asc`;
+        }).join(',');
       }
       return await internalMessageRecipientService.ListUserInbox({
         page: paging?.page,
         pageSize: paging?.pageSize,
-        query: queryParts.length > 0 ? queryParts.join('&') : undefined,
-        orderBy: orderBy ? orderBy.join(',') : undefined,
+        query: Object.keys(filterObj).length > 0 ? JSON.stringify(filterObj) : undefined,
+        orderBy: aipOrderBy,
       });
     }
 
