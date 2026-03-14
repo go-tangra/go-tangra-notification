@@ -9,6 +9,15 @@ import (
 // Channel is the predicate function for channel builders.
 type Channel func(*sql.Selector)
 
+// InternalMessage is the predicate function for internalmessage builders.
+type InternalMessage func(*sql.Selector)
+
+// InternalMessageCategory is the predicate function for internalmessagecategory builders.
+type InternalMessageCategory func(*sql.Selector)
+
+// InternalMessageRecipient is the predicate function for internalmessagerecipient builders.
+type InternalMessageRecipient func(*sql.Selector)
+
 // NotificationLog is the predicate function for notificationlog builders.
 type NotificationLog func(*sql.Selector)
 

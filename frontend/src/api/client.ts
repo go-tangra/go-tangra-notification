@@ -8,6 +8,26 @@ import {
   createNotificationUserServiceClient,
 } from '../generated/api/notification/service/v1';
 
+import {
+  createInternalMessageServiceClient,
+  createInternalMessageRecipientServiceClient,
+  createInternalMessageCategoryServiceClient,
+} from '../generated/api/notification/service/v1/internal_message';
+
+export type {
+  InternalMessage,
+  InternalMessage_Status,
+  InternalMessage_Type,
+  InternalMessageRecipient,
+  InternalMessageRecipient_Status,
+  InternalMessageCategory,
+  SendMessageRequest,
+  SendMessageResponse,
+  ListInternalMessageResponse,
+  ListUserInboxResponse,
+  ListInternalMessageCategoryResponse,
+} from '../generated/api/notification/service/v1/internal_message';
+
 const MODULE_BASE_URL = '/admin/v1/modules/notification';
 
 type RequestType = { path: string; method: string; body: string | null };
@@ -45,6 +65,9 @@ export const notificationService = createNotificationServiceClient(handler);
 export const templateService = createNotificationTemplateServiceClient(handler);
 export const permissionService = createNotificationPermissionServiceClient(handler);
 export const userService = createNotificationUserServiceClient(handler);
+export const internalMessageService = createInternalMessageServiceClient(handler);
+export const internalMessageRecipientService = createInternalMessageRecipientServiceClient(handler);
+export const internalMessageCategoryService = createInternalMessageCategoryServiceClient(handler);
 
 // Re-export generated types for convenience
 export type {

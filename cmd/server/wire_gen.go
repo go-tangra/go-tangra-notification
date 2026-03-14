@@ -21,10 +21,11 @@ import (
 // Injectors from wire.go:
 
 func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
-	v, err := cert.NewCertManager(context)
+	certManager, err := cert.NewCertManager(context)
 	if err != nil {
 		return nil, nil, err
 	}
+	collector := metrics.NewCollector(context)
 	entClient, cleanup, err := data.NewEntClient(context)
 	if err != nil {
 		return nil, nil, err
@@ -34,7 +35,6 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	permissionStore := providers.ProvidePermissionStore(permissionRepo)
 	resourceLookup := providers.ProvideResourceLookup()
 	engine := providers.ProvideAuthzEngine(permissionStore, resourceLookup, context)
-	collector := metrics.NewCollector(context)
 	channelService := service.NewChannelService(context, channelRepo, permissionRepo, engine, collector)
 	templateRepo := data.NewTemplateRepo(context, entClient)
 	templateService := service.NewTemplateService(context, templateRepo, channelRepo, permissionRepo, engine, collector)
@@ -42,21 +42,38 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	notificationService := service.NewNotificationService(context, channelRepo, templateRepo, notificationLogRepo, engine, collector)
 	checker := providers.ProvideAuthzChecker(engine)
 	permissionService := service.NewPermissionService(context, permissionRepo, checker, engine)
-	adminClient, cleanup2, err := client.NewAdminClient(context, v)
+	adminClient, cleanup2, err := client.NewAdminClient(context, certManager)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
 	userService := service.NewUserService(context, adminClient)
-	grpcServer, err := server.NewGRPCServer(context, v, collector, channelService, templateService, notificationService, permissionService, userService)
+	sseServer := server.NewSseServer(context)
+	redisClient, cleanup3, err := data.NewRedisClient(context)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
+	userTokenCacheRepo := data.NewUserTokenCacheRepo(context, redisClient)
+	sseService := service.NewSSEService(context, sseServer, userTokenCacheRepo)
+	internalMessageRepo := data.NewInternalMessageRepo(context, entClient)
+	internalMessageCategoryRepo := data.NewInternalMessageCategoryRepo(context, entClient)
+	internalMessageRecipientRepo := data.NewInternalMessageRecipientRepo(context, entClient)
+	internalMessageService := service.NewInternalMessageService(context, internalMessageRepo, internalMessageCategoryRepo, internalMessageRecipientRepo, adminClient, sseServer, userTokenCacheRepo)
+	internalMessageRecipientService := service.NewInternalMessageRecipientService(context, internalMessageRepo, internalMessageRecipientRepo)
+	internalMessageCategoryService := service.NewInternalMessageCategoryService(context, internalMessageCategoryRepo)
+	grpcServer, err := server.NewGRPCServer(context, certManager, collector, channelService, templateService, notificationService, permissionService, userService, sseService, internalMessageService, internalMessageRecipientService, internalMessageCategoryService)
+	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
 	httpServer := server.NewHTTPServer(context)
-	app := newApp(context, grpcServer, httpServer)
+	app := newApp(context, grpcServer, httpServer, sseServer)
 	return app, func() {
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil

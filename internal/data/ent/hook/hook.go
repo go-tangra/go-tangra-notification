@@ -21,6 +21,42 @@ func (f ChannelFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChannelMutation", m)
 }
 
+// The InternalMessageFunc type is an adapter to allow the use of ordinary
+// function as InternalMessage mutator.
+type InternalMessageFunc func(context.Context, *ent.InternalMessageMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f InternalMessageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.InternalMessageMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InternalMessageMutation", m)
+}
+
+// The InternalMessageCategoryFunc type is an adapter to allow the use of ordinary
+// function as InternalMessageCategory mutator.
+type InternalMessageCategoryFunc func(context.Context, *ent.InternalMessageCategoryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f InternalMessageCategoryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.InternalMessageCategoryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InternalMessageCategoryMutation", m)
+}
+
+// The InternalMessageRecipientFunc type is an adapter to allow the use of ordinary
+// function as InternalMessageRecipient mutator.
+type InternalMessageRecipientFunc func(context.Context, *ent.InternalMessageRecipientMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f InternalMessageRecipientFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.InternalMessageRecipientMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InternalMessageRecipientMutation", m)
+}
+
 // The NotificationLogFunc type is an adapter to allow the use of ordinary
 // function as NotificationLog mutator.
 type NotificationLogFunc func(context.Context, *ent.NotificationLogMutation) (ent.Value, error)

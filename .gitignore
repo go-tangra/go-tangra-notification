@@ -5,6 +5,10 @@ CLAUDE.md
 frontend/node_modules/
 frontend/dist/
 frontend/.__mf__temp/
+.pnpm-store/
+
+# Temp
+tmp/
 
 # Embedded frontend build artifacts (populated by CI/Docker build)
 cmd/server/assets/frontend-dist/*

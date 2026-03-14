@@ -6,6 +6,9 @@ import (
 	"context"
 
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/channel"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/internalmessage"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/internalmessagecategory"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/internalmessagerecipient"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/notificationlog"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/schema"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/template"
@@ -71,6 +74,98 @@ func init() {
 	channelDescID := channelFields[0].Descriptor()
 	// channel.IDValidator is a validator for the "id" field. It is called by the builders before save.
 	channel.IDValidator = channelDescID.Validators[0].(func(string) error)
+	internalmessageMixin := schema.InternalMessage{}.Mixin()
+	internalmessage.Policy = privacy.NewPolicies(internalmessageMixin[3], schema.InternalMessage{})
+	internalmessage.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := internalmessage.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	internalmessageMixinFields0 := internalmessageMixin[0].Fields()
+	_ = internalmessageMixinFields0
+	internalmessageMixinFields3 := internalmessageMixin[3].Fields()
+	_ = internalmessageMixinFields3
+	internalmessageFields := schema.InternalMessage{}.Fields()
+	_ = internalmessageFields
+	// internalmessageDescTenantID is the schema descriptor for tenant_id field.
+	internalmessageDescTenantID := internalmessageMixinFields3[0].Descriptor()
+	// internalmessage.DefaultTenantID holds the default value on creation for the tenant_id field.
+	internalmessage.DefaultTenantID = internalmessageDescTenantID.Default.(uint32)
+	// internalmessageDescID is the schema descriptor for id field.
+	internalmessageDescID := internalmessageMixinFields0[0].Descriptor()
+	// internalmessage.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	internalmessage.IDValidator = internalmessageDescID.Validators[0].(func(uint32) error)
+	internalmessagecategoryMixin := schema.InternalMessageCategory{}.Mixin()
+	internalmessagecategory.Policy = privacy.NewPolicies(internalmessagecategoryMixin[6], schema.InternalMessageCategory{})
+	internalmessagecategory.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := internalmessagecategory.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	internalmessagecategoryMixinFields0 := internalmessagecategoryMixin[0].Fields()
+	_ = internalmessagecategoryMixinFields0
+	internalmessagecategoryMixinFields3 := internalmessagecategoryMixin[3].Fields()
+	_ = internalmessagecategoryMixinFields3
+	internalmessagecategoryMixinFields4 := internalmessagecategoryMixin[4].Fields()
+	_ = internalmessagecategoryMixinFields4
+	internalmessagecategoryMixinFields6 := internalmessagecategoryMixin[6].Fields()
+	_ = internalmessagecategoryMixinFields6
+	internalmessagecategoryFields := schema.InternalMessageCategory{}.Fields()
+	_ = internalmessagecategoryFields
+	// internalmessagecategoryDescIsEnabled is the schema descriptor for is_enabled field.
+	internalmessagecategoryDescIsEnabled := internalmessagecategoryMixinFields3[0].Descriptor()
+	// internalmessagecategory.DefaultIsEnabled holds the default value on creation for the is_enabled field.
+	internalmessagecategory.DefaultIsEnabled = internalmessagecategoryDescIsEnabled.Default.(bool)
+	// internalmessagecategoryDescSortOrder is the schema descriptor for sort_order field.
+	internalmessagecategoryDescSortOrder := internalmessagecategoryMixinFields4[0].Descriptor()
+	// internalmessagecategory.DefaultSortOrder holds the default value on creation for the sort_order field.
+	internalmessagecategory.DefaultSortOrder = internalmessagecategoryDescSortOrder.Default.(uint32)
+	// internalmessagecategoryDescTenantID is the schema descriptor for tenant_id field.
+	internalmessagecategoryDescTenantID := internalmessagecategoryMixinFields6[0].Descriptor()
+	// internalmessagecategory.DefaultTenantID holds the default value on creation for the tenant_id field.
+	internalmessagecategory.DefaultTenantID = internalmessagecategoryDescTenantID.Default.(uint32)
+	// internalmessagecategoryDescName is the schema descriptor for name field.
+	internalmessagecategoryDescName := internalmessagecategoryFields[0].Descriptor()
+	// internalmessagecategory.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	internalmessagecategory.NameValidator = internalmessagecategoryDescName.Validators[0].(func(string) error)
+	// internalmessagecategoryDescCode is the schema descriptor for code field.
+	internalmessagecategoryDescCode := internalmessagecategoryFields[1].Descriptor()
+	// internalmessagecategory.CodeValidator is a validator for the "code" field. It is called by the builders before save.
+	internalmessagecategory.CodeValidator = internalmessagecategoryDescCode.Validators[0].(func(string) error)
+	// internalmessagecategoryDescID is the schema descriptor for id field.
+	internalmessagecategoryDescID := internalmessagecategoryMixinFields0[0].Descriptor()
+	// internalmessagecategory.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	internalmessagecategory.IDValidator = internalmessagecategoryDescID.Validators[0].(func(uint32) error)
+	internalmessagerecipientMixin := schema.InternalMessageRecipient{}.Mixin()
+	internalmessagerecipient.Policy = privacy.NewPolicies(internalmessagerecipientMixin[2], schema.InternalMessageRecipient{})
+	internalmessagerecipient.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := internalmessagerecipient.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	internalmessagerecipientMixinFields0 := internalmessagerecipientMixin[0].Fields()
+	_ = internalmessagerecipientMixinFields0
+	internalmessagerecipientMixinFields2 := internalmessagerecipientMixin[2].Fields()
+	_ = internalmessagerecipientMixinFields2
+	internalmessagerecipientFields := schema.InternalMessageRecipient{}.Fields()
+	_ = internalmessagerecipientFields
+	// internalmessagerecipientDescTenantID is the schema descriptor for tenant_id field.
+	internalmessagerecipientDescTenantID := internalmessagerecipientMixinFields2[0].Descriptor()
+	// internalmessagerecipient.DefaultTenantID holds the default value on creation for the tenant_id field.
+	internalmessagerecipient.DefaultTenantID = internalmessagerecipientDescTenantID.Default.(uint32)
+	// internalmessagerecipientDescID is the schema descriptor for id field.
+	internalmessagerecipientDescID := internalmessagerecipientMixinFields0[0].Descriptor()
+	// internalmessagerecipient.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	internalmessagerecipient.IDValidator = internalmessagerecipientDescID.Validators[0].(func(uint32) error)
 	notificationlogMixin := schema.NotificationLog{}.Mixin()
 	notificationlog.Policy = privacy.NewPolicies(notificationlogMixin[2], schema.NotificationLog{})
 	notificationlog.Hooks[0] = func(next ent.Mutator) ent.Mutator {

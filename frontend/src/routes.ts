@@ -54,6 +54,26 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('./views/permission/index.vue'),
       },
+      {
+        path: 'messages',
+        name: 'InternalMessageList',
+        meta: {
+          icon: 'lucide:message-circle-more',
+          title: 'notification.menu.internalMessage',
+          authority: ['platform:admin', 'tenant:manager'],
+        },
+        component: () => import('./views/internal-message/message/index.vue'),
+      },
+      {
+        path: 'categories',
+        name: 'InternalMessageCategoryManagement',
+        meta: {
+          icon: 'lucide:calendar-check',
+          title: 'notification.menu.internalMessageCategory',
+          authority: ['platform:admin'],
+        },
+        component: () => import('./views/internal-message/category/index.vue'),
+      },
     ],
   },
 ];

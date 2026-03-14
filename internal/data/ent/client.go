@@ -15,6 +15,9 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/channel"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/internalmessage"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/internalmessagecategory"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/internalmessagerecipient"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/notificationlog"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/template"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/templatepermission"
@@ -27,6 +30,12 @@ type Client struct {
 	Schema *migrate.Schema
 	// Channel is the client for interacting with the Channel builders.
 	Channel *ChannelClient
+	// InternalMessage is the client for interacting with the InternalMessage builders.
+	InternalMessage *InternalMessageClient
+	// InternalMessageCategory is the client for interacting with the InternalMessageCategory builders.
+	InternalMessageCategory *InternalMessageCategoryClient
+	// InternalMessageRecipient is the client for interacting with the InternalMessageRecipient builders.
+	InternalMessageRecipient *InternalMessageRecipientClient
 	// NotificationLog is the client for interacting with the NotificationLog builders.
 	NotificationLog *NotificationLogClient
 	// Template is the client for interacting with the Template builders.
@@ -45,6 +54,9 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Channel = NewChannelClient(c.config)
+	c.InternalMessage = NewInternalMessageClient(c.config)
+	c.InternalMessageCategory = NewInternalMessageCategoryClient(c.config)
+	c.InternalMessageRecipient = NewInternalMessageRecipientClient(c.config)
 	c.NotificationLog = NewNotificationLogClient(c.config)
 	c.Template = NewTemplateClient(c.config)
 	c.TemplatePermission = NewTemplatePermissionClient(c.config)
@@ -138,12 +150,15 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                ctx,
-		config:             cfg,
-		Channel:            NewChannelClient(cfg),
-		NotificationLog:    NewNotificationLogClient(cfg),
-		Template:           NewTemplateClient(cfg),
-		TemplatePermission: NewTemplatePermissionClient(cfg),
+		ctx:                      ctx,
+		config:                   cfg,
+		Channel:                  NewChannelClient(cfg),
+		InternalMessage:          NewInternalMessageClient(cfg),
+		InternalMessageCategory:  NewInternalMessageCategoryClient(cfg),
+		InternalMessageRecipient: NewInternalMessageRecipientClient(cfg),
+		NotificationLog:          NewNotificationLogClient(cfg),
+		Template:                 NewTemplateClient(cfg),
+		TemplatePermission:       NewTemplatePermissionClient(cfg),
 	}, nil
 }
 
@@ -161,12 +176,15 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                ctx,
-		config:             cfg,
-		Channel:            NewChannelClient(cfg),
-		NotificationLog:    NewNotificationLogClient(cfg),
-		Template:           NewTemplateClient(cfg),
-		TemplatePermission: NewTemplatePermissionClient(cfg),
+		ctx:                      ctx,
+		config:                   cfg,
+		Channel:                  NewChannelClient(cfg),
+		InternalMessage:          NewInternalMessageClient(cfg),
+		InternalMessageCategory:  NewInternalMessageCategoryClient(cfg),
+		InternalMessageRecipient: NewInternalMessageRecipientClient(cfg),
+		NotificationLog:          NewNotificationLogClient(cfg),
+		Template:                 NewTemplateClient(cfg),
+		TemplatePermission:       NewTemplatePermissionClient(cfg),
 	}, nil
 }
 
@@ -195,19 +213,25 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.Channel.Use(hooks...)
-	c.NotificationLog.Use(hooks...)
-	c.Template.Use(hooks...)
-	c.TemplatePermission.Use(hooks...)
+	for _, n := range []interface{ Use(...Hook) }{
+		c.Channel, c.InternalMessage, c.InternalMessageCategory,
+		c.InternalMessageRecipient, c.NotificationLog, c.Template,
+		c.TemplatePermission,
+	} {
+		n.Use(hooks...)
+	}
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.Channel.Intercept(interceptors...)
-	c.NotificationLog.Intercept(interceptors...)
-	c.Template.Intercept(interceptors...)
-	c.TemplatePermission.Intercept(interceptors...)
+	for _, n := range []interface{ Intercept(...Interceptor) }{
+		c.Channel, c.InternalMessage, c.InternalMessageCategory,
+		c.InternalMessageRecipient, c.NotificationLog, c.Template,
+		c.TemplatePermission,
+	} {
+		n.Intercept(interceptors...)
+	}
 }
 
 // Mutate implements the ent.Mutator interface.
@@ -215,6 +239,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *ChannelMutation:
 		return c.Channel.mutate(ctx, m)
+	case *InternalMessageMutation:
+		return c.InternalMessage.mutate(ctx, m)
+	case *InternalMessageCategoryMutation:
+		return c.InternalMessageCategory.mutate(ctx, m)
+	case *InternalMessageRecipientMutation:
+		return c.InternalMessageRecipient.mutate(ctx, m)
 	case *NotificationLogMutation:
 		return c.NotificationLog.mutate(ctx, m)
 	case *TemplateMutation:
@@ -357,6 +387,408 @@ func (c *ChannelClient) mutate(ctx context.Context, m *ChannelMutation) (Value, 
 		return (&ChannelDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Channel mutation op: %q", m.Op())
+	}
+}
+
+// InternalMessageClient is a client for the InternalMessage schema.
+type InternalMessageClient struct {
+	config
+}
+
+// NewInternalMessageClient returns a client for the InternalMessage from the given config.
+func NewInternalMessageClient(c config) *InternalMessageClient {
+	return &InternalMessageClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `internalmessage.Hooks(f(g(h())))`.
+func (c *InternalMessageClient) Use(hooks ...Hook) {
+	c.hooks.InternalMessage = append(c.hooks.InternalMessage, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `internalmessage.Intercept(f(g(h())))`.
+func (c *InternalMessageClient) Intercept(interceptors ...Interceptor) {
+	c.inters.InternalMessage = append(c.inters.InternalMessage, interceptors...)
+}
+
+// Create returns a builder for creating a InternalMessage entity.
+func (c *InternalMessageClient) Create() *InternalMessageCreate {
+	mutation := newInternalMessageMutation(c.config, OpCreate)
+	return &InternalMessageCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of InternalMessage entities.
+func (c *InternalMessageClient) CreateBulk(builders ...*InternalMessageCreate) *InternalMessageCreateBulk {
+	return &InternalMessageCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *InternalMessageClient) MapCreateBulk(slice any, setFunc func(*InternalMessageCreate, int)) *InternalMessageCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &InternalMessageCreateBulk{err: fmt.Errorf("calling to InternalMessageClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*InternalMessageCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &InternalMessageCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for InternalMessage.
+func (c *InternalMessageClient) Update() *InternalMessageUpdate {
+	mutation := newInternalMessageMutation(c.config, OpUpdate)
+	return &InternalMessageUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *InternalMessageClient) UpdateOne(_m *InternalMessage) *InternalMessageUpdateOne {
+	mutation := newInternalMessageMutation(c.config, OpUpdateOne, withInternalMessage(_m))
+	return &InternalMessageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *InternalMessageClient) UpdateOneID(id uint32) *InternalMessageUpdateOne {
+	mutation := newInternalMessageMutation(c.config, OpUpdateOne, withInternalMessageID(id))
+	return &InternalMessageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for InternalMessage.
+func (c *InternalMessageClient) Delete() *InternalMessageDelete {
+	mutation := newInternalMessageMutation(c.config, OpDelete)
+	return &InternalMessageDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *InternalMessageClient) DeleteOne(_m *InternalMessage) *InternalMessageDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *InternalMessageClient) DeleteOneID(id uint32) *InternalMessageDeleteOne {
+	builder := c.Delete().Where(internalmessage.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &InternalMessageDeleteOne{builder}
+}
+
+// Query returns a query builder for InternalMessage.
+func (c *InternalMessageClient) Query() *InternalMessageQuery {
+	return &InternalMessageQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeInternalMessage},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a InternalMessage entity by its id.
+func (c *InternalMessageClient) Get(ctx context.Context, id uint32) (*InternalMessage, error) {
+	return c.Query().Where(internalmessage.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *InternalMessageClient) GetX(ctx context.Context, id uint32) *InternalMessage {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *InternalMessageClient) Hooks() []Hook {
+	hooks := c.hooks.InternalMessage
+	return append(hooks[:len(hooks):len(hooks)], internalmessage.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *InternalMessageClient) Interceptors() []Interceptor {
+	return c.inters.InternalMessage
+}
+
+func (c *InternalMessageClient) mutate(ctx context.Context, m *InternalMessageMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&InternalMessageCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&InternalMessageUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&InternalMessageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&InternalMessageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown InternalMessage mutation op: %q", m.Op())
+	}
+}
+
+// InternalMessageCategoryClient is a client for the InternalMessageCategory schema.
+type InternalMessageCategoryClient struct {
+	config
+}
+
+// NewInternalMessageCategoryClient returns a client for the InternalMessageCategory from the given config.
+func NewInternalMessageCategoryClient(c config) *InternalMessageCategoryClient {
+	return &InternalMessageCategoryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `internalmessagecategory.Hooks(f(g(h())))`.
+func (c *InternalMessageCategoryClient) Use(hooks ...Hook) {
+	c.hooks.InternalMessageCategory = append(c.hooks.InternalMessageCategory, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `internalmessagecategory.Intercept(f(g(h())))`.
+func (c *InternalMessageCategoryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.InternalMessageCategory = append(c.inters.InternalMessageCategory, interceptors...)
+}
+
+// Create returns a builder for creating a InternalMessageCategory entity.
+func (c *InternalMessageCategoryClient) Create() *InternalMessageCategoryCreate {
+	mutation := newInternalMessageCategoryMutation(c.config, OpCreate)
+	return &InternalMessageCategoryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of InternalMessageCategory entities.
+func (c *InternalMessageCategoryClient) CreateBulk(builders ...*InternalMessageCategoryCreate) *InternalMessageCategoryCreateBulk {
+	return &InternalMessageCategoryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *InternalMessageCategoryClient) MapCreateBulk(slice any, setFunc func(*InternalMessageCategoryCreate, int)) *InternalMessageCategoryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &InternalMessageCategoryCreateBulk{err: fmt.Errorf("calling to InternalMessageCategoryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*InternalMessageCategoryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &InternalMessageCategoryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for InternalMessageCategory.
+func (c *InternalMessageCategoryClient) Update() *InternalMessageCategoryUpdate {
+	mutation := newInternalMessageCategoryMutation(c.config, OpUpdate)
+	return &InternalMessageCategoryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *InternalMessageCategoryClient) UpdateOne(_m *InternalMessageCategory) *InternalMessageCategoryUpdateOne {
+	mutation := newInternalMessageCategoryMutation(c.config, OpUpdateOne, withInternalMessageCategory(_m))
+	return &InternalMessageCategoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *InternalMessageCategoryClient) UpdateOneID(id uint32) *InternalMessageCategoryUpdateOne {
+	mutation := newInternalMessageCategoryMutation(c.config, OpUpdateOne, withInternalMessageCategoryID(id))
+	return &InternalMessageCategoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for InternalMessageCategory.
+func (c *InternalMessageCategoryClient) Delete() *InternalMessageCategoryDelete {
+	mutation := newInternalMessageCategoryMutation(c.config, OpDelete)
+	return &InternalMessageCategoryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *InternalMessageCategoryClient) DeleteOne(_m *InternalMessageCategory) *InternalMessageCategoryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *InternalMessageCategoryClient) DeleteOneID(id uint32) *InternalMessageCategoryDeleteOne {
+	builder := c.Delete().Where(internalmessagecategory.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &InternalMessageCategoryDeleteOne{builder}
+}
+
+// Query returns a query builder for InternalMessageCategory.
+func (c *InternalMessageCategoryClient) Query() *InternalMessageCategoryQuery {
+	return &InternalMessageCategoryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeInternalMessageCategory},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a InternalMessageCategory entity by its id.
+func (c *InternalMessageCategoryClient) Get(ctx context.Context, id uint32) (*InternalMessageCategory, error) {
+	return c.Query().Where(internalmessagecategory.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *InternalMessageCategoryClient) GetX(ctx context.Context, id uint32) *InternalMessageCategory {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *InternalMessageCategoryClient) Hooks() []Hook {
+	hooks := c.hooks.InternalMessageCategory
+	return append(hooks[:len(hooks):len(hooks)], internalmessagecategory.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *InternalMessageCategoryClient) Interceptors() []Interceptor {
+	return c.inters.InternalMessageCategory
+}
+
+func (c *InternalMessageCategoryClient) mutate(ctx context.Context, m *InternalMessageCategoryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&InternalMessageCategoryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&InternalMessageCategoryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&InternalMessageCategoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&InternalMessageCategoryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown InternalMessageCategory mutation op: %q", m.Op())
+	}
+}
+
+// InternalMessageRecipientClient is a client for the InternalMessageRecipient schema.
+type InternalMessageRecipientClient struct {
+	config
+}
+
+// NewInternalMessageRecipientClient returns a client for the InternalMessageRecipient from the given config.
+func NewInternalMessageRecipientClient(c config) *InternalMessageRecipientClient {
+	return &InternalMessageRecipientClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `internalmessagerecipient.Hooks(f(g(h())))`.
+func (c *InternalMessageRecipientClient) Use(hooks ...Hook) {
+	c.hooks.InternalMessageRecipient = append(c.hooks.InternalMessageRecipient, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `internalmessagerecipient.Intercept(f(g(h())))`.
+func (c *InternalMessageRecipientClient) Intercept(interceptors ...Interceptor) {
+	c.inters.InternalMessageRecipient = append(c.inters.InternalMessageRecipient, interceptors...)
+}
+
+// Create returns a builder for creating a InternalMessageRecipient entity.
+func (c *InternalMessageRecipientClient) Create() *InternalMessageRecipientCreate {
+	mutation := newInternalMessageRecipientMutation(c.config, OpCreate)
+	return &InternalMessageRecipientCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of InternalMessageRecipient entities.
+func (c *InternalMessageRecipientClient) CreateBulk(builders ...*InternalMessageRecipientCreate) *InternalMessageRecipientCreateBulk {
+	return &InternalMessageRecipientCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *InternalMessageRecipientClient) MapCreateBulk(slice any, setFunc func(*InternalMessageRecipientCreate, int)) *InternalMessageRecipientCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &InternalMessageRecipientCreateBulk{err: fmt.Errorf("calling to InternalMessageRecipientClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*InternalMessageRecipientCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &InternalMessageRecipientCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for InternalMessageRecipient.
+func (c *InternalMessageRecipientClient) Update() *InternalMessageRecipientUpdate {
+	mutation := newInternalMessageRecipientMutation(c.config, OpUpdate)
+	return &InternalMessageRecipientUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *InternalMessageRecipientClient) UpdateOne(_m *InternalMessageRecipient) *InternalMessageRecipientUpdateOne {
+	mutation := newInternalMessageRecipientMutation(c.config, OpUpdateOne, withInternalMessageRecipient(_m))
+	return &InternalMessageRecipientUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *InternalMessageRecipientClient) UpdateOneID(id uint32) *InternalMessageRecipientUpdateOne {
+	mutation := newInternalMessageRecipientMutation(c.config, OpUpdateOne, withInternalMessageRecipientID(id))
+	return &InternalMessageRecipientUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for InternalMessageRecipient.
+func (c *InternalMessageRecipientClient) Delete() *InternalMessageRecipientDelete {
+	mutation := newInternalMessageRecipientMutation(c.config, OpDelete)
+	return &InternalMessageRecipientDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *InternalMessageRecipientClient) DeleteOne(_m *InternalMessageRecipient) *InternalMessageRecipientDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *InternalMessageRecipientClient) DeleteOneID(id uint32) *InternalMessageRecipientDeleteOne {
+	builder := c.Delete().Where(internalmessagerecipient.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &InternalMessageRecipientDeleteOne{builder}
+}
+
+// Query returns a query builder for InternalMessageRecipient.
+func (c *InternalMessageRecipientClient) Query() *InternalMessageRecipientQuery {
+	return &InternalMessageRecipientQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeInternalMessageRecipient},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a InternalMessageRecipient entity by its id.
+func (c *InternalMessageRecipientClient) Get(ctx context.Context, id uint32) (*InternalMessageRecipient, error) {
+	return c.Query().Where(internalmessagerecipient.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *InternalMessageRecipientClient) GetX(ctx context.Context, id uint32) *InternalMessageRecipient {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *InternalMessageRecipientClient) Hooks() []Hook {
+	hooks := c.hooks.InternalMessageRecipient
+	return append(hooks[:len(hooks):len(hooks)], internalmessagerecipient.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *InternalMessageRecipientClient) Interceptors() []Interceptor {
+	return c.inters.InternalMessageRecipient
+}
+
+func (c *InternalMessageRecipientClient) mutate(ctx context.Context, m *InternalMessageRecipientMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&InternalMessageRecipientCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&InternalMessageRecipientUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&InternalMessageRecipientUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&InternalMessageRecipientDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown InternalMessageRecipient mutation op: %q", m.Op())
 	}
 }
 
@@ -765,9 +1197,11 @@ func (c *TemplatePermissionClient) mutate(ctx context.Context, m *TemplatePermis
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Channel, NotificationLog, Template, TemplatePermission []ent.Hook
+		Channel, InternalMessage, InternalMessageCategory, InternalMessageRecipient,
+		NotificationLog, Template, TemplatePermission []ent.Hook
 	}
 	inters struct {
-		Channel, NotificationLog, Template, TemplatePermission []ent.Interceptor
+		Channel, InternalMessage, InternalMessageCategory, InternalMessageRecipient,
+		NotificationLog, Template, TemplatePermission []ent.Interceptor
 	}
 )

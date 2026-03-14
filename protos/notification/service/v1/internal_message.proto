@@ -1,0 +1,231 @@
+syntax = "proto3";
+
+package notification.service.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
+
+import "pagination/v1/pagination.proto";
+
+// Internal Message Service
+service InternalMessageService {
+  // Query internal message list
+  rpc ListMessage(pagination.PagingRequest) returns (ListInternalMessageResponse) {
+    option (google.api.http) = {
+      get: "/v1/internal-message/messages"
+    };
+  }
+
+  // Query internal message details
+  rpc GetMessage(GetInternalMessageRequest) returns (InternalMessage) {
+    option (google.api.http) = {
+      get: "/v1/internal-message/messages/{id}"
+    };
+  }
+
+  // Create internal message
+  rpc CreateMessage(CreateInternalMessageRequest) returns (InternalMessage) {
+    option (google.api.http) = {
+      post: "/v1/internal-message/messages"
+      body: "*"
+    };
+  }
+
+  // Update internal message
+  rpc UpdateMessage(UpdateInternalMessageRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/internal-message/messages/{id}"
+      body: "*"
+    };
+  }
+
+  // Delete internal message
+  rpc DeleteMessage(DeleteInternalMessageRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/internal-message/messages/{id}"
+    };
+  }
+
+  // Send message
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
+    option (google.api.http) = {
+      post: "/v1/internal-message/send"
+      body: "*"
+    };
+  }
+
+  // Revoke message
+  rpc RevokeMessage(RevokeMessageRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/internal-message/revoke"
+      body: "*"
+    };
+  }
+}
+
+// Internal Message
+message InternalMessage {
+  // Message Status
+  enum Status {
+    DRAFT = 0;      // Draft
+    PUBLISHED = 1;  // Published/Sent
+    SCHEDULED = 2;  // Scheduled publishing
+    REVOKED = 3;    // Revoked
+    ARCHIVED = 5;   // Archived
+    DELETED = 6;    // Deleted (soft delete)
+  }
+
+  // Message Type
+  enum Type {
+    NOTIFICATION = 0; // Notification
+    PRIVATE = 1;      // Private message
+    GROUP = 2;        // Group chat
+  }
+
+  optional uint32 id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = OPTIONAL
+  ];
+
+  optional string title = 2 [
+    json_name = "title"
+  ];
+
+  optional string content = 3 [
+    json_name = "content"
+  ];
+
+  optional Status status = 4 [
+    json_name = "status"
+  ];
+
+  optional Type type = 5 [
+    json_name = "type"
+  ];
+
+  optional uint32 sender_id = 6 [
+    json_name = "senderId"
+  ];
+
+  optional string sender_name = 7 [
+    json_name = "senderName"
+  ];
+
+  optional uint32 category_id = 8 [
+    json_name = "categoryId"
+  ];
+
+  optional string category_name = 9 [
+    json_name = "categoryName"
+  ];
+
+  optional uint32 tenant_id = 40 [
+    json_name = "tenantId"
+  ];
+  optional string tenant_name = 41 [
+    json_name = "tenantName"
+  ];
+
+  optional uint32 created_by = 100 [json_name = "createdBy"];
+  optional uint32 updated_by = 101 [json_name = "updatedBy"];
+  optional uint32 deleted_by = 102 [json_name = "deletedBy"];
+
+  optional google.protobuf.Timestamp created_at = 200 [json_name = "createdAt"];
+  optional google.protobuf.Timestamp updated_at = 201 [json_name = "updatedAt"];
+  optional google.protobuf.Timestamp deleted_at = 202 [json_name = "deletedAt"];
+}
+
+// List Internal Messages - Response
+message ListInternalMessageResponse {
+  repeated InternalMessage items = 1;
+  uint64 total = 2;
+}
+
+// Get Internal Message Details - Request
+message GetInternalMessageRequest {
+  oneof query_by {
+    uint32 id = 1 [
+      json_name = "id"
+    ];
+  }
+
+  optional google.protobuf.FieldMask view_mask = 100 [
+    json_name = "viewMask"
+  ];
+}
+
+// Create Internal Message - Request
+message CreateInternalMessageRequest {
+  InternalMessage data = 1;
+}
+
+// Update Internal Message - Request
+message UpdateInternalMessageRequest {
+  uint32 id = 1;
+  InternalMessage data = 2;
+  google.protobuf.FieldMask update_mask = 3 [
+    json_name = "updateMask"
+  ];
+  optional bool allow_missing = 4 [
+    json_name = "allowMissing"
+  ];
+}
+
+// Delete Internal Message - Request
+message DeleteInternalMessageRequest {
+  uint32 id = 1;
+}
+
+message SendMessageRequest {
+  InternalMessage.Type type = 1 [
+    json_name = "type"
+  ];
+
+  optional uint32 recipient_user_id = 2 [
+    json_name = "recipientUserId"
+  ];
+
+  optional uint32 conversation_id = 3 [
+    json_name = "conversationId"
+  ];
+
+  optional uint32 category_id = 4 [
+    json_name = "categoryId"
+  ];
+
+  repeated uint32 target_user_ids = 6 [
+    json_name = "targetUserIds"
+  ];
+
+  optional bool target_all = 7 [
+    json_name = "targetAll"
+  ];
+
+  optional string title = 10 [
+    json_name = "title"
+  ];
+
+  string content = 11 [
+    json_name = "content"
+  ];
+}
+
+message SendMessageResponse {
+  uint32 message_id = 1 [
+    json_name = "messageId"
+  ];
+}
+
+message RevokeMessageRequest {
+  uint32 message_id = 1 [
+    json_name = "messageId"
+  ];
+
+  uint32 user_id = 2 [
+    json_name = "userId"
+  ];
+}

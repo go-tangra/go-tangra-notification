@@ -8,3 +8,9 @@ server:
       enable_tracing: false
       enable_validate: true
       enable_metadata: true
+  sse:
+    addr: ":10302"
+    codec: "json"
+    path: "/events"
+    auto_stream: true
+    auto_reply: false

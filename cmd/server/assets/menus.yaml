@@ -51,6 +51,29 @@ menus:
       - platform:admin
       - tenant:manager
 
+  - id: notification-messages
+    parent_id: notification
+    type: MENU
+    name: Messages
+    path: messages
+    component: app/notification/internal-message/message/index.vue
+    icon: lucide:message-circle-more
+    order: 4
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: notification-categories
+    parent_id: notification
+    type: MENU
+    name: Message Categories
+    path: categories
+    component: app/notification/internal-message/category/index.vue
+    icon: lucide:calendar-check
+    order: 5
+    authority:
+      - platform:admin
+
 permission_groups:
   - name: Notification
     module: notification

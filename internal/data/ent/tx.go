@@ -14,6 +14,12 @@ type Tx struct {
 	config
 	// Channel is the client for interacting with the Channel builders.
 	Channel *ChannelClient
+	// InternalMessage is the client for interacting with the InternalMessage builders.
+	InternalMessage *InternalMessageClient
+	// InternalMessageCategory is the client for interacting with the InternalMessageCategory builders.
+	InternalMessageCategory *InternalMessageCategoryClient
+	// InternalMessageRecipient is the client for interacting with the InternalMessageRecipient builders.
+	InternalMessageRecipient *InternalMessageRecipientClient
 	// NotificationLog is the client for interacting with the NotificationLog builders.
 	NotificationLog *NotificationLogClient
 	// Template is the client for interacting with the Template builders.
@@ -152,6 +158,9 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Channel = NewChannelClient(tx.config)
+	tx.InternalMessage = NewInternalMessageClient(tx.config)
+	tx.InternalMessageCategory = NewInternalMessageCategoryClient(tx.config)
+	tx.InternalMessageRecipient = NewInternalMessageRecipientClient(tx.config)
 	tx.NotificationLog = NewNotificationLogClient(tx.config)
 	tx.Template = NewTemplateClient(tx.config)
 	tx.TemplatePermission = NewTemplatePermissionClient(tx.config)

@@ -4,7 +4,9 @@
     "channel": "Channels",
     "template": "Templates",
     "log": "Delivery Log",
-    "permissions": "Permissions"
+    "permissions": "Permissions",
+    "internalMessage": "Messages",
+    "internalMessageCategory": "Message Categories"
   },
   "page": {
     "channelType": {
@@ -92,6 +94,44 @@
       "grantSuccess": "Access granted successfully",
       "revokeSuccess": "Access revoked successfully",
       "revokeConfirm": "Are you sure you want to revoke this access?"
+    },
+    "internalMessage": {
+      "title": "Title",
+      "content": "Content",
+      "status": "Status",
+      "type": "Type",
+      "categoryId": "Category",
+      "categoryName": "Category",
+      "senderName": "Sender",
+      "readAt": "Read At",
+      "moduleName": "Message",
+      "confirmDelete": "Are you sure you want to delete this message?",
+      "buttonCreate": "Create Message",
+      "drawerCreate": "Create Message",
+      "drawerUpdate": "Edit Message",
+      "statusDraft": "Draft",
+      "statusPublished": "Published",
+      "statusScheduled": "Scheduled",
+      "statusRevoked": "Revoked",
+      "statusArchived": "Archived",
+      "statusDeleted": "Deleted",
+      "typeNotification": "Notification",
+      "typePrivate": "Private",
+      "typeGroup": "Group",
+      "recipientSent": "Sent",
+      "recipientReceived": "Received",
+      "recipientRead": "Read",
+      "recipientRevoked": "Revoked",
+      "recipientDeleted": "Deleted"
+    },
+    "internalMessageCategory": {
+      "name": "Name",
+      "code": "Code",
+      "moduleName": "Category",
+      "create": "Create Category",
+      "edit": "Edit Category",
+      "confirmDelete": "Are you sure you want to delete this category?",
+      "buttonCreate": "Create Category"
     }
   }
 }

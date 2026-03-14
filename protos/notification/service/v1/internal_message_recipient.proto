@@ -1,0 +1,230 @@
+syntax = "proto3";
+
+package notification.service.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
+
+import "pagination/v1/pagination.proto";
+
+// Internal Message Recipient Service
+service InternalMessageRecipientService {
+  // Query internal message recipient list
+  rpc List (pagination.PagingRequest) returns (ListInternalMessageRecipientResponse) {
+    option (google.api.http) = {
+      get: "/v1/internal-message/recipients"
+    };
+  }
+
+  // Query internal message recipient details
+  rpc Get (GetInternalMessageRecipientRequest) returns (InternalMessageRecipient) {
+    option (google.api.http) = {
+      get: "/v1/internal-message/recipients/{id}"
+    };
+  }
+
+  // Create internal message recipient
+  rpc Create (CreateInternalMessageRecipientRequest) returns (InternalMessageRecipient) {
+    option (google.api.http) = {
+      post: "/v1/internal-message/recipients"
+      body: "*"
+    };
+  }
+
+  // Update internal message recipient
+  rpc Update (UpdateInternalMessageRecipientRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/v1/internal-message/recipients/{id}"
+      body: "*"
+    };
+  }
+
+  // Delete internal message recipient
+  rpc Delete (DeleteInternalMessageRecipientRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/internal-message/recipients/{id}"
+    };
+  }
+
+  // Batch get internal message recipients by IDs
+  rpc GetInternalMessageRecipientsByIds(GetInternalMessageRecipientsByIdsRequest) returns (ListInternalMessageRecipientResponse) {
+    option (google.api.http) = {
+      post: "/v1/internal-message/recipients/batch"
+      body: "*"
+    };
+  }
+
+  // Get user inbox list (notification type)
+  rpc ListUserInbox(pagination.PagingRequest) returns (ListUserInboxResponse) {
+    option (google.api.http) = {
+      get: "/v1/internal-message/inbox"
+    };
+  }
+
+  // Delete notification record from user inbox
+  rpc DeleteNotificationFromInbox(DeleteNotificationFromInboxRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/internal-message/inbox/delete"
+      body: "*"
+    };
+  }
+
+  // Mark notification as read
+  rpc MarkNotificationAsRead(MarkNotificationAsReadRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/internal-message/inbox/read"
+      body: "*"
+    };
+  }
+
+  // Mark status of some or all notifications for a specific user
+  rpc MarkNotificationsStatus(MarkNotificationsStatusRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/internal-message/inbox/status"
+      body: "*"
+    };
+  }
+}
+
+// Internal Message User Recipient Information
+message InternalMessageRecipient {
+  // Message Status
+  enum Status {
+    SENT = 0;      // Message stored in recipient inbox
+    RECEIVED = 1;  // Recipient client has received the message
+    READ = 2;      // Recipient has read the message
+    REVOKED = 3;   // Message revoked by sender
+    DELETED = 4;   // Recipient deleted this message
+  }
+
+  optional uint32 id = 1 [
+    json_name = "id"
+  ];
+
+  optional uint32 message_id = 2 [
+    json_name = "messageId"
+  ];
+
+  optional uint32 recipient_user_id = 3 [
+    json_name = "recipientUserId"
+  ];
+
+  optional Status status = 4 [
+    json_name = "status"
+  ];
+
+  optional google.protobuf.Timestamp received_at = 5 [json_name = "receivedAt"];
+  optional google.protobuf.Timestamp read_at = 6 [json_name = "readAt"];
+
+  optional string title = 10 [
+    json_name = "title"
+  ];
+
+  optional string content = 11 [
+    json_name = "content"
+  ];
+
+  optional uint32 tenant_id = 40 [
+    json_name = "tenantId"
+  ];
+  optional string tenant_name = 41 [
+    json_name = "tenantName"
+  ];
+
+  optional uint32 created_by = 100 [json_name = "createdBy"];
+  optional uint32 updated_by = 101 [json_name = "updatedBy"];
+  optional uint32 deleted_by = 102 [json_name = "deletedBy"];
+
+  optional google.protobuf.Timestamp created_at = 200 [json_name = "createdAt"];
+  optional google.protobuf.Timestamp updated_at = 201 [json_name = "updatedAt"];
+  optional google.protobuf.Timestamp deleted_at = 202 [json_name = "deletedAt"];
+}
+
+// List Internal Message Recipients - Response
+message ListInternalMessageRecipientResponse {
+  repeated InternalMessageRecipient items = 1;
+  uint64 total = 2;
+}
+
+message ListUserInboxResponse {
+  repeated InternalMessageRecipient items = 1;
+  uint64 total = 2;
+}
+
+// Get Internal Message Recipient Details - Request
+message GetInternalMessageRecipientRequest {
+  oneof query_by {
+    uint32 id = 1 [
+      json_name = "id"
+    ];
+  }
+
+  optional google.protobuf.FieldMask view_mask = 100 [
+    json_name = "viewMask"
+  ];
+}
+
+// Create Internal Message Recipient - Request
+message CreateInternalMessageRecipientRequest {
+  InternalMessageRecipient data = 1;
+}
+
+// Update Internal Message Recipient - Request
+message UpdateInternalMessageRecipientRequest {
+  uint32 id = 1;
+  InternalMessageRecipient data = 2;
+  google.protobuf.FieldMask update_mask = 3 [
+    json_name = "updateMask"
+  ];
+  optional bool allow_missing = 4 [
+    json_name = "allowMissing"
+  ];
+}
+
+// Delete Internal Message Recipient - Request
+message DeleteInternalMessageRecipientRequest {
+  uint32 id = 1;
+}
+
+// Batch Get Internal Message Recipients by IDs - Request
+message GetInternalMessageRecipientsByIdsRequest {
+  repeated uint32 ids = 1;
+}
+
+message DeleteNotificationFromInboxRequest {
+  uint32 user_id = 1 [
+    json_name = "userId"
+  ];
+
+  repeated uint32 recipient_ids = 2 [
+    json_name = "recipientIds"
+  ];
+}
+
+message MarkNotificationAsReadRequest {
+  uint32 user_id = 1 [
+    json_name = "userId"
+  ];
+
+  repeated uint32 recipient_ids = 2 [
+    json_name = "recipientIds"
+  ];
+}
+
+message MarkNotificationsStatusRequest {
+  uint32 user_id = 1 [
+    json_name = "userId"
+  ];
+
+  repeated uint32 recipient_ids = 2 [
+    json_name = "recipientIds"
+  ];
+
+  InternalMessageRecipient.Status new_status = 3 [
+    json_name = "newStatus"
+  ];
+}

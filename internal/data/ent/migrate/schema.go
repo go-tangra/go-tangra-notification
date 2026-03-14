@@ -52,6 +52,160 @@ var (
 			},
 		},
 	}
+	// InternalMessagesColumns holds the columns for the "internal_messages" table.
+	InternalMessagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint32, Increment: true, Comment: "id"},
+		{Name: "created_at", Type: field.TypeTime, Nullable: true, Comment: "创建时间"},
+		{Name: "updated_at", Type: field.TypeTime, Nullable: true, Comment: "更新时间"},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, Comment: "删除时间"},
+		{Name: "created_by", Type: field.TypeUint32, Nullable: true, Comment: "创建者ID"},
+		{Name: "updated_by", Type: field.TypeUint32, Nullable: true, Comment: "更新者ID"},
+		{Name: "deleted_by", Type: field.TypeUint32, Nullable: true, Comment: "删除者ID"},
+		{Name: "tenant_id", Type: field.TypeUint32, Nullable: true, Comment: "租户ID", Default: 0},
+		{Name: "title", Type: field.TypeString, Nullable: true, Comment: "Message title"},
+		{Name: "content", Type: field.TypeString, Nullable: true, Comment: "Message content"},
+		{Name: "sender_id", Type: field.TypeUint32, Comment: "Sender user ID"},
+		{Name: "category_id", Type: field.TypeUint32, Nullable: true, Comment: "Category ID"},
+		{Name: "status", Type: field.TypeEnum, Nullable: true, Comment: "Message status", Enums: []string{"DRAFT", "PUBLISHED", "SCHEDULED", "REVOKED", "ARCHIVED", "DELETED"}, Default: "DRAFT"},
+		{Name: "type", Type: field.TypeEnum, Nullable: true, Comment: "Message type", Enums: []string{"NOTIFICATION", "PRIVATE", "GROUP"}, Default: "NOTIFICATION"},
+	}
+	// InternalMessagesTable holds the schema information for the "internal_messages" table.
+	InternalMessagesTable = &schema.Table{
+		Name:       "internal_messages",
+		Comment:    "Internal messages table",
+		Columns:    InternalMessagesColumns,
+		PrimaryKey: []*schema.Column{InternalMessagesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_internal_msg_tenant_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessagesColumns[7], InternalMessagesColumns[1]},
+			},
+			{
+				Name:    "idx_internal_msg_tenant_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessagesColumns[7], InternalMessagesColumns[12], InternalMessagesColumns[1]},
+			},
+			{
+				Name:    "idx_internal_msg_tenant_sender_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessagesColumns[7], InternalMessagesColumns[10], InternalMessagesColumns[1]},
+			},
+			{
+				Name:    "idx_internal_msg_tenant_category",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessagesColumns[7], InternalMessagesColumns[11]},
+			},
+			{
+				Name:    "idx_internal_msg_tenant_created_by_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessagesColumns[7], InternalMessagesColumns[4], InternalMessagesColumns[1]},
+			},
+		},
+	}
+	// InternalMessageCategoriesColumns holds the columns for the "internal_message_categories" table.
+	InternalMessageCategoriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint32, Increment: true, Comment: "id"},
+		{Name: "created_at", Type: field.TypeTime, Nullable: true, Comment: "创建时间"},
+		{Name: "updated_at", Type: field.TypeTime, Nullable: true, Comment: "更新时间"},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, Comment: "删除时间"},
+		{Name: "created_by", Type: field.TypeUint32, Nullable: true, Comment: "创建者ID"},
+		{Name: "updated_by", Type: field.TypeUint32, Nullable: true, Comment: "更新者ID"},
+		{Name: "deleted_by", Type: field.TypeUint32, Nullable: true, Comment: "删除者ID"},
+		{Name: "is_enabled", Type: field.TypeBool, Nullable: true, Comment: "是否启用", Default: true},
+		{Name: "sort_order", Type: field.TypeUint32, Nullable: true, Comment: "排序值（越小越靠前）", Default: 0},
+		{Name: "remark", Type: field.TypeString, Nullable: true, Comment: "备注"},
+		{Name: "tenant_id", Type: field.TypeUint32, Nullable: true, Comment: "租户ID", Default: 0},
+		{Name: "name", Type: field.TypeString, Nullable: true, Comment: "Name"},
+		{Name: "code", Type: field.TypeString, Nullable: true, Comment: "Code"},
+		{Name: "icon_url", Type: field.TypeString, Nullable: true, Comment: "Icon URL"},
+	}
+	// InternalMessageCategoriesTable holds the schema information for the "internal_message_categories" table.
+	InternalMessageCategoriesTable = &schema.Table{
+		Name:       "internal_message_categories",
+		Comment:    "Internal message categories table",
+		Columns:    InternalMessageCategoriesColumns,
+		PrimaryKey: []*schema.Column{InternalMessageCategoriesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_internal_msg_cat_tenant_code",
+				Unique:  true,
+				Columns: []*schema.Column{InternalMessageCategoriesColumns[10], InternalMessageCategoriesColumns[12]},
+			},
+			{
+				Name:    "idx_internal_msg_cat_tenant_name",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageCategoriesColumns[10], InternalMessageCategoriesColumns[11]},
+			},
+			{
+				Name:    "idx_internal_msg_cat_tenant_enabled",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageCategoriesColumns[10], InternalMessageCategoriesColumns[7]},
+			},
+			{
+				Name:    "idx_internal_msg_cat_tenant_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageCategoriesColumns[10], InternalMessageCategoriesColumns[1]},
+			},
+			{
+				Name:    "idx_internal_msg_cat_tenant_created_by",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageCategoriesColumns[10], InternalMessageCategoriesColumns[4]},
+			},
+		},
+	}
+	// InternalMessageRecipientsColumns holds the columns for the "internal_message_recipients" table.
+	InternalMessageRecipientsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint32, Increment: true, Comment: "id"},
+		{Name: "created_at", Type: field.TypeTime, Nullable: true, Comment: "创建时间"},
+		{Name: "updated_at", Type: field.TypeTime, Nullable: true, Comment: "更新时间"},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, Comment: "删除时间"},
+		{Name: "tenant_id", Type: field.TypeUint32, Nullable: true, Comment: "租户ID", Default: 0},
+		{Name: "message_id", Type: field.TypeUint32, Nullable: true, Comment: "Internal message content ID"},
+		{Name: "recipient_user_id", Type: field.TypeUint32, Nullable: true, Comment: "Recipient user ID"},
+		{Name: "status", Type: field.TypeEnum, Nullable: true, Comment: "Message status", Enums: []string{"SENT", "RECEIVED", "READ", "REVOKED", "DELETED"}},
+		{Name: "received_at", Type: field.TypeTime, Nullable: true, Comment: "Time when message arrived in user inbox"},
+		{Name: "read_at", Type: field.TypeTime, Nullable: true, Comment: "Time when user read the message"},
+	}
+	// InternalMessageRecipientsTable holds the schema information for the "internal_message_recipients" table.
+	InternalMessageRecipientsTable = &schema.Table{
+		Name:       "internal_message_recipients",
+		Comment:    "Internal message recipients table",
+		Columns:    InternalMessageRecipientsColumns,
+		PrimaryKey: []*schema.Column{InternalMessageRecipientsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_internal_msg_recipient_tenant_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageRecipientsColumns[4], InternalMessageRecipientsColumns[1]},
+			},
+			{
+				Name:    "idx_internal_msg_recipient_tenant_message",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageRecipientsColumns[4], InternalMessageRecipientsColumns[5]},
+			},
+			{
+				Name:    "idx_internal_msg_recipient_tenant_recipient_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageRecipientsColumns[4], InternalMessageRecipientsColumns[6], InternalMessageRecipientsColumns[1]},
+			},
+			{
+				Name:    "idx_internal_msg_recipient_tenant_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageRecipientsColumns[4], InternalMessageRecipientsColumns[7], InternalMessageRecipientsColumns[1]},
+			},
+			{
+				Name:    "idx_internal_msg_recipient_recipient_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageRecipientsColumns[6], InternalMessageRecipientsColumns[7], InternalMessageRecipientsColumns[1]},
+			},
+			{
+				Name:    "idx_internal_msg_recipient_message_recipient",
+				Unique:  false,
+				Columns: []*schema.Column{InternalMessageRecipientsColumns[5], InternalMessageRecipientsColumns[6]},
+			},
+		},
+	}
 	// NotificationLogsColumns holds the columns for the "notification_logs" table.
 	NotificationLogsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Unique: true, Comment: "UUID primary key"},
@@ -203,6 +357,9 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		NotificationChannelsTable,
+		InternalMessagesTable,
+		InternalMessageCategoriesTable,
+		InternalMessageRecipientsTable,
 		NotificationLogsTable,
 		NotificationTemplatesTable,
 		NotificationTemplatePermissionsTable,
@@ -212,6 +369,21 @@ var (
 func init() {
 	NotificationChannelsTable.Annotation = &entsql.Annotation{
 		Table: "notification_channels",
+	}
+	InternalMessagesTable.Annotation = &entsql.Annotation{
+		Table:     "internal_messages",
+		Charset:   "utf8mb4",
+		Collation: "utf8mb4_bin",
+	}
+	InternalMessageCategoriesTable.Annotation = &entsql.Annotation{
+		Table:     "internal_message_categories",
+		Charset:   "utf8mb4",
+		Collation: "utf8mb4_bin",
+	}
+	InternalMessageRecipientsTable.Annotation = &entsql.Annotation{
+		Table:     "internal_message_recipients",
+		Charset:   "utf8mb4",
+		Collation: "utf8mb4_bin",
 	}
 	NotificationLogsTable.Annotation = &entsql.Annotation{
 		Table: "notification_logs",

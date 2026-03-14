@@ -13,6 +13,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/channel"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/internalmessage"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/internalmessagecategory"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/internalmessagerecipient"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/notificationlog"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/template"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/templatepermission"
@@ -76,10 +79,13 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			channel.Table:            channel.ValidColumn,
-			notificationlog.Table:    notificationlog.ValidColumn,
-			template.Table:           template.ValidColumn,
-			templatepermission.Table: templatepermission.ValidColumn,
+			channel.Table:                  channel.ValidColumn,
+			internalmessage.Table:          internalmessage.ValidColumn,
+			internalmessagecategory.Table:  internalmessagecategory.ValidColumn,
+			internalmessagerecipient.Table: internalmessagerecipient.ValidColumn,
+			notificationlog.Table:          notificationlog.ValidColumn,
+			template.Table:                 template.ValidColumn,
+			templatepermission.Table:       templatepermission.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

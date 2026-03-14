@@ -65,3 +65,89 @@ export function enableBoolToColor(value: boolean): string {
 export function enableBoolToName(value: boolean): string {
   return value ? $t('notification.page.common.enabled') : $t('notification.page.common.disabled');
 }
+
+// ---------- Internal Message ----------
+
+import type { InternalMessage_Status, InternalMessage_Type, InternalMessageRecipient_Status } from './api/client';
+
+export function internalMessageStatusList() {
+  return [
+    { value: 'DRAFT', label: $t('notification.page.internalMessage.statusDraft') },
+    { value: 'PUBLISHED', label: $t('notification.page.internalMessage.statusPublished') },
+    { value: 'SCHEDULED', label: $t('notification.page.internalMessage.statusScheduled') },
+    { value: 'REVOKED', label: $t('notification.page.internalMessage.statusRevoked') },
+    { value: 'ARCHIVED', label: $t('notification.page.internalMessage.statusArchived') },
+    { value: 'DELETED', label: $t('notification.page.internalMessage.statusDeleted') },
+  ];
+}
+
+export function internalMessageStatusLabel(value: InternalMessage_Status): string {
+  const item = internalMessageStatusList().find((i) => i.value === value);
+  return item ? item.label : '';
+}
+
+const INTERNAL_MESSAGE_STATUS_COLOR_MAP: Record<string, string> = {
+  DRAFT: '#9CA3AF',
+  PUBLISHED: '#00B42A',
+  SCHEDULED: '#165DFF',
+  REVOKED: '#F53F3F',
+  ARCHIVED: '#86909C',
+  DELETED: '#C9CDD4',
+  DEFAULT: '#E5E7EB',
+};
+
+export function internalMessageStatusColor(status: InternalMessage_Status): string {
+  return INTERNAL_MESSAGE_STATUS_COLOR_MAP[status] || INTERNAL_MESSAGE_STATUS_COLOR_MAP.DEFAULT!;
+}
+
+export function internalMessageTypeList() {
+  return [
+    { value: 'NOTIFICATION', label: $t('notification.page.internalMessage.typeNotification') },
+    { value: 'PRIVATE', label: $t('notification.page.internalMessage.typePrivate') },
+    { value: 'GROUP', label: $t('notification.page.internalMessage.typeGroup') },
+  ];
+}
+
+export function internalMessageTypeLabel(value: InternalMessage_Type): string {
+  const item = internalMessageTypeList().find((i) => i.value === value);
+  return item ? item.label : '';
+}
+
+const INTERNAL_MESSAGE_TYPE_COLOR_MAP: Record<string, string> = {
+  NOTIFICATION: '#165DFF',
+  PRIVATE: '#722ED1',
+  GROUP: '#00B42A',
+  DEFAULT: '#C9CDD4',
+};
+
+export function internalMessageTypeColor(type: InternalMessage_Type): string {
+  return INTERNAL_MESSAGE_TYPE_COLOR_MAP[type] || INTERNAL_MESSAGE_TYPE_COLOR_MAP.DEFAULT!;
+}
+
+export function internalMessageRecipientStatusList() {
+  return [
+    { value: 'SENT', label: $t('notification.page.internalMessage.recipientSent') },
+    { value: 'RECEIVED', label: $t('notification.page.internalMessage.recipientReceived') },
+    { value: 'READ', label: $t('notification.page.internalMessage.recipientRead') },
+    { value: 'REVOKED', label: $t('notification.page.internalMessage.recipientRevoked') },
+    { value: 'DELETED', label: $t('notification.page.internalMessage.recipientDeleted') },
+  ];
+}
+
+export function internalMessageRecipientStatusLabel(value: InternalMessageRecipient_Status): string {
+  const item = internalMessageRecipientStatusList().find((i) => i.value === value);
+  return item ? item.label : '';
+}
+
+const INTERNAL_MESSAGE_RECIPIENT_COLOR_MAP: Record<string, string> = {
+  SENT: '#4096FF',
+  RECEIVED: '#165DFF',
+  READ: '#86909C',
+  REVOKED: '#F53F3F',
+  DELETED: '#C9CDD4',
+  DEFAULT: '#E5E7EB',
+};
+
+export function internalMessageRecipientStatusColor(status: InternalMessageRecipient_Status): string {
+  return INTERNAL_MESSAGE_RECIPIENT_COLOR_MAP[status] || INTERNAL_MESSAGE_RECIPIENT_COLOR_MAP.DEFAULT!;
+}

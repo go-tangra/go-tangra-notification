@@ -7,6 +7,7 @@ import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	kratosHttp "github.com/go-kratos/kratos/v2/transport/http"
+	sseServer "github.com/tx7do/kratos-transport/transport/sse"
 
 	conf "github.com/tx7do/kratos-bootstrap/api/gen/go/conf/v1"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
@@ -29,6 +30,7 @@ func newApp(
 	ctx *bootstrap.Context,
 	gs *grpc.Server,
 	hs *kratosHttp.Server,
+	ss *sseServer.Server,
 ) *kratos.App {
 	globalRegHelper = registration.StartRegistration(ctx, ctx.GetLogger(), &registration.Config{
 		ModuleID:          moduleID,
@@ -46,6 +48,10 @@ func newApp(
 		RetryInterval:     5 * time.Second,
 		MaxRetries:        60,
 	})
+
+	if ss != nil {
+		return bootstrap.NewApp(ctx, gs, hs, ss)
+	}
 
 	return bootstrap.NewApp(ctx, gs, hs)
 }
