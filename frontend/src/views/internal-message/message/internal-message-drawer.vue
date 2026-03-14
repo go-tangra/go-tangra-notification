@@ -124,7 +124,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
     try {
       await (data.value?.create
         ? internalMessageStore.sendMessage({
-            ...values,
+            title: values.title,
+            content: values.content,
+            type: values.type,
+            categoryId: values.categoryId,
             targetAll: true,
           } as SendMessageRequest)
         : internalMessageStore.updateMessage(data.value.row.id, values));
