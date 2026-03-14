@@ -232,6 +232,1118 @@ export function createNotificationChannelServiceClient(
 // An empty JSON object
 type wellKnownEmpty = Record<never, never>;
 
+// Internal Message
+export type InternalMessage = {
+  //
+  // Behaviors: OPTIONAL
+  id?: number;
+  title?: string;
+  content?: string;
+  status?: InternalMessage_Status;
+  type?: InternalMessage_Type;
+  senderId?: number;
+  senderName?: string;
+  categoryId?: number;
+  categoryName?: string;
+  tenantId?: number;
+  tenantName?: string;
+  createdBy?: number;
+  updatedBy?: number;
+  deletedBy?: number;
+  createdAt?: wellKnownTimestamp;
+  updatedAt?: wellKnownTimestamp;
+  deletedAt?: wellKnownTimestamp;
+};
+
+// Message Status
+export type InternalMessage_Status =
+  | "DRAFT"
+  | "PUBLISHED"
+  | "SCHEDULED"
+  | "REVOKED"
+  | "ARCHIVED"
+  | "DELETED";
+// Message Type
+export type InternalMessage_Type =
+  | "NOTIFICATION"
+  | "PRIVATE"
+  | "GROUP";
+// List Internal Messages - Response
+export type ListInternalMessageResponse = {
+  items: InternalMessage[] | undefined;
+  total: number | undefined;
+};
+
+// Get Internal Message Details - Request
+export type GetInternalMessageRequest = {
+  id?: number;
+  viewMask?: wellKnownFieldMask;
+};
+
+// In JSON, a field mask is encoded as a single string where paths are
+// separated by a comma. Fields name in each path are converted
+// to/from lower-camel naming conventions.
+// As an example, consider the following message declarations:
+//
+//     message Profile {
+//       User user = 1;
+//       Photo photo = 2;
+//     }
+//     message User {
+//       string display_name = 1;
+//       string address = 2;
+//     }
+//
+// In proto a field mask for `Profile` may look as such:
+//
+//     mask {
+//       paths: "user.display_name"
+//       paths: "photo"
+//     }
+//
+// In JSON, the same mask is represented as below:
+//
+//     {
+//       mask: "user.displayName,photo"
+//     }
+type wellKnownFieldMask = string;
+
+// Create Internal Message - Request
+export type CreateInternalMessageRequest = {
+  data: InternalMessage | undefined;
+};
+
+// Update Internal Message - Request
+export type UpdateInternalMessageRequest = {
+  id: number | undefined;
+  data: InternalMessage | undefined;
+  updateMask: wellKnownFieldMask | undefined;
+  allowMissing?: boolean;
+};
+
+// Delete Internal Message - Request
+export type DeleteInternalMessageRequest = {
+  id: number | undefined;
+};
+
+export type SendMessageRequest = {
+  type: InternalMessage_Type | undefined;
+  recipientUserId?: number;
+  conversationId?: number;
+  categoryId?: number;
+  targetUserIds: number[] | undefined;
+  targetAll?: boolean;
+  title?: string;
+  content: string | undefined;
+};
+
+export type SendMessageResponse = {
+  messageId: number | undefined;
+};
+
+export type RevokeMessageRequest = {
+  messageId: number | undefined;
+  userId: number | undefined;
+};
+
+// Internal Message Service
+export interface InternalMessageService {
+  // Query internal message list
+  ListMessage(request: pagination_PagingRequest): Promise<ListInternalMessageResponse>;
+  // Query internal message details
+  GetMessage(request: GetInternalMessageRequest): Promise<InternalMessage>;
+  // Create internal message
+  CreateMessage(request: CreateInternalMessageRequest): Promise<InternalMessage>;
+  // Update internal message
+  UpdateMessage(request: UpdateInternalMessageRequest): Promise<wellKnownEmpty>;
+  // Delete internal message
+  DeleteMessage(request: DeleteInternalMessageRequest): Promise<wellKnownEmpty>;
+  // Send message
+  SendMessage(request: SendMessageRequest): Promise<SendMessageResponse>;
+  // Revoke message
+  RevokeMessage(request: RevokeMessageRequest): Promise<wellKnownEmpty>;
+}
+
+export function createInternalMessageServiceClient(
+  handler: RequestHandler
+): InternalMessageService {
+  return {
+    ListMessage(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/messages`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(`page=${encodeURIComponent(request.page.toString())}`)
+      }
+      if (request.pageSize) {
+        queryParams.push(`pageSize=${encodeURIComponent(request.pageSize.toString())}`)
+      }
+      if (request.offset) {
+        queryParams.push(`offset=${encodeURIComponent(request.offset.toString())}`)
+      }
+      if (request.limit) {
+        queryParams.push(`limit=${encodeURIComponent(request.limit.toString())}`)
+      }
+      if (request.token) {
+        queryParams.push(`token=${encodeURIComponent(request.token.toString())}`)
+      }
+      if (request.noPaging) {
+        queryParams.push(`noPaging=${encodeURIComponent(request.noPaging.toString())}`)
+      }
+      if (request.query) {
+        queryParams.push(`query=${encodeURIComponent(request.query.toString())}`)
+      }
+      if (request.filter) {
+        queryParams.push(`filter=${encodeURIComponent(request.filter.toString())}`)
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(`filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.field) {
+        queryParams.push(`filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.op) {
+        queryParams.push(`filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.value) {
+        queryParams.push(`filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.jsonValue) {
+        queryParams.push(`filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.values) {
+        request.filterExpr.conditions.values.forEach((x) => {
+          queryParams.push(`filterExpr.conditions.values=${encodeURIComponent(x.toString())}`)
+        })
+      }
+      if (request.filterExpr?.conditions?.datePart) {
+        queryParams.push(`filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.jsonPath) {
+        queryParams.push(`filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`)
+      }
+      if (request.orderBy) {
+        queryParams.push(`orderBy=${encodeURIComponent(request.orderBy.toString())}`)
+      }
+      if (request.sorting?.field) {
+        queryParams.push(`sorting.field=${encodeURIComponent(request.sorting.field.toString())}`)
+      }
+      if (request.sorting?.direction) {
+        queryParams.push(`sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`)
+      }
+      if (request.fieldMask) {
+        queryParams.push(`fieldMask=${encodeURIComponent(request.fieldMask.toString())}`)
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "GET",
+        body,
+      }, {
+        service: "InternalMessageService",
+        method: "ListMessage",
+      }) as Promise<ListInternalMessageResponse>;
+    },
+    GetMessage(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      if (!request.id) {
+        throw new Error("missing required field request.id");
+      }
+      const path = `v1/internal-message/messages/${request.id}`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.viewMask) {
+        queryParams.push(`viewMask=${encodeURIComponent(request.viewMask.toString())}`)
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "GET",
+        body,
+      }, {
+        service: "InternalMessageService",
+        method: "GetMessage",
+      }) as Promise<InternalMessage>;
+    },
+    CreateMessage(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/messages`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "InternalMessageService",
+        method: "CreateMessage",
+      }) as Promise<InternalMessage>;
+    },
+    UpdateMessage(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      if (!request.id) {
+        throw new Error("missing required field request.id");
+      }
+      const path = `v1/internal-message/messages/${request.id}`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "PUT",
+        body,
+      }, {
+        service: "InternalMessageService",
+        method: "UpdateMessage",
+      }) as Promise<wellKnownEmpty>;
+    },
+    DeleteMessage(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      if (!request.id) {
+        throw new Error("missing required field request.id");
+      }
+      const path = `v1/internal-message/messages/${request.id}`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "DELETE",
+        body,
+      }, {
+        service: "InternalMessageService",
+        method: "DeleteMessage",
+      }) as Promise<wellKnownEmpty>;
+    },
+    SendMessage(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/send`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "InternalMessageService",
+        method: "SendMessage",
+      }) as Promise<SendMessageResponse>;
+    },
+    RevokeMessage(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/revoke`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "InternalMessageService",
+        method: "RevokeMessage",
+      }) as Promise<wellKnownEmpty>;
+    },
+  };
+}
+// ------------------------------
+// 分页通用请求
+// ------------------------------
+export type pagination_PagingRequest = {
+  // 当前页码（从1开始，默认1）
+  page?: number;
+  // 每页条数（默认10，建议设置上限如100）
+  pageSize?: number;
+  // 跳过的记录数（从0开始，默认0）
+  offset?: number;
+  // 最多返回的记录数（默认10，建议设置上限如100）
+  limit?: number;
+  // 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+  token?: string;
+  // 是否不分页，如果为true，则page和pageSize参数无效。
+  noPaging?: boolean;
+  // JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+  query?: string;
+  // Google AIP规范字符串过滤条件
+  filter?: string;
+  // 复杂过滤表达式（优先使用）
+  filterExpr?: pagination_FilterExpr;
+  // 排序条件
+  orderBy?: string;
+  // 排序规则
+  sorting: pagination_Sorting[] | undefined;
+  // 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+  fieldMask?: wellKnownFieldMask;
+};
+
+// 过滤表达式
+export type pagination_FilterExpr = {
+  // 过滤表达式类型
+  type: pagination_ExprType | undefined;
+  // 条件列表
+  conditions: pagination_FilterCondition[] | undefined;
+  // 子表达式列表
+  groups: pagination_FilterExpr[] | undefined;
+};
+
+// 过滤表达式类型
+export type pagination_ExprType =
+  | "EXPR_TYPE_UNSPECIFIED"
+  | "AND"
+  | "OR";
+// 过滤条件
+export type pagination_FilterCondition = {
+  // 过滤字段名
+  field: string | undefined;
+  // 过滤操作符
+  op: pagination_Operator | undefined;
+  // 过滤值（单值）
+  value?: string;
+  // 当需要使用非字符串类型的比较值（对象/数组/数字/布尔）时使用此字段，
+  // 使用 google.protobuf.Value 能表达任意 JSON 值。
+  jsonValue?: wellKnownValue;
+  // 过滤值（多值，如IN操作符）
+  values: string[] | undefined;
+  // 日期时间部分（可选，仅在字段为日期时间类型时使用）
+  datePart?: pagination_DatePart;
+  // 当字段为 JSON/JSONB 类型时，可指定要抽取的子路径（例如: "meta.user.name" 或 JSONPath）
+  // 服务端应把此路径用于 JSON_EXTRACT / -> 操作，再对抽取结果应用 op。
+  jsonPath?: string;
+};
+
+// 操作符枚举
+export type pagination_Operator =
+  // 未指定
+  | "OPERATOR_UNSPECIFIED"
+  // 基本比较
+  | "EQ"
+  | "NEQ"
+  | "GT"
+  | "GTE"
+  | "LT"
+  | "LTE"
+  // 模糊 / 大小写不敏感模糊 / 非模糊
+  | "LIKE"
+  | "ILIKE"
+  | "NOT_LIKE"
+  // 集合操作
+  | "IN"
+  | "NIN"
+  // 空值判断
+  | "IS_NULL"
+  | "IS_NOT_NULL"
+  // 范围与正则
+  | "BETWEEN"
+  | "REGEXP"
+  | "IREGEXP"
+  // 语义化的字符串操作
+  | "CONTAINS"
+  | "STARTS_WITH"
+  | "ENDS_WITH"
+  | "ICONTAINS"
+  | "ISTARTS_WITH"
+  | "IENDS_WITH"
+  // JSON / 数组 / 集合相关（按需在服务端映射为具体 DB 运算）
+  | "JSON_CONTAINS"
+  | "ARRAY_CONTAINS"
+  | "EXISTS"
+  | "SEARCH"
+  | "EXACT"
+  | "IEXACT";
+type wellKnownValue = unknown;
+
+// 日期时间部分枚举
+export type pagination_DatePart =
+  | "DATE_PART_UNSPECIFIED"
+  | "DATE"
+  | "YEAR"
+  | "ISO_YEAR"
+  | "QUARTER"
+  | "MONTH"
+  | "WEEK"
+  | "WEEK_DAY"
+  | "ISO_WEEK_DAY"
+  | "DAY"
+  | "TIME"
+  | "HOUR"
+  | "MINUTE"
+  | "SECOND"
+  | "MICROSECOND";
+// 排序规则（分页场景通常需配合排序保证结果稳定）
+export type pagination_Sorting = {
+  // 排序字段（如"id"、"create_time"）
+  field: string | undefined;
+  // 排序方向
+  direction: pagination_Sorting_Direction | undefined;
+};
+
+// 排序方向（ASC/DESC，默认ASC）
+export type pagination_Sorting_Direction =
+  | "ASC"
+  | "DESC";
+// Internal Message Category
+export type InternalMessageCategory = {
+  id?: number;
+  name?: string;
+  code?: string;
+  iconUrl?: string;
+  sortOrder?: number;
+  isEnabled?: boolean;
+  tenantId?: number;
+  tenantName?: string;
+  createdBy?: number;
+  updatedBy?: number;
+  deletedBy?: number;
+  createdAt?: wellKnownTimestamp;
+  updatedAt?: wellKnownTimestamp;
+  deletedAt?: wellKnownTimestamp;
+};
+
+// List Internal Message Categories - Response
+export type ListInternalMessageCategoryResponse = {
+  items: InternalMessageCategory[] | undefined;
+  total: number | undefined;
+};
+
+// Get Internal Message Category Details - Request
+export type GetInternalMessageCategoryRequest = {
+  id?: number;
+  viewMask?: wellKnownFieldMask;
+};
+
+// Create Internal Message Category - Request
+export type CreateInternalMessageCategoryRequest = {
+  data: InternalMessageCategory | undefined;
+};
+
+// Update Internal Message Category - Request
+export type UpdateInternalMessageCategoryRequest = {
+  id: number | undefined;
+  data: InternalMessageCategory | undefined;
+  updateMask: wellKnownFieldMask | undefined;
+  allowMissing?: boolean;
+};
+
+// Delete Internal Message Category - Request
+export type DeleteInternalMessageCategoryRequest = {
+  id: number | undefined;
+};
+
+// Internal Message Category Service
+export interface InternalMessageCategoryService {
+  // Query internal message category list
+  List(request: pagination_PagingRequest): Promise<ListInternalMessageCategoryResponse>;
+  // Query internal message category details
+  Get(request: GetInternalMessageCategoryRequest): Promise<InternalMessageCategory>;
+  // Create internal message category
+  Create(request: CreateInternalMessageCategoryRequest): Promise<wellKnownEmpty>;
+  // Update internal message category
+  Update(request: UpdateInternalMessageCategoryRequest): Promise<wellKnownEmpty>;
+  // Delete internal message category
+  Delete(request: DeleteInternalMessageCategoryRequest): Promise<wellKnownEmpty>;
+}
+
+export function createInternalMessageCategoryServiceClient(
+  handler: RequestHandler
+): InternalMessageCategoryService {
+  return {
+    List(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/categories`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(`page=${encodeURIComponent(request.page.toString())}`)
+      }
+      if (request.pageSize) {
+        queryParams.push(`pageSize=${encodeURIComponent(request.pageSize.toString())}`)
+      }
+      if (request.offset) {
+        queryParams.push(`offset=${encodeURIComponent(request.offset.toString())}`)
+      }
+      if (request.limit) {
+        queryParams.push(`limit=${encodeURIComponent(request.limit.toString())}`)
+      }
+      if (request.token) {
+        queryParams.push(`token=${encodeURIComponent(request.token.toString())}`)
+      }
+      if (request.noPaging) {
+        queryParams.push(`noPaging=${encodeURIComponent(request.noPaging.toString())}`)
+      }
+      if (request.query) {
+        queryParams.push(`query=${encodeURIComponent(request.query.toString())}`)
+      }
+      if (request.filter) {
+        queryParams.push(`filter=${encodeURIComponent(request.filter.toString())}`)
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(`filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.field) {
+        queryParams.push(`filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.op) {
+        queryParams.push(`filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.value) {
+        queryParams.push(`filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.jsonValue) {
+        queryParams.push(`filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.values) {
+        request.filterExpr.conditions.values.forEach((x) => {
+          queryParams.push(`filterExpr.conditions.values=${encodeURIComponent(x.toString())}`)
+        })
+      }
+      if (request.filterExpr?.conditions?.datePart) {
+        queryParams.push(`filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.jsonPath) {
+        queryParams.push(`filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`)
+      }
+      if (request.orderBy) {
+        queryParams.push(`orderBy=${encodeURIComponent(request.orderBy.toString())}`)
+      }
+      if (request.sorting?.field) {
+        queryParams.push(`sorting.field=${encodeURIComponent(request.sorting.field.toString())}`)
+      }
+      if (request.sorting?.direction) {
+        queryParams.push(`sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`)
+      }
+      if (request.fieldMask) {
+        queryParams.push(`fieldMask=${encodeURIComponent(request.fieldMask.toString())}`)
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "GET",
+        body,
+      }, {
+        service: "InternalMessageCategoryService",
+        method: "List",
+      }) as Promise<ListInternalMessageCategoryResponse>;
+    },
+    Get(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      if (!request.id) {
+        throw new Error("missing required field request.id");
+      }
+      const path = `v1/internal-message/categories/${request.id}`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.viewMask) {
+        queryParams.push(`viewMask=${encodeURIComponent(request.viewMask.toString())}`)
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "GET",
+        body,
+      }, {
+        service: "InternalMessageCategoryService",
+        method: "Get",
+      }) as Promise<InternalMessageCategory>;
+    },
+    Create(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/categories`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "InternalMessageCategoryService",
+        method: "Create",
+      }) as Promise<wellKnownEmpty>;
+    },
+    Update(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      if (!request.id) {
+        throw new Error("missing required field request.id");
+      }
+      const path = `v1/internal-message/categories/${request.id}`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "PUT",
+        body,
+      }, {
+        service: "InternalMessageCategoryService",
+        method: "Update",
+      }) as Promise<wellKnownEmpty>;
+    },
+    Delete(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      if (!request.id) {
+        throw new Error("missing required field request.id");
+      }
+      const path = `v1/internal-message/categories/${request.id}`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "DELETE",
+        body,
+      }, {
+        service: "InternalMessageCategoryService",
+        method: "Delete",
+      }) as Promise<wellKnownEmpty>;
+    },
+  };
+}
+// Internal Message User Recipient Information
+export type InternalMessageRecipient = {
+  id?: number;
+  messageId?: number;
+  recipientUserId?: number;
+  status?: InternalMessageRecipient_Status;
+  receivedAt?: wellKnownTimestamp;
+  readAt?: wellKnownTimestamp;
+  title?: string;
+  content?: string;
+  tenantId?: number;
+  tenantName?: string;
+  createdBy?: number;
+  updatedBy?: number;
+  deletedBy?: number;
+  createdAt?: wellKnownTimestamp;
+  updatedAt?: wellKnownTimestamp;
+  deletedAt?: wellKnownTimestamp;
+};
+
+// Message Status
+export type InternalMessageRecipient_Status =
+  | "SENT"
+  | "RECEIVED"
+  | "READ"
+  | "REVOKED"
+  | "DELETED";
+// List Internal Message Recipients - Response
+export type ListInternalMessageRecipientResponse = {
+  items: InternalMessageRecipient[] | undefined;
+  total: number | undefined;
+};
+
+export type ListUserInboxResponse = {
+  items: InternalMessageRecipient[] | undefined;
+  total: number | undefined;
+};
+
+// Get Internal Message Recipient Details - Request
+export type GetInternalMessageRecipientRequest = {
+  id?: number;
+  viewMask?: wellKnownFieldMask;
+};
+
+// Create Internal Message Recipient - Request
+export type CreateInternalMessageRecipientRequest = {
+  data: InternalMessageRecipient | undefined;
+};
+
+// Update Internal Message Recipient - Request
+export type UpdateInternalMessageRecipientRequest = {
+  id: number | undefined;
+  data: InternalMessageRecipient | undefined;
+  updateMask: wellKnownFieldMask | undefined;
+  allowMissing?: boolean;
+};
+
+// Delete Internal Message Recipient - Request
+export type DeleteInternalMessageRecipientRequest = {
+  id: number | undefined;
+};
+
+// Batch Get Internal Message Recipients by IDs - Request
+export type GetInternalMessageRecipientsByIdsRequest = {
+  ids: number[] | undefined;
+};
+
+export type DeleteNotificationFromInboxRequest = {
+  userId: number | undefined;
+  recipientIds: number[] | undefined;
+};
+
+export type MarkNotificationAsReadRequest = {
+  userId: number | undefined;
+  recipientIds: number[] | undefined;
+};
+
+export type MarkNotificationsStatusRequest = {
+  userId: number | undefined;
+  recipientIds: number[] | undefined;
+  newStatus: InternalMessageRecipient_Status | undefined;
+};
+
+// Internal Message Recipient Service
+export interface InternalMessageRecipientService {
+  // Query internal message recipient list
+  List(request: pagination_PagingRequest): Promise<ListInternalMessageRecipientResponse>;
+  // Query internal message recipient details
+  Get(request: GetInternalMessageRecipientRequest): Promise<InternalMessageRecipient>;
+  // Create internal message recipient
+  Create(request: CreateInternalMessageRecipientRequest): Promise<InternalMessageRecipient>;
+  // Update internal message recipient
+  Update(request: UpdateInternalMessageRecipientRequest): Promise<wellKnownEmpty>;
+  // Delete internal message recipient
+  Delete(request: DeleteInternalMessageRecipientRequest): Promise<wellKnownEmpty>;
+  // Batch get internal message recipients by IDs
+  GetInternalMessageRecipientsByIds(request: GetInternalMessageRecipientsByIdsRequest): Promise<ListInternalMessageRecipientResponse>;
+  // Get user inbox list (notification type)
+  ListUserInbox(request: pagination_PagingRequest): Promise<ListUserInboxResponse>;
+  // Delete notification record from user inbox
+  DeleteNotificationFromInbox(request: DeleteNotificationFromInboxRequest): Promise<wellKnownEmpty>;
+  // Mark notification as read
+  MarkNotificationAsRead(request: MarkNotificationAsReadRequest): Promise<wellKnownEmpty>;
+  // Mark status of some or all notifications for a specific user
+  MarkNotificationsStatus(request: MarkNotificationsStatusRequest): Promise<wellKnownEmpty>;
+}
+
+export function createInternalMessageRecipientServiceClient(
+  handler: RequestHandler
+): InternalMessageRecipientService {
+  return {
+    List(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/recipients`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(`page=${encodeURIComponent(request.page.toString())}`)
+      }
+      if (request.pageSize) {
+        queryParams.push(`pageSize=${encodeURIComponent(request.pageSize.toString())}`)
+      }
+      if (request.offset) {
+        queryParams.push(`offset=${encodeURIComponent(request.offset.toString())}`)
+      }
+      if (request.limit) {
+        queryParams.push(`limit=${encodeURIComponent(request.limit.toString())}`)
+      }
+      if (request.token) {
+        queryParams.push(`token=${encodeURIComponent(request.token.toString())}`)
+      }
+      if (request.noPaging) {
+        queryParams.push(`noPaging=${encodeURIComponent(request.noPaging.toString())}`)
+      }
+      if (request.query) {
+        queryParams.push(`query=${encodeURIComponent(request.query.toString())}`)
+      }
+      if (request.filter) {
+        queryParams.push(`filter=${encodeURIComponent(request.filter.toString())}`)
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(`filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.field) {
+        queryParams.push(`filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.op) {
+        queryParams.push(`filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.value) {
+        queryParams.push(`filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.jsonValue) {
+        queryParams.push(`filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.values) {
+        request.filterExpr.conditions.values.forEach((x) => {
+          queryParams.push(`filterExpr.conditions.values=${encodeURIComponent(x.toString())}`)
+        })
+      }
+      if (request.filterExpr?.conditions?.datePart) {
+        queryParams.push(`filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.jsonPath) {
+        queryParams.push(`filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`)
+      }
+      if (request.orderBy) {
+        queryParams.push(`orderBy=${encodeURIComponent(request.orderBy.toString())}`)
+      }
+      if (request.sorting?.field) {
+        queryParams.push(`sorting.field=${encodeURIComponent(request.sorting.field.toString())}`)
+      }
+      if (request.sorting?.direction) {
+        queryParams.push(`sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`)
+      }
+      if (request.fieldMask) {
+        queryParams.push(`fieldMask=${encodeURIComponent(request.fieldMask.toString())}`)
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "GET",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "List",
+      }) as Promise<ListInternalMessageRecipientResponse>;
+    },
+    Get(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      if (!request.id) {
+        throw new Error("missing required field request.id");
+      }
+      const path = `v1/internal-message/recipients/${request.id}`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.viewMask) {
+        queryParams.push(`viewMask=${encodeURIComponent(request.viewMask.toString())}`)
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "GET",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "Get",
+      }) as Promise<InternalMessageRecipient>;
+    },
+    Create(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/recipients`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "Create",
+      }) as Promise<InternalMessageRecipient>;
+    },
+    Update(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      if (!request.id) {
+        throw new Error("missing required field request.id");
+      }
+      const path = `v1/internal-message/recipients/${request.id}`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "PUT",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "Update",
+      }) as Promise<wellKnownEmpty>;
+    },
+    Delete(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      if (!request.id) {
+        throw new Error("missing required field request.id");
+      }
+      const path = `v1/internal-message/recipients/${request.id}`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "DELETE",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "Delete",
+      }) as Promise<wellKnownEmpty>;
+    },
+    GetInternalMessageRecipientsByIds(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/recipients/batch`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "GetInternalMessageRecipientsByIds",
+      }) as Promise<ListInternalMessageRecipientResponse>;
+    },
+    ListUserInbox(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/inbox`; // eslint-disable-line quotes
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(`page=${encodeURIComponent(request.page.toString())}`)
+      }
+      if (request.pageSize) {
+        queryParams.push(`pageSize=${encodeURIComponent(request.pageSize.toString())}`)
+      }
+      if (request.offset) {
+        queryParams.push(`offset=${encodeURIComponent(request.offset.toString())}`)
+      }
+      if (request.limit) {
+        queryParams.push(`limit=${encodeURIComponent(request.limit.toString())}`)
+      }
+      if (request.token) {
+        queryParams.push(`token=${encodeURIComponent(request.token.toString())}`)
+      }
+      if (request.noPaging) {
+        queryParams.push(`noPaging=${encodeURIComponent(request.noPaging.toString())}`)
+      }
+      if (request.query) {
+        queryParams.push(`query=${encodeURIComponent(request.query.toString())}`)
+      }
+      if (request.filter) {
+        queryParams.push(`filter=${encodeURIComponent(request.filter.toString())}`)
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(`filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.field) {
+        queryParams.push(`filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.op) {
+        queryParams.push(`filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.value) {
+        queryParams.push(`filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.jsonValue) {
+        queryParams.push(`filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.values) {
+        request.filterExpr.conditions.values.forEach((x) => {
+          queryParams.push(`filterExpr.conditions.values=${encodeURIComponent(x.toString())}`)
+        })
+      }
+      if (request.filterExpr?.conditions?.datePart) {
+        queryParams.push(`filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`)
+      }
+      if (request.filterExpr?.conditions?.jsonPath) {
+        queryParams.push(`filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`)
+      }
+      if (request.orderBy) {
+        queryParams.push(`orderBy=${encodeURIComponent(request.orderBy.toString())}`)
+      }
+      if (request.sorting?.field) {
+        queryParams.push(`sorting.field=${encodeURIComponent(request.sorting.field.toString())}`)
+      }
+      if (request.sorting?.direction) {
+        queryParams.push(`sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`)
+      }
+      if (request.fieldMask) {
+        queryParams.push(`fieldMask=${encodeURIComponent(request.fieldMask.toString())}`)
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "GET",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "ListUserInbox",
+      }) as Promise<ListUserInboxResponse>;
+    },
+    DeleteNotificationFromInbox(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/inbox/delete`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "DeleteNotificationFromInbox",
+      }) as Promise<wellKnownEmpty>;
+    },
+    MarkNotificationAsRead(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/inbox/read`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "MarkNotificationAsRead",
+      }) as Promise<wellKnownEmpty>;
+    },
+    MarkNotificationsStatus(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/internal-message/inbox/status`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "InternalMessageRecipientService",
+        method: "MarkNotificationsStatus",
+      }) as Promise<wellKnownEmpty>;
+    },
+  };
+}
 // Delivery status
 export type DeliveryStatus =
   | "DELIVERY_STATUS_UNSPECIFIED"
@@ -730,6 +1842,66 @@ export function createNotificationPermissionServiceClient(
         service: "NotificationPermissionService",
         method: "GetEffectivePermissions",
       }) as Promise<GetEffectivePermissionsResponse>;
+    },
+  };
+}
+export type PublishEventRequest = {
+  userId: number | undefined;
+  eventType: string | undefined;
+  data: string | undefined;
+};
+
+export type PublishBulkEventRequest = {
+  userIds: number[] | undefined;
+  eventType: string | undefined;
+  data: string | undefined;
+};
+
+// SSE Event Publishing Service
+export interface NotificationSSEService {
+  // Publish an event to a user's SSE stream
+  PublishEvent(request: PublishEventRequest): Promise<wellKnownEmpty>;
+  // Publish an event to multiple users
+  PublishBulkEvent(request: PublishBulkEventRequest): Promise<wellKnownEmpty>;
+}
+
+export function createNotificationSSEServiceClient(
+  handler: RequestHandler
+): NotificationSSEService {
+  return {
+    PublishEvent(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/sse/publish`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "NotificationSSEService",
+        method: "PublishEvent",
+      }) as Promise<wellKnownEmpty>;
+    },
+    PublishBulkEvent(request) { // eslint-disable-line @typescript-eslint/no-unused-vars
+      const path = `v1/sse/publish-bulk`; // eslint-disable-line quotes
+      const body = JSON.stringify(request);
+      const queryParams: string[] = [];
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join("&")}`
+      }
+      return handler({
+        path: uri,
+        method: "POST",
+        body,
+      }, {
+        service: "NotificationSSEService",
+        method: "PublishBulkEvent",
+      }) as Promise<wellKnownEmpty>;
     },
   };
 }

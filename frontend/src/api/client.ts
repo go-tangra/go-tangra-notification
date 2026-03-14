@@ -6,27 +6,10 @@ import {
   createNotificationTemplateServiceClient,
   createNotificationPermissionServiceClient,
   createNotificationUserServiceClient,
-} from '../generated/api/notification/service/v1';
-
-import {
   createInternalMessageServiceClient,
   createInternalMessageRecipientServiceClient,
   createInternalMessageCategoryServiceClient,
-} from '../generated/api/notification/service/v1/internal_message';
-
-export type {
-  InternalMessage,
-  InternalMessage_Status,
-  InternalMessage_Type,
-  InternalMessageRecipient,
-  InternalMessageRecipient_Status,
-  InternalMessageCategory,
-  SendMessageRequest,
-  SendMessageResponse,
-  ListInternalMessageResponse,
-  ListUserInboxResponse,
-  ListInternalMessageCategoryResponse,
-} from '../generated/api/notification/service/v1/internal_message';
+} from '../generated/api/notification/service/v1';
 
 const MODULE_BASE_URL = '/admin/v1/modules/notification';
 
@@ -101,4 +84,15 @@ export type {
   NotificationRole,
   ListNotificationUsersResponse,
   ListNotificationRolesResponse,
+  InternalMessage,
+  InternalMessage_Status,
+  InternalMessage_Type,
+  InternalMessageRecipient,
+  InternalMessageRecipient_Status,
+  InternalMessageCategory,
+  SendMessageRequest,
+  SendMessageResponse,
+  ListInternalMessageResponse,
+  ListUserInboxResponse,
+  ListInternalMessageCategoryResponse,
 } from '../generated/api/notification/service/v1';
