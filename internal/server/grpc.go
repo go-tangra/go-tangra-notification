@@ -47,6 +47,7 @@ func NewGRPCServer(
 	internalMessageSvc *service.InternalMessageService,
 	internalMessageRecipientSvc *service.InternalMessageRecipientService,
 	internalMessageCategorySvc *service.InternalMessageCategoryService,
+	backupSvc *service.BackupService,
 ) (*grpc.Server, error) {
 	cfg := ctx.GetConfig()
 	l := ctx.NewLoggerHelper("notification/grpc")
@@ -117,6 +118,7 @@ func NewGRPCServer(
 	notificationpb.RegisterRedactedInternalMessageServiceServer(srv, internalMessageSvc, nil)
 	notificationpb.RegisterRedactedInternalMessageRecipientServiceServer(srv, internalMessageRecipientSvc, nil)
 	notificationpb.RegisterRedactedInternalMessageCategoryServiceServer(srv, internalMessageCategorySvc, nil)
+	notificationpb.RegisterRedactedBackupServiceServer(srv, backupSvc, nil)
 
 	return srv, nil
 }
