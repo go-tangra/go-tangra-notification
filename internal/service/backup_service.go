@@ -84,10 +84,7 @@ func (s *BackupService) ExportBackup(ctx context.Context, req *notificationV1.Ex
 		return nil, err
 	}
 
-	// Export notification logs (FK: channel_id, template_id)
-	if err := s.exportNotificationLogs(ctx, client, a, tenantID, full); err != nil {
-		return nil, err
-	}
+	// notificationLogs excluded — operational delivery logs, not configuration
 
 	// Export internal message categories
 	if err := s.exportInternalMessageCategories(ctx, client, a, tenantID, full); err != nil {
@@ -166,7 +163,7 @@ func (s *BackupService) ImportBackup(ctx context.Context, req *notificationV1.Im
 	s.importChannels(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
 	s.importTemplates(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
 	s.importTemplatePermissions(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
-	s.importNotificationLogs(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
+	// notificationLogs excluded — operational delivery logs
 	s.importInternalMessageCategories(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
 	s.importInternalMessages(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
 	s.importInternalMessageRecipients(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
