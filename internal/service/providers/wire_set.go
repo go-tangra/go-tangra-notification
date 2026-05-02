@@ -23,6 +23,7 @@ var ProviderSet = wire.NewSet(
 	service.NewInternalMessageService,
 	service.NewInternalMessageRecipientService,
 	service.NewInternalMessageCategoryService,
+	service.NewBackupService,
 	client.NewAdminClient,
 	metrics.NewCollector,
 	ProvideResourceLookup,

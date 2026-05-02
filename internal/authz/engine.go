@@ -86,9 +86,6 @@ type CheckResult struct {
 //
 // No hierarchy traversal (templates are flat resources).
 func (e *Engine) Check(ctx context.Context, check CheckContext) CheckResult {
-	e.log.Infof("Checking permission: subject=%s(%s), resource=%s:%s, permission=%s",
-		check.SubjectType, check.SubjectID, check.ResourceType, check.ResourceID, check.Permission)
-
 	// For CLIENT subjects: check direct client permission, then wildcard (*)
 	if check.SubjectType == SubjectTypeClient {
 		if result := e.checkDirectPermission(ctx, check, SubjectTypeClient, check.SubjectID); result.Allowed {

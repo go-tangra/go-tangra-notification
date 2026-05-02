@@ -47,6 +47,7 @@ func NewGRPCServer(
 	internalMessageSvc *service.InternalMessageService,
 	internalMessageRecipientSvc *service.InternalMessageRecipientService,
 	internalMessageCategorySvc *service.InternalMessageCategoryService,
+	backupSvc *service.BackupService,
 ) (*grpc.Server, error) {
 	cfg := ctx.GetConfig()
 	l := ctx.NewLoggerHelper("notification/grpc")
@@ -85,13 +86,16 @@ func NewGRPCServer(
 	ms = append(ms, metadata.Server())
 	ms = append(ms, logging.Server(ctx.GetLogger()))
 
-	ms = append(ms, mtls.MTLSMiddleware(
-		ctx.GetLogger(),
-		mtls.WithPublicEndpoints(
-			"/grpc.health.v1.Health/Check",
-			"/grpc.health.v1.Health/Watch",
-		),
-	))
+	// Add mTLS middleware only when TLS is enabled
+	if certManager != nil && certManager.IsTLSEnabled() {
+		ms = append(ms, mtls.MTLSMiddleware(
+			ctx.GetLogger(),
+			mtls.WithPublicEndpoints(
+				"/grpc.health.v1.Health/Check",
+				"/grpc.health.v1.Health/Watch",
+			),
+		))
+	}
 
 	ms = append(ms, audit.Server(
 		ctx.GetLogger(),
@@ -117,6 +121,7 @@ func NewGRPCServer(
 	notificationpb.RegisterRedactedInternalMessageServiceServer(srv, internalMessageSvc, nil)
 	notificationpb.RegisterRedactedInternalMessageRecipientServiceServer(srv, internalMessageRecipientSvc, nil)
 	notificationpb.RegisterRedactedInternalMessageCategoryServiceServer(srv, internalMessageCategorySvc, nil)
+	notificationpb.RegisterRedactedBackupServiceServer(srv, backupSvc, nil)
 
 	return srv, nil
 }

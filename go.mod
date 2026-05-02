@@ -8,7 +8,7 @@ require (
 	entgo.io/ent v0.14.5
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/go-tangra/go-tangra-common v1.11.0
+	github.com/go-tangra/go-tangra-common v1.17.1
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.7.0
 	github.com/jackc/pgx/v5 v5.8.0
@@ -130,3 +130,6 @@ require (
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+// Phase 1 of the registration rework: pull cert.Ensure() from the
+// sibling clone of go-tangra-common until a release lands.
