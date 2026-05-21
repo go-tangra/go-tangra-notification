@@ -415,8 +415,19 @@ func (s *NotificationService) ListNotifications(ctx context.Context, req *notifi
 		status = &st
 	}
 
-	// H1: Filter by creator to prevent cross-user enumeration of notifications
-	entities, total, err := s.notifLogRepo.ListByTenant(ctx, tenantID, channelType, status, req.Recipient, userID, page, pageSize)
+	// H1: Filter by creator to prevent cross-user enumeration of
+	// notifications. Platform admins are exempt — they're the
+	// operators who need to see system-initiated sends (scheduler
+	// task executor, internal automations) which carry a NULL
+	// create_by, plus they're already authorized to view
+	// cross-tenant data. Without this exemption, every audit-log
+	// page would silently hide any row not personally created by
+	// the requesting user, making admin-side debugging impossible.
+	createByFilter := userID
+	if isPlatformAdmin(ctx) {
+		createByFilter = nil
+	}
+	entities, total, err := s.notifLogRepo.ListByTenant(ctx, tenantID, channelType, status, req.Recipient, createByFilter, page, pageSize)
 	if err != nil {
 		return nil, err
 	}
