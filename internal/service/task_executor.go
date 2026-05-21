@@ -16,6 +16,7 @@ import (
 	"github.com/go-tangra/go-tangra-notification/internal/data"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent"
 	"github.com/go-tangra/go-tangra-notification/internal/data/ent/channel"
+	"github.com/go-tangra/go-tangra-notification/internal/data/ent/notificationlog"
 	channelPkg "github.com/go-tangra/go-tangra-notification/pkg/channel"
 )
 
@@ -25,17 +26,20 @@ import (
 type TaskExecutor struct {
 	commonV1.UnimplementedTaskExecutorServiceServer
 
-	log         *log.Helper
-	channelRepo *data.ChannelRepo
+	log          *log.Helper
+	channelRepo  *data.ChannelRepo
+	notifLogRepo *data.NotificationLogRepo
 }
 
 func NewTaskExecutor(
 	ctx *bootstrap.Context,
 	channelRepo *data.ChannelRepo,
+	notifLogRepo *data.NotificationLogRepo,
 ) *TaskExecutor {
 	return &TaskExecutor{
-		log:         ctx.NewLoggerHelper("task-executor/notification-service"),
-		channelRepo: channelRepo,
+		log:          ctx.NewLoggerHelper("task-executor/notification-service"),
+		channelRepo:  channelRepo,
+		notifLogRepo: notifLogRepo,
 	}
 }
 
@@ -187,18 +191,63 @@ func (e *TaskExecutor) handleSendTestEmail(
 		}, nil
 	}
 
-	if err := sender.Send(ctx, &channelPkg.Message{
+	// Record a pending log row BEFORE the SMTP send so the
+	// notifications-log page shows scheduler-driven sends alongside
+	// regular ones — operators kept asking why the test emails
+	// landed in their inbox but were missing from the UI. The log
+	// row is then transitioned to SENT / FAILED based on outcome.
+	//
+	// template_id is empty here: this is a template-less send. The
+	// schema accepts empty for exactly this use case (system task
+	// executor sends + future ad-hoc internal flows).
+	var logEntry *ent.NotificationLog
+	if e.notifLogRepo != nil {
+		entry, logErr := e.notifLogRepo.Create(
+			sysCtx,
+			tenantID,
+			ch.ID,
+			notificationlog.ChannelTypeEMAIL,
+			"", // no template — body supplied directly
+			recipient,
+			cfg.Subject,
+			cfg.Body,
+			nil, // no created_by user
+		)
+		if logErr != nil {
+			// Don't fail the whole task just because we couldn't
+			// write to the log table. The email send is still the
+			// primary effect; missing audit row is worth a WARN.
+			e.log.Warnf("Failed to create notification log row for test-email task: %v", logErr)
+		} else {
+			logEntry = entry
+		}
+	}
+
+	sendErr := sender.Send(ctx, &channelPkg.Message{
 		Recipient: recipient,
 		Subject:   cfg.Subject,
 		Body:      cfg.Body,
-	}); err != nil {
+	})
+
+	if sendErr != nil {
+		if logEntry != nil {
+			if _, markErr := e.notifLogRepo.MarkFailed(sysCtx, tenantID, logEntry.ID, sendErr.Error()); markErr != nil {
+				e.log.Warnf("Failed to mark notification log row %s as failed: %v", logEntry.ID, markErr)
+			}
+		}
 		// Not flagging as permanent — SMTP outages are usually
 		// transient and the scheduler's retry logic is the right
 		// place to handle that.
 		return &commonV1.ExecuteTaskResponse{
 			Success: false,
-			Message: fmt.Sprintf("send to %s via channel %s failed: %v", recipient, ch.ID, err),
+			Message: fmt.Sprintf("send to %s via channel %s failed: %v", recipient, ch.ID, sendErr),
 		}, nil
+	}
+
+	if logEntry != nil {
+		if _, markErr := e.notifLogRepo.MarkSent(sysCtx, tenantID, logEntry.ID); markErr != nil {
+			e.log.Warnf("Failed to mark notification log row %s as sent: %v", logEntry.ID, markErr)
+		}
 	}
 
 	msg := fmt.Sprintf("Test email sent to %s via channel %s", recipient, ch.ID)

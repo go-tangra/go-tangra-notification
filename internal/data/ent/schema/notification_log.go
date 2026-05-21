@@ -38,9 +38,10 @@ func (NotificationLog) Fields() []ent.Field {
 			Comment("Channel type used"),
 
 		field.String("template_id").
-			NotEmpty().
+			Optional().
 			MaxLen(36).
-			Comment("FK to notification_templates"),
+			Default("").
+			Comment("FK to notification_templates (empty for template-less sends, e.g. scheduler tasks)"),
 
 		field.String("recipient").
 			NotEmpty().

@@ -87,6 +87,8 @@ var (
 	DefaultTenantID uint32
 	// ChannelIDValidator is a validator for the "channel_id" field. It is called by the builders before save.
 	ChannelIDValidator func(string) error
+	// DefaultTemplateID holds the default value on creation for the "template_id" field.
+	DefaultTemplateID string
 	// TemplateIDValidator is a validator for the "template_id" field. It is called by the builders before save.
 	TemplateIDValidator func(string) error
 	// RecipientValidator is a validator for the "recipient" field. It is called by the builders before save.
