@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
+	"net/textproto"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +25,45 @@ type EmailConfig struct {
 	From     string `json:"from"`
 	// TLS mode: "none", "starttls", "implicit"
 	TLSMode string `json:"tls_mode"`
+	// CustomHeaders are appended to every outbound message (e.g.
+	// "X-Mailer", "List-Unsubscribe", "Reply-To"). Header names are
+	// validated against the RFC 5322 grammar at parse time. Values
+	// are stripped of CR/LF to block header-injection. We refuse to
+	// accept names that would override our own MIME envelope
+	// (From/To/Subject/MIME-Version/Content-Type) so an operator
+	// can't accidentally corrupt the message structure.
+	CustomHeaders map[string]string `json:"custom_headers,omitempty"`
+}
+
+// reservedEmailHeaders is the set of header names the EmailSender
+// emits itself. CustomHeaders entries matching one of these (case-
+// insensitive) are rejected at parse time so a Channel configuration
+// can't break the message envelope.
+var reservedEmailHeaders = map[string]struct{}{
+	"from":         {},
+	"to":           {},
+	"subject":      {},
+	"mime-version": {},
+	"content-type": {},
+}
+
+// validHeaderName reports whether name is a syntactically valid RFC
+// 5322 header field name. Field names are printable ASCII excluding
+// colon — but we also forbid space and CR/LF as a defensive measure.
+func validHeaderName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		// Per RFC 5322 §3.6.8, field-name characters are printable
+		// US-ASCII excluding ':' (0x3A). We further exclude space
+		// (0x20) and DEL (0x7F).
+		if c <= 0x20 || c == 0x3A || c >= 0x7F {
+			return false
+		}
+	}
+	return true
 }
 
 // String returns a safe representation of EmailConfig that never includes the password.
@@ -62,6 +103,24 @@ func ParseEmailConfig(configJSON string) (*EmailConfig, error) {
 	default:
 		return nil, fmt.Errorf("email config: invalid tls_mode %q (must be none, starttls, or implicit)", cfg.TLSMode)
 	}
+	// Validate custom headers up front so misconfigured channels fail
+	// loudly when saved, not silently on the first send. We also
+	// canonicalize the keys (Title-Case) so downstream emission is
+	// deterministic regardless of the source casing.
+	if len(cfg.CustomHeaders) > 0 {
+		normalized := make(map[string]string, len(cfg.CustomHeaders))
+		for name, value := range cfg.CustomHeaders {
+			if !validHeaderName(name) {
+				return nil, fmt.Errorf("email config: invalid custom_headers name %q", name)
+			}
+			if _, reserved := reservedEmailHeaders[strings.ToLower(name)]; reserved {
+				return nil, fmt.Errorf("email config: custom_headers cannot override reserved header %q", name)
+			}
+			canonical := textproto.CanonicalMIMEHeaderKey(name)
+			normalized[canonical] = sanitizeHeaderValue(value)
+		}
+		cfg.CustomHeaders = normalized
+	}
 	return &cfg, nil
 }
 
@@ -91,20 +150,42 @@ func (s *EmailSender) Send(ctx context.Context, msg *Message) error {
 
 	addr := net.JoinHostPort(s.config.Host, strconv.Itoa(s.config.Port))
 
-	headers := map[string]string{
-		"From":         encodeHeaderIfNeeded(s.config.From),
-		"To":           encodeHeaderIfNeeded(msg.Recipient),
-		"Subject":      encodeHeaderIfNeeded(msg.Subject),
-		"MIME-Version": "1.0",
-		"Content-Type": "text/html; charset=\"UTF-8\"",
+	// Emit headers in a deterministic order. The envelope headers
+	// (From/To/Subject/MIME-Version/Content-Type) come first; custom
+	// headers from the channel config follow sorted by name.
+	//
+	// Going through a slice rather than the previous map literal
+	// also makes the byte stream byte-identical across sends with the
+	// same input, which is handy when chasing intermittent SMTP-side
+	// rejections.
+	type kv struct{ name, value string }
+	envelope := []kv{
+		{"From", encodeHeaderIfNeeded(s.config.From)},
+		{"To", encodeHeaderIfNeeded(msg.Recipient)},
+		{"Subject", encodeHeaderIfNeeded(msg.Subject)},
+		{"MIME-Version", "1.0"},
+		{"Content-Type", "text/html; charset=\"UTF-8\""},
 	}
 
 	var sb strings.Builder
-	for k, v := range headers {
-		sb.WriteString(k)
+	for _, h := range envelope {
+		sb.WriteString(h.name)
 		sb.WriteString(": ")
-		sb.WriteString(v)
+		sb.WriteString(h.value)
 		sb.WriteString("\r\n")
+	}
+	if len(s.config.CustomHeaders) > 0 {
+		names := make([]string, 0, len(s.config.CustomHeaders))
+		for name := range s.config.CustomHeaders {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			sb.WriteString(name)
+			sb.WriteString(": ")
+			sb.WriteString(encodeHeaderIfNeeded(s.config.CustomHeaders[name]))
+			sb.WriteString("\r\n")
+		}
 	}
 	sb.WriteString("\r\n")
 	sb.WriteString(msg.Body)
