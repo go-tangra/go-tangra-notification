@@ -16,7 +16,7 @@ export type NotificationChannel = {
   name: string | undefined;
   type: ChannelType | undefined;
   // JSON-encoded channel-specific configuration
-  // Email: {"host","port","username","password","from","tls_mode"}
+  // Email: {"host","port","username","password","from","tls_mode","custom_headers"?}
   // SMS: {"provider","api_key","from_number"}
   // Slack: {"webhook_url","bot_token","default_channel"}
   // SSE: (no config needed, handled internally)

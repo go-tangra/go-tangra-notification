@@ -5518,9 +5518,22 @@ func (m *NotificationLogMutation) OldTemplateID(ctx context.Context) (v string, 
 	return oldValue.TemplateID, nil
 }
 
+// ClearTemplateID clears the value of the "template_id" field.
+func (m *NotificationLogMutation) ClearTemplateID() {
+	m.template_id = nil
+	m.clearedFields[notificationlog.FieldTemplateID] = struct{}{}
+}
+
+// TemplateIDCleared returns if the "template_id" field was cleared in this mutation.
+func (m *NotificationLogMutation) TemplateIDCleared() bool {
+	_, ok := m.clearedFields[notificationlog.FieldTemplateID]
+	return ok
+}
+
 // ResetTemplateID resets all changes to the "template_id" field.
 func (m *NotificationLogMutation) ResetTemplateID() {
 	m.template_id = nil
+	delete(m.clearedFields, notificationlog.FieldTemplateID)
 }
 
 // SetRecipient sets the "recipient" field.
@@ -6081,6 +6094,9 @@ func (m *NotificationLogMutation) ClearedFields() []string {
 	if m.FieldCleared(notificationlog.FieldTenantID) {
 		fields = append(fields, notificationlog.FieldTenantID)
 	}
+	if m.FieldCleared(notificationlog.FieldTemplateID) {
+		fields = append(fields, notificationlog.FieldTemplateID)
+	}
 	if m.FieldCleared(notificationlog.FieldSentAt) {
 		fields = append(fields, notificationlog.FieldSentAt)
 	}
@@ -6112,6 +6128,9 @@ func (m *NotificationLogMutation) ClearField(name string) error {
 		return nil
 	case notificationlog.FieldTenantID:
 		m.ClearTenantID()
+		return nil
+	case notificationlog.FieldTemplateID:
+		m.ClearTemplateID()
 		return nil
 	case notificationlog.FieldSentAt:
 		m.ClearSentAt()

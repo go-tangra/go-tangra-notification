@@ -204,22 +204,10 @@ func init() {
 	}()
 	// notificationlogDescTemplateID is the schema descriptor for template_id field.
 	notificationlogDescTemplateID := notificationlogFields[3].Descriptor()
+	// notificationlog.DefaultTemplateID holds the default value on creation for the template_id field.
+	notificationlog.DefaultTemplateID = notificationlogDescTemplateID.Default.(string)
 	// notificationlog.TemplateIDValidator is a validator for the "template_id" field. It is called by the builders before save.
-	notificationlog.TemplateIDValidator = func() func(string) error {
-		validators := notificationlogDescTemplateID.Validators
-		fns := [...]func(string) error{
-			validators[0].(func(string) error),
-			validators[1].(func(string) error),
-		}
-		return func(template_id string) error {
-			for _, fn := range fns {
-				if err := fn(template_id); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
+	notificationlog.TemplateIDValidator = notificationlogDescTemplateID.Validators[0].(func(string) error)
 	// notificationlogDescRecipient is the schema descriptor for recipient field.
 	notificationlogDescRecipient := notificationlogFields[4].Descriptor()
 	// notificationlog.RecipientValidator is a validator for the "recipient" field. It is called by the builders before save.
@@ -403,6 +391,6 @@ func init() {
 }
 
 const (
-	Version = "v0.14.5"                                         // Version of ent codegen.
-	Sum     = "h1:Rj2WOYJtCkWyFo6a+5wB3EfBRP0rnx1fMk6gGA0UUe4=" // Sum of ent codegen.
+	Version = "v0.14.6"                                         // Version of ent codegen.
+	Sum     = "h1:/f2696BpwuWAEEG6PVGWflg6+Inrpq4pRWuNlWz/Skk=" // Sum of ent codegen.
 )

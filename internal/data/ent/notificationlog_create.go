@@ -111,6 +111,14 @@ func (_c *NotificationLogCreate) SetTemplateID(v string) *NotificationLogCreate 
 	return _c
 }
 
+// SetNillableTemplateID sets the "template_id" field if the given value is not nil.
+func (_c *NotificationLogCreate) SetNillableTemplateID(v *string) *NotificationLogCreate {
+	if v != nil {
+		_c.SetTemplateID(*v)
+	}
+	return _c
+}
+
 // SetRecipient sets the "recipient" field.
 func (_c *NotificationLogCreate) SetRecipient(v string) *NotificationLogCreate {
 	_c.mutation.SetRecipient(v)
@@ -234,6 +242,10 @@ func (_c *NotificationLogCreate) defaults() error {
 		v := notificationlog.DefaultTenantID
 		_c.mutation.SetTenantID(v)
 	}
+	if _, ok := _c.mutation.TemplateID(); !ok {
+		v := notificationlog.DefaultTemplateID
+		_c.mutation.SetTemplateID(v)
+	}
 	if _, ok := _c.mutation.RenderedSubject(); !ok {
 		v := notificationlog.DefaultRenderedSubject
 		_c.mutation.SetRenderedSubject(v)
@@ -270,9 +282,6 @@ func (_c *NotificationLogCreate) check() error {
 		if err := notificationlog.ChannelTypeValidator(v); err != nil {
 			return &ValidationError{Name: "channel_type", err: fmt.Errorf(`ent: validator failed for field "NotificationLog.channel_type": %w`, err)}
 		}
-	}
-	if _, ok := _c.mutation.TemplateID(); !ok {
-		return &ValidationError{Name: "template_id", err: errors.New(`ent: missing required field "NotificationLog.template_id"`)}
 	}
 	if v, ok := _c.mutation.TemplateID(); ok {
 		if err := notificationlog.TemplateIDValidator(v); err != nil {
@@ -554,6 +563,12 @@ func (u *NotificationLogUpsert) UpdateTemplateID() *NotificationLogUpsert {
 	return u
 }
 
+// ClearTemplateID clears the value of the "template_id" field.
+func (u *NotificationLogUpsert) ClearTemplateID() *NotificationLogUpsert {
+	u.SetNull(notificationlog.FieldTemplateID)
+	return u
+}
+
 // SetRecipient sets the "recipient" field.
 func (u *NotificationLogUpsert) SetRecipient(v string) *NotificationLogUpsert {
 	u.Set(notificationlog.FieldRecipient, v)
@@ -795,6 +810,13 @@ func (u *NotificationLogUpsertOne) SetTemplateID(v string) *NotificationLogUpser
 func (u *NotificationLogUpsertOne) UpdateTemplateID() *NotificationLogUpsertOne {
 	return u.Update(func(s *NotificationLogUpsert) {
 		s.UpdateTemplateID()
+	})
+}
+
+// ClearTemplateID clears the value of the "template_id" field.
+func (u *NotificationLogUpsertOne) ClearTemplateID() *NotificationLogUpsertOne {
+	return u.Update(func(s *NotificationLogUpsert) {
+		s.ClearTemplateID()
 	})
 }
 
@@ -1219,6 +1241,13 @@ func (u *NotificationLogUpsertBulk) SetTemplateID(v string) *NotificationLogUpse
 func (u *NotificationLogUpsertBulk) UpdateTemplateID() *NotificationLogUpsertBulk {
 	return u.Update(func(s *NotificationLogUpsert) {
 		s.UpdateTemplateID()
+	})
+}
+
+// ClearTemplateID clears the value of the "template_id" field.
+func (u *NotificationLogUpsertBulk) ClearTemplateID() *NotificationLogUpsertBulk {
+	return u.Update(func(s *NotificationLogUpsert) {
+		s.ClearTemplateID()
 	})
 }
 

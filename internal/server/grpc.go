@@ -17,6 +17,7 @@ import (
 	"github.com/go-tangra/go-tangra-notification/internal/metrics"
 	"github.com/go-tangra/go-tangra-notification/internal/service"
 
+	commonV1 "github.com/go-tangra/go-tangra-common/gen/go/common/service/v1"
 	"github.com/go-tangra/go-tangra-common/middleware/audit"
 	"github.com/go-tangra/go-tangra-common/middleware/mtls"
 	appViewer "github.com/go-tangra/go-tangra-common/viewer"
@@ -48,6 +49,7 @@ func NewGRPCServer(
 	internalMessageRecipientSvc *service.InternalMessageRecipientService,
 	internalMessageCategorySvc *service.InternalMessageCategoryService,
 	backupSvc *service.BackupService,
+	taskExecutor *service.TaskExecutor,
 ) (*grpc.Server, error) {
 	cfg := ctx.GetConfig()
 	l := ctx.NewLoggerHelper("notification/grpc")
@@ -122,6 +124,7 @@ func NewGRPCServer(
 	notificationpb.RegisterRedactedInternalMessageRecipientServiceServer(srv, internalMessageRecipientSvc, nil)
 	notificationpb.RegisterRedactedInternalMessageCategoryServiceServer(srv, internalMessageCategorySvc, nil)
 	notificationpb.RegisterRedactedBackupServiceServer(srv, backupSvc, nil)
+	commonV1.RegisterTaskExecutorServiceServer(srv, taskExecutor)
 
 	return srv, nil
 }

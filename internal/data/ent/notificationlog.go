@@ -32,7 +32,7 @@ type NotificationLog struct {
 	ChannelID string `json:"channel_id,omitempty"`
 	// Channel type used
 	ChannelType notificationlog.ChannelType `json:"channel_type,omitempty"`
-	// FK to notification_templates
+	// FK to notification_templates (empty for template-less sends, e.g. scheduler tasks)
 	TemplateID string `json:"template_id,omitempty"`
 	// Recipient address
 	Recipient string `json:"recipient,omitempty"`

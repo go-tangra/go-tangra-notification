@@ -138,6 +138,12 @@ func (_u *NotificationLogUpdate) SetNillableTemplateID(v *string) *NotificationL
 	return _u
 }
 
+// ClearTemplateID clears the value of the "template_id" field.
+func (_u *NotificationLogUpdate) ClearTemplateID() *NotificationLogUpdate {
+	_u.mutation.ClearTemplateID()
+	return _u
+}
+
 // SetRecipient sets the "recipient" field.
 func (_u *NotificationLogUpdate) SetRecipient(v string) *NotificationLogUpdate {
 	_u.mutation.SetRecipient(v)
@@ -349,6 +355,9 @@ func (_u *NotificationLogUpdate) sqlSave(ctx context.Context) (_node int, err er
 	if value, ok := _u.mutation.TemplateID(); ok {
 		_spec.SetField(notificationlog.FieldTemplateID, field.TypeString, value)
 	}
+	if _u.mutation.TemplateIDCleared() {
+		_spec.ClearField(notificationlog.FieldTemplateID, field.TypeString)
+	}
 	if value, ok := _u.mutation.Recipient(); ok {
 		_spec.SetField(notificationlog.FieldRecipient, field.TypeString, value)
 	}
@@ -498,6 +507,12 @@ func (_u *NotificationLogUpdateOne) SetNillableTemplateID(v *string) *Notificati
 	if v != nil {
 		_u.SetTemplateID(*v)
 	}
+	return _u
+}
+
+// ClearTemplateID clears the value of the "template_id" field.
+func (_u *NotificationLogUpdateOne) ClearTemplateID() *NotificationLogUpdateOne {
+	_u.mutation.ClearTemplateID()
 	return _u
 }
 
@@ -741,6 +756,9 @@ func (_u *NotificationLogUpdateOne) sqlSave(ctx context.Context) (_node *Notific
 	}
 	if value, ok := _u.mutation.TemplateID(); ok {
 		_spec.SetField(notificationlog.FieldTemplateID, field.TypeString, value)
+	}
+	if _u.mutation.TemplateIDCleared() {
+		_spec.ClearField(notificationlog.FieldTemplateID, field.TypeString)
 	}
 	if value, ok := _u.mutation.Recipient(); ok {
 		_spec.SetField(notificationlog.FieldRecipient, field.TypeString, value)

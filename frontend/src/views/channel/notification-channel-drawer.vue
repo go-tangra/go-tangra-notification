@@ -55,10 +55,14 @@ const [BaseForm, baseFormApi] = useVbenForm({
       fieldName: 'config',
       label: $t('notification.page.channel.config'),
       componentProps: {
+        // EMAIL: host/port/from/tls_mode plus optional custom_headers
+        // map. Header names are validated against RFC 5322 grammar
+        // and a deny-list (From/To/Subject/MIME-Version/Content-Type)
+        // so config can't override the envelope.
         placeholder:
-          '{"host":"smtp.example.com","port":587,"username":"...","password":"...","from":"noreply@example.com","tls_mode":"starttls"}',
+          '{\n  "host": "smtp.example.com",\n  "port": 587,\n  "username": "...",\n  "password": "...",\n  "from": "noreply@example.com",\n  "tls_mode": "starttls",\n  "custom_headers": {\n    "X-Mailer": "GoTangra Notification",\n    "Reply-To": "support@example.com",\n    "List-Unsubscribe": "<mailto:unsubscribe@example.com>"\n  }\n}',
         allowClear: true,
-        rows: 6,
+        rows: 10,
       },
       rules: 'required',
     },

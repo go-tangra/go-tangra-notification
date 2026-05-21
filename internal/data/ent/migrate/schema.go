@@ -216,7 +216,7 @@ var (
 		{Name: "tenant_id", Type: field.TypeUint32, Nullable: true, Comment: "租户ID", Default: 0},
 		{Name: "channel_id", Type: field.TypeString, Size: 36, Comment: "FK to notification_channels"},
 		{Name: "channel_type", Type: field.TypeEnum, Comment: "Channel type used", Enums: []string{"EMAIL", "SMS", "SLACK", "SSE"}},
-		{Name: "template_id", Type: field.TypeString, Size: 36, Comment: "FK to notification_templates"},
+		{Name: "template_id", Type: field.TypeString, Nullable: true, Size: 36, Comment: "FK to notification_templates (empty for template-less sends, e.g. scheduler tasks)", Default: ""},
 		{Name: "recipient", Type: field.TypeString, Size: 512, Comment: "Recipient address"},
 		{Name: "rendered_subject", Type: field.TypeString, Size: 1024, Comment: "Rendered subject", Default: ""},
 		{Name: "rendered_body", Type: field.TypeString, Size: 2147483647, Comment: "Rendered body", Default: ""},
