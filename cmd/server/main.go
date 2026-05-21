@@ -15,6 +15,7 @@ import (
 	"github.com/go-tangra/go-tangra-common/registration"
 	"github.com/go-tangra/go-tangra-common/service"
 	"github.com/go-tangra/go-tangra-notification/cmd/server/assets"
+	notifService "github.com/go-tangra/go-tangra-notification/internal/service"
 )
 
 var (
@@ -48,6 +49,12 @@ func newApp(
 		RetryInterval:     5 * time.Second,
 		MaxRetries:        60,
 	})
+
+	// Tell the scheduler which notification:* task types we can
+	// execute. Background goroutine with retry — if the scheduler is
+	// unreachable we keep trying; if SCHEDULER_GRPC_ENDPOINT isn't
+	// set we silently no-op.
+	notifService.RegisterTasksWithScheduler(ctx.GetLogger())
 
 	if ss != nil {
 		return bootstrap.NewApp(ctx, gs, hs, ss)
