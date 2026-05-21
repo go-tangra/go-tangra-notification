@@ -314,16 +314,29 @@ func (s *NotificationService) SendNotification(ctx context.Context, req *notific
 		return nil, notificationpb.ErrorInternalServerError("failed to process notification")
 	}
 
-	// 4. Create log entry (PENDING)
+	return s.dispatch(ctx, tenantID, ch, req.Recipient, tmpl.ID, renderedSubject, renderedBody, createdBy)
+}
+
+// dispatch handles the "everything after auth + render" pipeline:
+// rate-limiter-bypass-aware log insert, sender construction, send, and
+// transition to SENT/FAILED. Shared by SendNotification (template
+// path) and SendInternal (template-less system path) so the audit
+// log + metrics state machine stays consistent across both entry
+// points.
+func (s *NotificationService) dispatch(
+	ctx context.Context,
+	tenantID uint32,
+	ch *ent.Channel,
+	recipient, templateID, renderedSubject, renderedBody string,
+	createdBy *uint32,
+) (*notificationpb.SendNotificationResponse, error) {
 	logChannelType := channelTypeToLogChannelType(ch.Type)
-	logEntry, err := s.notifLogRepo.Create(ctx, tenantID, ch.ID, logChannelType, tmpl.ID, req.Recipient, renderedSubject, renderedBody, createdBy)
+	logEntry, err := s.notifLogRepo.Create(ctx, tenantID, ch.ID, logChannelType, templateID, recipient, renderedSubject, renderedBody, createdBy)
 	if err != nil {
 		return nil, err
 	}
-
 	s.collector.NotificationCreated(string(notificationlog.StatusPENDING), string(ch.Type))
 
-	// 5. Create sender and send
 	sender, err := s.createSender(ch)
 	if err != nil {
 		logEntry, _ = s.notifLogRepo.MarkFailed(ctx, tenantID, logEntry.ID, "notification delivery failed")
@@ -334,31 +347,108 @@ func (s *NotificationService) SendNotification(ctx context.Context, req *notific
 	}
 
 	msg := &channelPkg.Message{
-		Recipient: req.Recipient,
+		Recipient: recipient,
 		Subject:   renderedSubject,
 		Body:      renderedBody,
 	}
 
 	if err := sender.Send(ctx, msg); err != nil {
 		s.log.Errorf("send notification failed: %v", err)
-		logEntry, _ = s.notifLogRepo.MarkFailed(ctx, tenantID, logEntry.ID, "notification delivery failed")
+		// Capture the real sender error in the log row so operators
+		// can diagnose from /notification/logs. The generic
+		// "notification delivery failed" message we used previously
+		// hid the actual SMTP / channel error.
+		logEntry, _ = s.notifLogRepo.MarkFailed(ctx, tenantID, logEntry.ID, err.Error())
 		s.collector.NotificationStatusChanged(string(notificationlog.StatusPENDING), string(notificationlog.StatusFAILED))
 		return &notificationpb.SendNotificationResponse{
 			Notification: s.notifLogRepo.ToProto(logEntry, true),
 		}, nil
 	}
 
-	// 6. Mark sent
 	logEntry, err = s.notifLogRepo.MarkSent(ctx, tenantID, logEntry.ID)
 	if err != nil {
 		return nil, err
 	}
-
 	s.collector.NotificationStatusChanged(string(notificationlog.StatusPENDING), string(notificationlog.StatusSENT))
 
 	return &notificationpb.SendNotificationResponse{
 		Notification: s.notifLogRepo.ToProto(logEntry, true),
 	}, nil
+}
+
+// InternalSendRequest is the in-process equivalent of
+// SendNotificationRequest: no template, body supplied verbatim, no
+// authenticated caller. The recipient is the email address (or
+// channel-equivalent) to deliver to; subject + body are passed
+// through to the sender as-is. createdBy may be nil for system-
+// initiated sends — the audit row will record NULL there.
+type InternalSendRequest struct {
+	TenantID  uint32
+	ChannelID string // explicit channel; if empty, uses the tenant's default EMAIL channel
+	Recipient string
+	Subject   string
+	Body      string
+	CreatedBy *uint32
+}
+
+// SendInternal is the system-caller entry point: rate-limited and
+// audited like SendNotification, but it skips the auth gate, the
+// template + authz lookups, and the template render. Intended for
+// in-process callers (scheduler task executor and any future
+// internal automation). NOT exposed over gRPC.
+//
+// Operators see scheduler-fired sends in /notification/logs through
+// this path; the audit row carries an empty template_id (allowed by
+// schema) and the body verbatim.
+func (s *NotificationService) SendInternal(ctx context.Context, req *InternalSendRequest) (*notificationpb.SendNotificationResponse, error) {
+	if req == nil {
+		return nil, fmt.Errorf("nil InternalSendRequest")
+	}
+
+	if !s.rateLimiter.allow(req.TenantID) {
+		return nil, notificationpb.ErrorServiceUnavailable("notification rate limit exceeded, try again later")
+	}
+
+	var ch *ent.Channel
+	var err error
+	if req.ChannelID != "" {
+		ch, err = s.channelRepo.GetByID(ctx, req.TenantID, req.ChannelID)
+		if err != nil {
+			return nil, err
+		}
+		if ch == nil {
+			return nil, notificationpb.ErrorChannelNotFound("channel not found")
+		}
+	} else {
+		ch, err = s.channelRepo.GetDefaultByType(ctx, req.TenantID, channel.TypeEMAIL)
+		if err != nil {
+			return nil, err
+		}
+		if ch == nil {
+			return nil, notificationpb.ErrorChannelNotFound("no default EMAIL channel configured for this tenant")
+		}
+	}
+
+	if !ch.Enabled {
+		return nil, notificationpb.ErrorChannelDisabled("channel %q is disabled", ch.Name)
+	}
+
+	switch ch.Type {
+	case channel.TypeEMAIL:
+		parsed, perr := mail.ParseAddress(req.Recipient)
+		if perr != nil {
+			return nil, notificationpb.ErrorInvalidRecipient("invalid recipient email address")
+		}
+		req.Recipient = parsed.Address
+	default:
+		if len(req.Recipient) == 0 || len(req.Recipient) > 512 {
+			return nil, notificationpb.ErrorInvalidRecipient("invalid recipient")
+		}
+	}
+
+	// templateID = "" — schema allows empty for template-less sends,
+	// and the /notification/logs UI handles missing template names.
+	return s.dispatch(ctx, req.TenantID, ch, req.Recipient, "", req.Subject, req.Body, req.CreatedBy)
 }
 
 func (s *NotificationService) GetNotification(ctx context.Context, req *notificationpb.GetNotificationRequest) (*notificationpb.GetNotificationResponse, error) {

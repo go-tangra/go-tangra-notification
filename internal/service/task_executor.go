@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/mail"
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -13,33 +12,31 @@ import (
 	commonV1 "github.com/go-tangra/go-tangra-common/gen/go/common/service/v1"
 	appViewer "github.com/go-tangra/go-tangra-common/viewer"
 
-	"github.com/go-tangra/go-tangra-notification/internal/data"
-	"github.com/go-tangra/go-tangra-notification/internal/data/ent"
-	"github.com/go-tangra/go-tangra-notification/internal/data/ent/channel"
-	"github.com/go-tangra/go-tangra-notification/internal/data/ent/notificationlog"
-	channelPkg "github.com/go-tangra/go-tangra-notification/pkg/channel"
+	notificationpb "github.com/go-tangra/go-tangra-notification/gen/go/notification/service/v1"
 )
 
 // TaskExecutor implements common.service.v1.TaskExecutorService and handles
 // every notification:* task type the scheduler can fire. Today only the
 // "notification:send-test-email" task is supported.
+//
+// The executor delegates to NotificationService.SendInternal for the
+// actual send so that channel resolution, recipient validation, rate
+// limiting, log-row management, and metrics all flow through the
+// single canonical pipeline used by SendNotification. This keeps the
+// /notification/logs view consistent across user-triggered and
+// system-triggered sends and ensures future channel features (e.g.
+// custom_headers) automatically apply to scheduler-fired tasks.
 type TaskExecutor struct {
 	commonV1.UnimplementedTaskExecutorServiceServer
 
-	log          *log.Helper
-	channelRepo  *data.ChannelRepo
-	notifLogRepo *data.NotificationLogRepo
+	log      *log.Helper
+	notifSvc *NotificationService
 }
 
-func NewTaskExecutor(
-	ctx *bootstrap.Context,
-	channelRepo *data.ChannelRepo,
-	notifLogRepo *data.NotificationLogRepo,
-) *TaskExecutor {
+func NewTaskExecutor(ctx *bootstrap.Context, notifSvc *NotificationService) *TaskExecutor {
 	return &TaskExecutor{
-		log:          ctx.NewLoggerHelper("task-executor/notification-service"),
-		channelRepo:  channelRepo,
-		notifLogRepo: notifLogRepo,
+		log:      ctx.NewLoggerHelper("task-executor/notification-service"),
+		notifSvc: notifSvc,
 	}
 }
 
@@ -100,15 +97,6 @@ func (e *TaskExecutor) handleSendTestEmail(
 			Message:          `payload missing required field "recipient" (email address)`,
 		}, nil
 	}
-	parsedAddr, err := mail.ParseAddress(cfg.Recipient)
-	if err != nil {
-		return &commonV1.ExecuteTaskResponse{
-			Success:          false,
-			PermanentFailure: true,
-			Message:          fmt.Sprintf("invalid recipient %q: %v", cfg.Recipient, err),
-		}, nil
-	}
-	recipient := parsedAddr.Address
 
 	if cfg.Subject == "" {
 		cfg.Subject = "[GoTangra] Scheduled test email"
@@ -126,135 +114,47 @@ func (e *TaskExecutor) handleSendTestEmail(
 	}
 
 	// Tasks run without a user identity, so we must elevate to system
-	// viewer for ent privacy bypass — same pattern the LCM task
-	// executor uses.
+	// viewer for ent privacy bypass. SendInternal handles auth/
+	// authorization separately (skipped because it's an in-process
+	// system caller), but the ent layer still consults the viewer
+	// context for tenant-scoped queries.
 	sysCtx := appViewer.NewSystemViewerContext(ctx)
 
-	// Pick the channel. Two paths: explicit channel ID from the
-	// payload, or the tenant's default EMAIL channel.
-	var ch *ent.Channel
-	tenantID := req.GetTenantId()
-	if cfg.ChannelID != "" {
-		entry, lookupErr := e.channelRepo.GetByID(sysCtx, tenantID, cfg.ChannelID)
-		if lookupErr != nil {
-			return &commonV1.ExecuteTaskResponse{
-				Success: false,
-				Message: fmt.Sprintf("channel lookup failed: %v", lookupErr),
-			}, nil
-		}
-		if entry == nil {
-			return &commonV1.ExecuteTaskResponse{
-				Success:          false,
-				PermanentFailure: true,
-				Message:          fmt.Sprintf("channel %s not found for tenant %d", cfg.ChannelID, tenantID),
-			}, nil
-		}
-		ch = entry
-	} else {
-		entry, lookupErr := e.channelRepo.GetDefaultByType(sysCtx, tenantID, channel.TypeEMAIL)
-		if lookupErr != nil {
-			return &commonV1.ExecuteTaskResponse{
-				Success: false,
-				Message: fmt.Sprintf("default email channel lookup failed: %v", lookupErr),
-			}, nil
-		}
-		if entry == nil {
-			return &commonV1.ExecuteTaskResponse{
-				Success:          false,
-				PermanentFailure: true,
-				Message:          fmt.Sprintf("no default EMAIL channel configured for tenant %d — create one in the notification module first", tenantID),
-			}, nil
-		}
-		ch = entry
-	}
-
-	if ch.Type != channel.TypeEMAIL {
-		return &commonV1.ExecuteTaskResponse{
-			Success:          false,
-			PermanentFailure: true,
-			Message:          fmt.Sprintf("channel %s is type %s, not EMAIL", ch.ID, ch.Type),
-		}, nil
-	}
-	if !ch.Enabled {
-		return &commonV1.ExecuteTaskResponse{
-			Success:          false,
-			PermanentFailure: true,
-			Message:          fmt.Sprintf("channel %s is disabled", ch.ID),
-		}, nil
-	}
-
-	sender, err := channelPkg.NewEmailSender(ch.Config)
-	if err != nil {
-		return &commonV1.ExecuteTaskResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to build sender for channel %s: %v", ch.ID, err),
-		}, nil
-	}
-
-	// Record a pending log row BEFORE the SMTP send so the
-	// notifications-log page shows scheduler-driven sends alongside
-	// regular ones — operators kept asking why the test emails
-	// landed in their inbox but were missing from the UI. The log
-	// row is then transitioned to SENT / FAILED based on outcome.
-	//
-	// template_id is empty here: this is a template-less send. The
-	// schema accepts empty for exactly this use case (system task
-	// executor sends + future ad-hoc internal flows).
-	var logEntry *ent.NotificationLog
-	if e.notifLogRepo != nil {
-		entry, logErr := e.notifLogRepo.Create(
-			sysCtx,
-			tenantID,
-			ch.ID,
-			notificationlog.ChannelTypeEMAIL,
-			"", // no template — body supplied directly
-			recipient,
-			cfg.Subject,
-			cfg.Body,
-			nil, // no created_by user
-		)
-		if logErr != nil {
-			// Don't fail the whole task just because we couldn't
-			// write to the log table. The email send is still the
-			// primary effect; missing audit row is worth a WARN.
-			e.log.Warnf("Failed to create notification log row for test-email task: %v", logErr)
-		} else {
-			logEntry = entry
-		}
-	}
-
-	sendErr := sender.Send(ctx, &channelPkg.Message{
-		Recipient: recipient,
+	resp, err := e.notifSvc.SendInternal(sysCtx, &InternalSendRequest{
+		TenantID:  req.GetTenantId(),
+		ChannelID: cfg.ChannelID,
+		Recipient: cfg.Recipient,
 		Subject:   cfg.Subject,
 		Body:      cfg.Body,
+		// createdBy stays nil — there's no user behind a scheduler
+		// task. The audit row records NULL there; platform admins
+		// see the row via the carve-out in ListNotifications.
 	})
-
-	if sendErr != nil {
-		if logEntry != nil {
-			if _, markErr := e.notifLogRepo.MarkFailed(sysCtx, tenantID, logEntry.ID, sendErr.Error()); markErr != nil {
-				e.log.Warnf("Failed to mark notification log row %s as failed: %v", logEntry.ID, markErr)
-			}
-		}
-		// Not flagging as permanent — SMTP outages are usually
-		// transient and the scheduler's retry logic is the right
-		// place to handle that.
+	if err != nil {
+		// gRPC-style errors from validation (e.g. channel disabled,
+		// invalid recipient) — surface verbatim so the operator
+		// sees the same message they'd see calling SendNotification.
 		return &commonV1.ExecuteTaskResponse{
 			Success: false,
-			Message: fmt.Sprintf("send to %s via channel %s failed: %v", recipient, ch.ID, sendErr),
+			Message: err.Error(),
 		}, nil
 	}
 
-	if logEntry != nil {
-		if _, markErr := e.notifLogRepo.MarkSent(sysCtx, tenantID, logEntry.ID); markErr != nil {
-			e.log.Warnf("Failed to mark notification log row %s as sent: %v", logEntry.ID, markErr)
-		}
+	// SendInternal returns a NotificationLog proto regardless of
+	// final status — we look at the audit row's status to decide
+	// success vs failure on the scheduler side.
+	notif := resp.GetNotification()
+	if notif != nil && notif.GetStatus() != notificationpb.DeliveryStatus_DELIVERY_STATUS_SENT {
+		return &commonV1.ExecuteTaskResponse{
+			Success: false,
+			Message: fmt.Sprintf("send failed: %s", notif.GetErrorMessage()),
+		}, nil
 	}
 
-	msg := fmt.Sprintf("Test email sent to %s via channel %s", recipient, ch.ID)
+	msg := fmt.Sprintf("Test email sent to %s", cfg.Recipient)
 	e.log.Info(msg)
 	return &commonV1.ExecuteTaskResponse{
 		Success: true,
 		Message: msg,
 	}, nil
 }
-
