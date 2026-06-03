@@ -7,7 +7,7 @@ FROM golang:1.25-alpine AS ts-codegen
 RUN apk add --no-cache curl git && \
     curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf && \
     chmod +x /usr/local/bin/buf && \
-    go install github.com/go-kratos/protoc-gen-typescript-http@latest
+    go install github.com/go-kratos/protoc-gen-typescript-http@v0.0.0-20260525125049-694cf6cd0529
 
 WORKDIR /src
 COPY buf.typescript.gen.yaml buf.yaml buf.lock ./
