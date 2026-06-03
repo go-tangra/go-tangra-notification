@@ -2,7 +2,7 @@
 # Stage 0: Generate TypeScript API client from protos
 ##################################
 
-FROM golang:1.23-alpine AS ts-codegen
+FROM golang:1.25-alpine AS ts-codegen
 
 RUN apk add --no-cache curl git && \
     curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf && \
@@ -33,7 +33,7 @@ RUN pnpm build
 # Stage 2: Build Go executable
 ##################################
 
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 ARG APP_VERSION=1.0.0
 
