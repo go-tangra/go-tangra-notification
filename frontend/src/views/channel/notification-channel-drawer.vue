@@ -1,97 +1,202 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
-import { useVbenDrawer, useVbenForm } from 'shell/vben/common-ui';
+import { useVbenDrawer } from 'shell/vben/common-ui';
 import { $t } from 'shell/locales';
 
-import { notification } from 'ant-design-vue';
+import {
+  Button,
+  Form,
+  FormItem,
+  Input,
+  InputNumber,
+  InputPassword,
+  notification,
+  RadioGroup,
+  Select,
+} from 'ant-design-vue';
 
+import type { ChannelType } from '../../api/client';
 import { useNotificationChannelStore } from '../../stores/notification-channel.state';
 import { channelTypeList, enableBoolList } from '../../helpers';
 
 const channelStore = useNotificationChannelStore();
 
-const data = ref();
+interface HeaderRow {
+  name: string;
+  value: string;
+}
+
+interface ChannelFormModel {
+  name: string;
+  type: ChannelType;
+  enabled: boolean;
+  isDefault: boolean;
+  email: {
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    from: string;
+    tlsMode: string;
+    headers: HeaderRow[];
+  };
+  sms: { provider: string; apiKey: string; fromNumber: string };
+  slack: { webhookUrl: string; botToken: string; defaultChannel: string };
+}
+
+function emptyModel(): ChannelFormModel {
+  return {
+    name: '',
+    type: 'CHANNEL_TYPE_EMAIL',
+    enabled: true,
+    isDefault: false,
+    email: {
+      host: '',
+      port: 587,
+      username: '',
+      password: '',
+      from: '',
+      tlsMode: 'starttls',
+      headers: [],
+    },
+    sms: { provider: '', apiKey: '', fromNumber: '' },
+    slack: { webhookUrl: '', botToken: '', defaultChannel: '' },
+  };
+}
+
+const form = reactive<ChannelFormModel>(emptyModel());
+
+const data = ref<Record<string, any>>();
+const isCreate = computed(() => Boolean(data.value?.create));
 
 const getTitle = computed(() =>
-  data.value?.create
+  isCreate.value
     ? $t('notification.page.channel.create')
     : $t('notification.page.channel.edit'),
 );
 
-const [BaseForm, baseFormApi] = useVbenForm({
-  showDefaultActions: false,
-  commonConfig: {
-    componentProps: {
-      class: 'w-full',
-    },
-  },
-  schema: [
-    {
-      component: 'Input',
-      fieldName: 'name',
-      label: $t('notification.page.channel.name'),
-      componentProps: {
-        placeholder: $t('ui.placeholder.input'),
-        allowClear: true,
-      },
-      rules: 'required',
-    },
-    {
-      component: 'Select',
-      fieldName: 'type',
-      label: $t('notification.page.channel.channelType'),
-      componentProps: {
-        placeholder: $t('ui.placeholder.select'),
-        options: channelTypeList(),
-        filterOption: (input: string, option: any) =>
-          option.label.toLowerCase().includes(input.toLowerCase()),
-        showSearch: true,
-      },
-      rules: 'selectRequired',
-    },
-    {
-      component: 'Textarea',
-      fieldName: 'config',
-      label: $t('notification.page.channel.config'),
-      componentProps: {
-        // EMAIL: host/port/from/tls_mode plus optional custom_headers
-        // map. Header names are validated against RFC 5322 grammar
-        // and a deny-list (From/To/Subject/MIME-Version/Content-Type)
-        // so config can't override the envelope.
-        placeholder:
-          '{\n  "host": "smtp.example.com",\n  "port": 587,\n  "username": "...",\n  "password": "...",\n  "from": "noreply@example.com",\n  "tls_mode": "starttls",\n  "custom_headers": {\n    "X-Mailer": "GoTangra Notification",\n    "Reply-To": "support@example.com",\n    "List-Unsubscribe": "<mailto:unsubscribe@example.com>"\n  }\n}',
-        allowClear: true,
-        rows: 10,
-      },
-      rules: 'required',
-    },
-    {
-      component: 'RadioGroup',
-      fieldName: 'enabled',
-      label: $t('ui.table.status'),
-      defaultValue: true,
-      rules: 'selectRequired',
-      componentProps: {
-        optionType: 'button',
-        buttonStyle: 'solid',
-        options: enableBoolList(),
-      },
-    },
-    {
-      component: 'RadioGroup',
-      fieldName: 'isDefault',
-      label: $t('notification.page.channel.isDefault'),
-      defaultValue: false,
-      rules: 'selectRequired',
-      componentProps: {
-        optionType: 'button',
-        buttonStyle: 'solid',
-        options: enableBoolList(),
-      },
-    },
-  ],
-});
+const tlsModeOptions = computed(() => [
+  { value: 'starttls', label: $t('notification.page.channel.tlsStarttls') },
+  { value: 'implicit', label: $t('notification.page.channel.tlsImplicit') },
+  { value: 'none', label: $t('notification.page.channel.tlsNone') },
+]);
+
+function typeFilterOption(input: string, option: { label: string }): boolean {
+  return option.label.toLowerCase().includes(input.toLowerCase());
+}
+
+function addHeader(): void {
+  form.email.headers.push({ name: '', value: '' });
+}
+
+function removeHeader(index: number): void {
+  form.email.headers.splice(index, 1);
+}
+
+// resetModel restores defaults then overlays a saved row when editing.
+function resetModel(row?: Record<string, any>): void {
+  Object.assign(form, emptyModel());
+  if (!row) return;
+
+  form.name = row.name ?? '';
+  form.type = (row.type as ChannelType) ?? 'CHANNEL_TYPE_EMAIL';
+  form.enabled = row.enabled ?? true;
+  form.isDefault = row.isDefault ?? false;
+
+  // config is a JSON string on the wire; decode into the typed sections.
+  let cfg: Record<string, any> = {};
+  if (typeof row.config === 'string' && row.config.trim()) {
+    try {
+      cfg = JSON.parse(row.config);
+    } catch {
+      cfg = {};
+    }
+  }
+
+  if (form.type === 'CHANNEL_TYPE_EMAIL') {
+    form.email.host = cfg.host ?? '';
+    form.email.port = typeof cfg.port === 'number' ? cfg.port : 587;
+    form.email.username = cfg.username ?? '';
+    form.email.password = cfg.password ?? '';
+    form.email.from = cfg.from ?? '';
+    form.email.tlsMode = cfg.tls_mode ?? 'starttls';
+    form.email.headers = cfg.custom_headers
+      ? Object.entries(cfg.custom_headers).map(([name, value]) => ({
+          name,
+          value: String(value),
+        }))
+      : [];
+  } else if (form.type === 'CHANNEL_TYPE_SMS') {
+    form.sms.provider = cfg.provider ?? '';
+    form.sms.apiKey = cfg.api_key ?? '';
+    form.sms.fromNumber = cfg.from_number ?? '';
+  } else if (form.type === 'CHANNEL_TYPE_SLACK') {
+    form.slack.webhookUrl = cfg.webhook_url ?? '';
+    form.slack.botToken = cfg.bot_token ?? '';
+    form.slack.defaultChannel = cfg.default_channel ?? '';
+  }
+}
+
+// buildConfig serializes the typed sections back into the JSON string the
+// backend stores. Returns undefined for SSE (no config needed).
+function buildConfig(): string | undefined {
+  switch (form.type) {
+    case 'CHANNEL_TYPE_EMAIL': {
+      const cfg: Record<string, unknown> = {
+        host: form.email.host.trim(),
+        port: form.email.port,
+        username: form.email.username,
+        password: form.email.password,
+        from: form.email.from.trim(),
+        tls_mode: form.email.tlsMode,
+      };
+      const headers: Record<string, string> = {};
+      for (const h of form.email.headers) {
+        const name = h.name.trim();
+        if (name) headers[name] = h.value;
+      }
+      if (Object.keys(headers).length > 0) cfg.custom_headers = headers;
+      return JSON.stringify(cfg);
+    }
+    case 'CHANNEL_TYPE_SMS':
+      return JSON.stringify({
+        provider: form.sms.provider.trim(),
+        api_key: form.sms.apiKey,
+        from_number: form.sms.fromNumber.trim(),
+      });
+    case 'CHANNEL_TYPE_SLACK':
+      return JSON.stringify({
+        webhook_url: form.slack.webhookUrl.trim(),
+        bot_token: form.slack.botToken,
+        default_channel: form.slack.defaultChannel.trim(),
+      });
+    default:
+      return '{}';
+  }
+}
+
+// validate performs the client-side checks; the backend remains the
+// authority (e.g. RFC-5322 header names, reserved headers, address syntax).
+function validate(): string | null {
+  if (!form.name.trim()) return $t('notification.page.channel.name');
+  if (form.type === 'CHANNEL_TYPE_EMAIL') {
+    if (!form.email.host.trim()) return $t('notification.page.channel.host');
+    if (!form.email.from.trim()) return $t('notification.page.channel.from');
+    // A header value without a name is meaningless — flag it early.
+    const orphan = form.email.headers.find(
+      (h) => h.value.trim() && !h.name.trim(),
+    );
+    if (orphan) return $t('notification.page.channel.headerName');
+  } else if (form.type === 'CHANNEL_TYPE_SLACK') {
+    if (!form.slack.webhookUrl.trim())
+      return $t('notification.page.channel.slackWebhookUrl');
+  } else if (form.type === 'CHANNEL_TYPE_SMS') {
+    if (!form.sms.provider.trim())
+      return $t('notification.page.channel.smsProvider');
+  }
+  return null;
+}
 
 const [Drawer, drawerApi] = useVbenDrawer({
   onCancel() {
@@ -99,34 +204,47 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 
   async onConfirm() {
-    const validate = await baseFormApi.validate();
-    if (!validate.valid) {
+    const missing = validate();
+    if (missing) {
+      notification.error({
+        message: $t('ui.placeholder.input') + ': ' + missing,
+      });
       return;
     }
 
     setLoading(true);
-
-    const values = await baseFormApi.getValues();
-    const { type: _type, ...updateValues } = values;
-
+    const config = buildConfig();
     try {
-      await (data.value?.create
-        ? channelStore.createChannel(values)
-        : channelStore.updateChannel(data.value.row.id, updateValues));
-
+      if (isCreate.value) {
+        await channelStore.createChannel({
+          name: form.name.trim(),
+          type: form.type,
+          config,
+          enabled: form.enabled,
+          isDefault: form.isDefault,
+        });
+      } else {
+        await channelStore.updateChannel(data.value!.row.id, {
+          id: data.value!.row.id,
+          name: form.name.trim(),
+          config,
+          enabled: form.enabled,
+          isDefault: form.isDefault,
+        });
+      }
       notification.success({
-        message: data.value?.create
+        message: isCreate.value
           ? $t('ui.notification.create_success')
           : $t('ui.notification.update_success'),
       });
+      drawerApi.close();
     } catch {
       notification.error({
-        message: data.value?.create
+        message: isCreate.value
           ? $t('ui.notification.create_failed')
           : $t('ui.notification.update_failed'),
       });
     } finally {
-      drawerApi.close();
       setLoading(false);
     }
   },
@@ -134,11 +252,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
       data.value = drawerApi.getData<Record<string, any>>();
-      if (data.value?.row) {
-        baseFormApi.setValues({
-          ...data.value.row,
-        });
-      }
+      resetModel(data.value?.row);
       setLoading(false);
     }
   },
@@ -151,6 +265,160 @@ function setLoading(loading: boolean) {
 
 <template>
   <Drawer :title="getTitle">
-    <BaseForm />
+    <Form layout="vertical">
+      <FormItem :label="$t('notification.page.channel.name')" required>
+        <Input
+          v-model:value="form.name"
+          :placeholder="$t('ui.placeholder.input')"
+          allow-clear
+        />
+      </FormItem>
+
+      <FormItem :label="$t('notification.page.channel.channelType')" required>
+        <Select
+          v-model:value="form.type"
+          :placeholder="$t('ui.placeholder.select')"
+          :options="channelTypeList()"
+          :disabled="!isCreate"
+          show-search
+          :filter-option="typeFilterOption"
+        />
+      </FormItem>
+
+      <!-- EMAIL configuration -->
+      <template v-if="form.type === 'CHANNEL_TYPE_EMAIL'">
+        <div class="text-muted-foreground mb-2 mt-1 text-sm font-medium">
+          {{ $t('notification.page.channel.emailSettings') }}
+        </div>
+        <FormItem :label="$t('notification.page.channel.host')" required>
+          <Input v-model:value="form.email.host" placeholder="smtp.example.com" />
+        </FormItem>
+        <FormItem :label="$t('notification.page.channel.port')">
+          <InputNumber
+            v-model:value="form.email.port"
+            :min="1"
+            :max="65535"
+            class="w-full"
+          />
+        </FormItem>
+        <FormItem :label="$t('notification.page.channel.from')" required>
+          <Input
+            v-model:value="form.email.from"
+            placeholder="noreply@example.com"
+          />
+        </FormItem>
+        <FormItem :label="$t('notification.page.channel.tlsMode')">
+          <Select v-model:value="form.email.tlsMode" :options="tlsModeOptions" />
+        </FormItem>
+        <FormItem :label="$t('notification.page.channel.username')">
+          <Input v-model:value="form.email.username" allow-clear />
+        </FormItem>
+        <FormItem :label="$t('notification.page.channel.password')">
+          <InputPassword
+            v-model:value="form.email.password"
+            autocomplete="new-password"
+            allow-clear
+          />
+        </FormItem>
+
+        <FormItem :label="$t('notification.page.channel.customHeaders')">
+          <div class="text-muted-foreground mb-2 text-xs">
+            {{ $t('notification.page.channel.customHeadersHint') }}
+          </div>
+          <div
+            v-for="(header, index) in form.email.headers"
+            :key="index"
+            class="mb-2 flex items-center gap-2"
+          >
+            <Input
+              v-model:value="header.name"
+              :placeholder="$t('notification.page.channel.headerName')"
+              style="flex: 2"
+            />
+            <Input
+              v-model:value="header.value"
+              :placeholder="$t('notification.page.channel.headerValue')"
+              style="flex: 3"
+            />
+            <Button danger type="text" @click="removeHeader(index)">✕</Button>
+          </div>
+          <Button type="dashed" block @click="addHeader">
+            + {{ $t('notification.page.channel.addHeader') }}
+          </Button>
+        </FormItem>
+      </template>
+
+      <!-- SMS configuration -->
+      <template v-else-if="form.type === 'CHANNEL_TYPE_SMS'">
+        <div class="text-muted-foreground mb-2 mt-1 text-sm font-medium">
+          {{ $t('notification.page.channel.smsSettings') }}
+        </div>
+        <FormItem :label="$t('notification.page.channel.smsProvider')" required>
+          <Input v-model:value="form.sms.provider" allow-clear />
+        </FormItem>
+        <FormItem :label="$t('notification.page.channel.smsApiKey')">
+          <InputPassword
+            v-model:value="form.sms.apiKey"
+            autocomplete="new-password"
+            allow-clear
+          />
+        </FormItem>
+        <FormItem :label="$t('notification.page.channel.smsFromNumber')">
+          <Input v-model:value="form.sms.fromNumber" allow-clear />
+        </FormItem>
+      </template>
+
+      <!-- Slack configuration -->
+      <template v-else-if="form.type === 'CHANNEL_TYPE_SLACK'">
+        <div class="text-muted-foreground mb-2 mt-1 text-sm font-medium">
+          {{ $t('notification.page.channel.slackSettings') }}
+        </div>
+        <FormItem
+          :label="$t('notification.page.channel.slackWebhookUrl')"
+          required
+        >
+          <Input
+            v-model:value="form.slack.webhookUrl"
+            placeholder="https://hooks.slack.com/services/..."
+            allow-clear
+          />
+        </FormItem>
+        <FormItem :label="$t('notification.page.channel.slackBotToken')">
+          <InputPassword
+            v-model:value="form.slack.botToken"
+            autocomplete="new-password"
+            allow-clear
+          />
+        </FormItem>
+        <FormItem :label="$t('notification.page.channel.slackDefaultChannel')">
+          <Input v-model:value="form.slack.defaultChannel" placeholder="#general" allow-clear />
+        </FormItem>
+      </template>
+
+      <!-- SSE: no config -->
+      <template v-else-if="form.type === 'CHANNEL_TYPE_SSE'">
+        <div class="text-muted-foreground mb-2 text-sm">
+          {{ $t('notification.page.channel.sseNoConfig') }}
+        </div>
+      </template>
+
+      <FormItem :label="$t('ui.table.status')">
+        <RadioGroup
+          v-model:value="form.enabled"
+          option-type="button"
+          button-style="solid"
+          :options="enableBoolList()"
+        />
+      </FormItem>
+
+      <FormItem :label="$t('notification.page.channel.isDefault')">
+        <RadioGroup
+          v-model:value="form.isDefault"
+          option-type="button"
+          button-style="solid"
+          :options="enableBoolList()"
+        />
+      </FormItem>
+    </Form>
   </Drawer>
 </template>
