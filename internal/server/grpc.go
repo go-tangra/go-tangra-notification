@@ -49,6 +49,7 @@ func NewGRPCServer(
 	internalMessageRecipientSvc *service.InternalMessageRecipientService,
 	internalMessageCategorySvc *service.InternalMessageCategoryService,
 	backupSvc *service.BackupService,
+	sqlBackupSvc *service.SqlBackupService,
 	taskExecutor *service.TaskExecutor,
 ) (*grpc.Server, error) {
 	cfg := ctx.GetConfig()
@@ -124,6 +125,7 @@ func NewGRPCServer(
 	notificationpb.RegisterRedactedInternalMessageRecipientServiceServer(srv, internalMessageRecipientSvc, nil)
 	notificationpb.RegisterRedactedInternalMessageCategoryServiceServer(srv, internalMessageCategorySvc, nil)
 	notificationpb.RegisterRedactedBackupServiceServer(srv, backupSvc, nil)
+	commonV1.RegisterBackupServiceServer(srv, sqlBackupSvc)
 	commonV1.RegisterTaskExecutorServiceServer(srv, taskExecutor)
 
 	return srv, nil

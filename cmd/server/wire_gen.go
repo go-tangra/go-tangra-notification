@@ -64,8 +64,9 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	internalMessageRecipientService := service.NewInternalMessageRecipientService(context, internalMessageRepo, internalMessageRecipientRepo)
 	internalMessageCategoryService := service.NewInternalMessageCategoryService(context, internalMessageCategoryRepo)
 	backupService := service.NewBackupService(context, entClient)
+	sqlBackupService := service.NewSqlBackupService(context)
 	taskExecutor := service.NewTaskExecutor(context, notificationService)
-	grpcServer, err := server.NewGRPCServer(context, certManager, collector, channelService, templateService, notificationService, permissionService, userService, sseService, internalMessageService, internalMessageRecipientService, internalMessageCategoryService, backupService, taskExecutor)
+	grpcServer, err := server.NewGRPCServer(context, certManager, collector, channelService, templateService, notificationService, permissionService, userService, sseService, internalMessageService, internalMessageRecipientService, internalMessageCategoryService, backupService, sqlBackupService, taskExecutor)
 	if err != nil {
 		cleanup3()
 		cleanup2()
