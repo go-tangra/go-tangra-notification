@@ -4,6 +4,10 @@
 
 FROM golang:1.23-alpine AS ts-codegen
 
+# protoc-gen-typescript-http@latest now requires Go >= 1.24; allow the toolchain
+# to auto-upgrade (the builder stage already does this) so the install succeeds.
+ENV GOTOOLCHAIN=auto
+
 RUN apk add --no-cache curl git && \
     curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf && \
     chmod +x /usr/local/bin/buf && \
