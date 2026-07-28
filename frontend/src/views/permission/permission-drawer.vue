@@ -4,6 +4,8 @@ import { ref, computed, h, watch } from 'vue';
 import { useVbenDrawer } from 'shell/vben/common-ui';
 import { LucideTrash, LucidePlus } from 'shell/vben/icons';
 
+import { formatDateTime as sharedFormatDateTime } from '../../datetime';
+
 import {
   Table,
   Button,
@@ -157,7 +159,7 @@ function relationToColor(relation: string | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return $t('notification.page.permission.noExpiry');
   try {
-    return new Date(value).toLocaleString();
+    return sharedFormatDateTime(value);
   } catch {
     return value;
   }
