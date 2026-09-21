@@ -1,0 +1,45 @@
+# Development configuration for the notification module on the platform stack
+# (services/gateway/deploy/compose.yaml + services/notification/deploy/compose.yaml).
+# Never use these values outside a workstation.
+service_name: notification
+trust_domain: example.org
+env: dev
+identity:
+  provider: file
+  file: { cert: ../../.dev/ca/notification.pem, key: ../../.dev/ca/notification.key, bundle: ../../.dev/ca/ca.pem }
+authz: { source: file, path: deploy/policy.yaml }
+server: { grpc_addr: 127.0.0.1:9943, http_addr: 127.0.0.1:9944 }
+admin: { addr: 127.0.0.1:9590 }
+discovery:
+  static:
+    gateway: ["127.0.0.1:9643"]
+    auth: ["127.0.0.1:9543"]
+limits:
+  max_request_bytes: 16842752 # backup uploads (16 MiB + slack); JSON handlers keep their own caps
+limits_notification:
+  backup_max_bytes: 16777216
+  send_per_tenant_per_minute: 600
+  send_per_sender_per_minute: 60
+  streams_per_user: 5
+  streams_per_tenant: 2000
+  replay_window_seconds: 300
+db:
+  dsn: postgres://notification_app:dev@127.0.0.1:5434/notification?sslmode=disable
+  migrate_dsn: postgres://postgres:dev@127.0.0.1:5434/notification?sslmode=disable
+valkey:
+  addresses: ["127.0.0.1:6381"]
+  username: notification
+  password: dev
+  allow_plaintext: true
+kek:
+  source: file
+  path: deploy/kek.dev
+smtp:
+  allow_plaintext: true # Mailpit speaks plain SMTP on 1027 (development only)
+  dial_timeout_seconds: 30
+scheduler:
+  interval_seconds: 15
+  lease_seconds: 60
+gateway:
+  service: gateway
+  issuer: https://localhost:8443
