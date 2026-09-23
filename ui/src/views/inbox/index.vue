@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { UiPage, UiBadge, UiCard, UiTabs, UiIcon, UiEmptyState, UiButton, UiLiveIndicator, UiDrawer, type TabItem } from '@freya/ui'
 import { useInbox } from '@/stores/inbox'
 import { useLive } from '@/stores/live'
 import type { InboxEntry } from '@/api/types'
@@ -9,69 +10,52 @@ const live = useLive()
 const filter = ref('all')
 const open = ref(false)
 const detail = ref<InboxEntry | null>(null)
+const tabs: TabItem[] = [{ key: 'all', label: 'All' }, { key: 'unread', label: 'Unread' }, { key: 'read', label: 'Read' }]
 let release: (() => void) | null = null
-
 onMounted(async () => {
-  await inbox.list(filter.value === 'all' ? undefined : filter.value)
+  await reload()
   release = live.connect()
 })
-
-onUnmounted(() => {
-  release?.()
-})
-
+onUnmounted(() => release?.())
 async function reload(): Promise<void> {
   await inbox.list(filter.value === 'all' ? undefined : filter.value)
 }
-
 async function show(e: InboxEntry): Promise<void> {
   detail.value = await inbox.read(e.id)
   open.value = true
 }
+async function remove(): Promise<void> {
+  if (!detail.value) return
+  await inbox.remove([detail.value.id])
+  open.value = false
+}
 </script>
 
 <template>
-  <div>
-    <div class="d-flex align-center mb-4">
-      <h1 class="text-h5">Inbox</h1>
-      <v-chip v-if="inbox.unread" color="error" size="small" class="ml-3" data-test="inbox-unread">{{ inbox.unread }} unread</v-chip>
-      <v-spacer />
-      <v-btn-toggle v-model="filter" density="compact" mandatory data-test="inbox-filter" @update:model-value="reload">
-        <v-btn value="all" size="small">All</v-btn>
-        <v-btn value="unread" size="small">Unread</v-btn>
-        <v-btn value="read" size="small">Read</v-btn>
-      </v-btn-toggle>
-    </div>
-    <v-list lines="two" data-test="inbox-list">
-      <v-list-item
-        v-for="e in inbox.items"
-        :key="e.id"
-        :title="e.message.title"
-        :subtitle="e.message.content"
-        :data-test="'inbox-item-' + e.id"
-        @click="show(e)"
-      >
-        <template #prepend>
-          <v-icon :icon="e.status === 'read' ? 'mdi-email-open-outline' : 'mdi-email-outline'" :color="e.status === 'read' ? undefined : 'primary'" />
-        </template>
-        <template #append>
-          <span class="text-caption text-medium-emphasis">{{ e.message.category_name }}</span>
-        </template>
-      </v-list-item>
-      <v-list-item v-if="!inbox.items.length && !inbox.loading" title="Your inbox is empty." />
-    </v-list>
-    <v-dialog v-model="open" max-width="600" data-test="inbox-detail">
-      <v-card v-if="detail" :title="detail.message.title">
-        <v-card-text>
-          <div class="text-caption text-medium-emphasis mb-2">{{ detail.message.category_name }}</div>
-          <div style="white-space: pre-wrap" data-test="inbox-body">{{ detail.message.content }}</div>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn variant="text" color="error" :data-test="'inbox-remove-' + detail.id" @click="inbox.remove([detail.id]); open = false">Delete</v-btn>
-          <v-spacer />
-          <v-btn @click="open = false">Close</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </div>
+  <UiPage title="Inbox">
+    <template #badges><UiBadge v-if="inbox.unread" color="error" data-test="inbox-unread">{{ inbox.unread }} unread</UiBadge><UiLiveIndicator :connected="live.connected" /></template>
+    <template #filters><UiTabs v-model="filter" :tabs="tabs" data-test="inbox-filter" @update:model-value="reload" /></template>
+    <UiCard :padded="false">
+      <UiEmptyState v-if="!inbox.items.length && !inbox.loading" title="Your inbox is empty" icon="mdi-email-open-outline" />
+      <ul v-else class="divide-y divide-base-300" data-test="inbox-list">
+        <li v-for="e in inbox.items" :key="e.id">
+          <button type="button" class="flex w-full items-start gap-3 px-4 py-3 text-start hover:bg-base-200" :data-test="'inbox-item-' + e.id" @click="show(e)">
+            <UiIcon :name="e.status === 'read' ? 'mdi-email-open-outline' : 'mdi-email-outline'" :class="e.status === 'read' ? 'text-base-content/70' : 'text-primary'" class="mt-0.5 shrink-0" />
+            <span class="min-w-0 grow"><span class="block truncate" :class="e.status === 'read' ? '' : 'font-medium'">{{ e.message.title }}</span><span class="block truncate text-sm text-base-content/70">{{ e.message.content }}</span></span>
+            <span class="shrink-0 text-xs text-base-content/70">{{ e.message.category_name }}</span>
+          </button>
+        </li>
+      </ul>
+    </UiCard>
+    <UiDrawer v-model="open" :title="detail?.message.title ?? ''" size="md" data-test="inbox-detail">
+      <template v-if="detail">
+        <p class="mb-2 text-xs text-base-content/70">{{ detail.message.category_name }}</p>
+        <p class="whitespace-pre-wrap break-words" data-test="inbox-body">{{ detail.message.content }}</p>
+      </template>
+      <template #actions>
+        <UiButton v-if="detail" variant="text" color="error" :data-test="'inbox-remove-' + detail.id" @click="remove">Delete</UiButton>
+        <UiButton @click="open = false">Close</UiButton>
+      </template>
+    </UiDrawer>
+  </UiPage>
 </template>
