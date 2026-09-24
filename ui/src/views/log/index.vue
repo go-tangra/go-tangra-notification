@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useAbility } from '@casl/vue'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiForm, UiInput, UiSelect, UiCheckbox, UiFilePicker, UiStatGrid, UiStatTile, useToast, UiDrawer, type Column, type SelectOption, type TabItem } from '@freya/ui'
-import { useZodForm } from '@freya/ui/forms'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiForm, UiInput, UiSelect, UiCheckbox, UiFilePicker, UiStatGrid, UiStatTile, useToast, UiDrawer, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
+import { useZodForm } from '@go-tangra/ui/forms'
 import { useLog } from '@/stores/log'
 import { useDirectory } from '@/stores/directory'
 import { useOps } from '@/stores/ops'

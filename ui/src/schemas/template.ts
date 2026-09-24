@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { nonEmpty, optionalString } from '@freya/ui/forms'
+import { nonEmpty, optionalString } from '@go-tangra/ui/forms'
 
 const variableName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'Variables are identifiers (letters, digits, _).')
 

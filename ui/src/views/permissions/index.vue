@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { UiPage, UiCard, UiDataTable, UiPermissionDrawer, usePermissionGrants, type Column } from '@freya/ui'
+import { UiPage, UiCard, UiDataTable, UiPermissionDrawer, usePermissionGrants, type Column } from '@go-tangra/ui'
 import { useChannels } from '@/stores/channels'
 import { useTemplates } from '@/stores/templates'
 import { usePermissions } from '@/stores/permissions'

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { nonEmpty, optionalString, isoDate } from '@freya/ui/forms'
+import { nonEmpty, optionalString, isoDate } from '@go-tangra/ui/forms'
 
 export const MESSAGE_TYPES = ['notification', 'private', 'group'] as const
 export const MESSAGE_STATUSES = ['draft', 'scheduled', 'published', 'revoked', 'archived'] as const

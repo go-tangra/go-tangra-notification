@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { UiPage, UiBadge, UiCard, UiTabs, UiIcon, UiEmptyState, UiButton, UiLiveIndicator, UiDrawer, type TabItem } from '@freya/ui'
+import { UiPage, UiBadge, UiCard, UiTabs, UiIcon, UiEmptyState, UiButton, UiLiveIndicator, UiDrawer, type TabItem } from '@go-tangra/ui'
 import { useInbox } from '@/stores/inbox'
 import { useLive } from '@/stores/live'
 import type { InboxEntry } from '@/api/types'
