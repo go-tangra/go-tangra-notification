@@ -1,0 +1,480 @@
+openapi: 3.1.0
+info:
+  title: Notification — browser API
+  version: 1.0.0
+  description: |
+    Served by the notification module through the application gateway under
+    /api/notification/v1. Every request carries the platform token forwarded by the
+    gateway (verified with pkg/authclient); the gateway enforces the x-freya-permission
+    of each operation before forwarding, the module enforces the Zanzibar grant on
+    channels and templates (read/write/delete/share/use). Errors are
+    {"reason": "<closed vocabulary>", "detail"?: {...}}: unauthenticated, forbidden,
+    not_found, validation_failed, conflict, channel_disabled, no_provider,
+    delivery_failed, temporarily_unavailable, rate_limited, body_too_large.
+    Provider credentials never appear in any response (fields are "__set__").
+servers: [{ url: https://platform.example.org }]
+components:
+  parameters:
+    csrf: { name: X-CSRF-Token, in: header, required: false, schema: { type: string } }
+    id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    cursor: { name: cursor, in: query, schema: { type: string } }
+    limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+  schemas:
+    Error: { type: object, required: [reason], properties: { reason: { type: string }, detail: { type: object } } }
+    Name: { type: string, minLength: 1, maxLength: 100, pattern: '^[^\p{Cc}]+$' }
+    ChannelType: { type: string, enum: [email, sms, slack, sse] }
+    Permissions:
+      type: object
+      properties: { read: { type: boolean }, write: { type: boolean }, delete: { type: boolean }, share: { type: boolean }, use: { type: boolean } }
+    EmailSettings:
+      type: object
+      additionalProperties: false
+      required: [host, port, from]
+      properties:
+        host: { type: string, minLength: 1, maxLength: 253, pattern: '^[A-Za-z0-9.-]+$' }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        tls: { type: string, enum: [implicit, starttls, none], default: starttls, description: 'none only when the service allows plaintext (dev)' }
+        username: { type: string, maxLength: 255 }
+        password: { type: string, maxLength: 1024, description: 'credential: write-only; "__set__" or omitted keeps the stored value, "" clears it' }
+        from: { type: string, maxLength: 320, description: 'single RFC 5322 address, optionally with a display name' }
+        reply_to: { type: string, maxLength: 320 }
+    Channel:
+      type: object
+      description: settings carry public fields and "__set__" markers only
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { $ref: '#/components/schemas/ChannelType' }
+        settings: { type: object }
+        enabled: { type: boolean }
+        is_default: { type: boolean }
+        template_count: { type: integer }
+        created_by: { type: string }
+        updated_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        permissions: { $ref: '#/components/schemas/Permissions' }
+    ChannelInput:
+      type: object
+      additionalProperties: false
+      required: [name, type, settings]
+      properties:
+        name: { $ref: '#/components/schemas/Name' }
+        type: { $ref: '#/components/schemas/ChannelType' }
+        settings: { type: object, description: 'EmailSettings for type email; <= 8 KiB; validated per type' }
+        enabled: { type: boolean, default: false }
+        is_default: { type: boolean, default: false }
+    Template:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        channel_id: { type: [string, 'null'], format: uuid }
+        channel_name: { type: string }
+        channel_type: { $ref: '#/components/schemas/ChannelType' }
+        subject: { type: string }
+        body: { type: string }
+        variables: { type: array, items: { type: string } }
+        is_default: { type: boolean }
+        created_by: { type: string }
+        updated_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        permissions: { $ref: '#/components/schemas/Permissions' }
+    TemplateInput:
+      type: object
+      additionalProperties: false
+      required: [name, channel_id, subject, body]
+      properties:
+        name: { $ref: '#/components/schemas/Name' }
+        channel_id: { type: string, format: uuid }
+        subject: { type: string, maxLength: 998, pattern: '^[^\r\n]*$' }
+        body: { type: string, maxLength: 262144 }
+        variables: { type: array, maxItems: 50, items: { type: string, pattern: '^[A-Za-z][A-Za-z0-9_]{0,63}$' } }
+        is_default: { type: boolean, default: false }
+    Variables:
+      type: object
+      additionalProperties: { type: string, maxLength: 16384 }
+      maxProperties: 50
+      description: '<= 64 KiB serialised'
+    SendInput:
+      type: object
+      additionalProperties: false
+      required: [template_id, recipient]
+      properties:
+        template_id: { type: string, format: uuid }
+        channel_id: { type: string, format: uuid, description: 'override; must be enabled and of the template channel type' }
+        recipient: { type: string, minLength: 1, maxLength: 512, pattern: '^[^\r\n]*$' }
+        variables: { $ref: '#/components/schemas/Variables' }
+    LogEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        channel_id: { type: string, format: uuid }
+        channel_type: { $ref: '#/components/schemas/ChannelType' }
+        template_id: { type: [string, 'null'], format: uuid }
+        recipient: { type: string }
+        rendered_subject: { type: string }
+        rendered_body: { type: string, description: 'single-entry read only' }
+        status: { type: string, enum: [pending, sent, failed] }
+        error: { type: string }
+        sender_kind: { type: string, enum: [user, service] }
+        sender_id: { type: string }
+        test: { type: boolean }
+        created_at: { type: string, format: date-time }
+        sent_at: { type: [string, 'null'], format: date-time }
+    Grant:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        resource_type: { type: string, enum: [channel, template] }
+        resource_id: { type: string, format: uuid }
+        subject_type: { type: string, enum: [user, role, tenant] }
+        subject_id: { type: string }
+        relation: { type: string, enum: [owner, editor, viewer, sharer] }
+        granted_by: { type: string }
+        granted_at: { type: string, format: date-time }
+        expires_at: { type: [string, 'null'], format: date-time }
+        expired: { type: boolean }
+    GrantInput:
+      type: object
+      additionalProperties: false
+      required: [resource_type, resource_id, subject_type, relation]
+      properties:
+        resource_type: { type: string, enum: [channel, template] }
+        resource_id: { type: string, format: uuid }
+        subject_type: { type: string, enum: [user, role, tenant] }
+        subject_id: { type: string, maxLength: 128, description: 'user id or role slug; empty for tenant' }
+        relation: { type: string, enum: [owner, editor, viewer, sharer] }
+        expires_at: { type: [string, 'null'], format: date-time }
+    Category:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        sort: { type: integer }
+        message_count: { type: integer }
+        created_by: { type: string }
+        updated_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CategoryInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { $ref: '#/components/schemas/Name' }
+        description: { type: string, maxLength: 500 }
+        sort: { type: integer, minimum: 0, maximum: 100000, default: 0 }
+    Recipients:
+      type: object
+      additionalProperties: false
+      properties:
+        all: { type: boolean }
+        users: { type: array, maxItems: 10000, items: { type: string, format: uuid } }
+      description: exactly one of all=true or users
+    Message:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        content: { type: string }
+        type: { type: string, enum: [notification, private, group] }
+        status: { type: string, enum: [draft, scheduled, publishing, published, revoked, archived] }
+        category_id: { type: [string, 'null'], format: uuid }
+        category_name: { type: string }
+        sender_id: { type: string }
+        recipients: { $ref: '#/components/schemas/Recipients' }
+        recipient_count: { type: integer }
+        read_count: { type: integer }
+        scheduled_at: { type: [string, 'null'], format: date-time }
+        published_at: { type: [string, 'null'], format: date-time }
+        created_by: { type: string }
+        updated_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    MessageInput:
+      type: object
+      additionalProperties: false
+      required: [title, content, recipients]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200, pattern: '^[^\p{Cc}]+$' }
+        content: { type: string, maxLength: 65536 }
+        type: { type: string, enum: [notification, private, group], default: notification }
+        category_id: { type: [string, 'null'], format: uuid }
+        recipients: { $ref: '#/components/schemas/Recipients' }
+        scheduled_at: { type: [string, 'null'], format: date-time, description: 'past or null = immediately on send' }
+    InboxEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        message:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            title: { type: string }
+            content: { type: string }
+            type: { type: string }
+            category_name: { type: string }
+            sender_id: { type: string }
+            published_at: { type: string, format: date-time }
+        status: { type: string, enum: [sent, received, read, revoked] }
+        read_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+    Ids: { type: object, additionalProperties: false, required: [ids], properties: { ids: { type: array, minItems: 1, maxItems: 500, items: { type: string, format: uuid } } } }
+    BackupReport:
+      type: object
+      properties:
+        channels: { $ref: '#/components/schemas/EntityReport' }
+        templates: { $ref: '#/components/schemas/EntityReport' }
+        categories: { $ref: '#/components/schemas/EntityReport' }
+        warnings: { type: array, items: { type: string } }
+    EntityReport:
+      type: object
+      properties: { created: { type: integer }, skipped: { type: integer }, overwritten: { type: integer }, failed: { type: integer } }
+    Stats:
+      type: object
+      properties:
+        channels: { type: integer }
+        templates: { type: integer }
+        notifications: { type: object, additionalProperties: { type: integer }, description: 'by status, last 24 h' }
+        messages: { type: object, additionalProperties: { type: integer }, description: 'by status' }
+        open_streams: { type: integer }
+        operations_24h: { type: integer }
+paths:
+  # ---- channels ----------------------------------------------------------------
+  /api/notification/v1/channels:
+    get:
+      operationId: listChannels
+      x-freya-permission: channels:read
+      parameters: [{ name: type, in: query, schema: { $ref: '#/components/schemas/ChannelType' } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      responses: { '200': { description: 'channels the caller may read, with permissions; settings redacted' } }
+    post:
+      operationId: createChannel
+      x-freya-permission: channels:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChannelInput' } } } }
+      responses: { '201': { description: 'created; creator becomes owner; a default channel gets a tenant sharer grant' }, '409': { description: 'name taken' }, '422': { description: 'validation_failed (settings for the type)' } }
+  /api/notification/v1/channels/{id}:
+    get: { operationId: getChannel, x-freya-permission: channels:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: channel }, '404': { description: not_found } } }
+    put:
+      operationId: updateChannel
+      x-freya-permission: channels:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChannelInput' } } } }
+      responses: { '200': { description: 'updated (write); credential fields "__set__"/omitted keep stored values; type cannot change' } }
+  /api/notification/v1/channels/{id}/remove:
+    post:
+      operationId: deleteChannel
+      x-freya-permission: channels:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses: { '204': { description: 'deleted (delete) with its grants' }, '409': { description: 'conflict: templates reference it (detail.templates)' } }
+  /api/notification/v1/channels/{id}/test:
+    post:
+      operationId: testChannel
+      x-freya-permission: channels:manage
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [recipient], properties: { recipient: { type: string, minLength: 1, maxLength: 512, pattern: '^[^\r\n]*$' } } } } } }
+      responses: { '200': { description: 'LogEntry (test=true) with status sent|failed; requires write on the channel' }, '422': { description: 'no_provider for types without a provider' } }
+  # ---- templates ---------------------------------------------------------------
+  /api/notification/v1/templates:
+    get:
+      operationId: listTemplates
+      x-freya-permission: templates:read
+      parameters: [{ name: channel_id, in: query, schema: { type: string, format: uuid } }, { name: q, in: query, schema: { type: string, maxLength: 100 } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      responses: { '200': { description: 'templates the caller may read, with permissions' } }
+    post:
+      operationId: createTemplate
+      x-freya-permission: templates:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TemplateInput' } } } }
+      responses: { '201': { description: 'created; creator becomes owner; requires read on the channel' }, '409': { description: 'name taken' }, '422': { description: 'validation_failed: detail.position (syntax) or detail.variable (undeclared)' } }
+  /api/notification/v1/templates/{id}:
+    get: { operationId: getTemplate, x-freya-permission: templates:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: template }, '404': { description: not_found } } }
+    put:
+      operationId: updateTemplate
+      x-freya-permission: templates:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TemplateInput' } } } }
+      responses: { '200': { description: 'updated (write)' }, '422': { description: validation_failed } }
+  /api/notification/v1/templates/{id}/remove:
+    post:
+      operationId: deleteTemplate
+      x-freya-permission: templates:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses: { '204': { description: 'deleted (delete) with its grants; log entries keep the id' } }
+  /api/notification/v1/templates/preview:
+    post:
+      operationId: previewTemplate
+      x-freya-permission: templates:read
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [subject, body], properties: { template_id: { type: string, format: uuid, description: 'when set, requires read; subject/body may still be overridden for an unsaved draft' }, channel_type: { $ref: '#/components/schemas/ChannelType' }, subject: { type: string, maxLength: 998 }, body: { type: string, maxLength: 262144 }, variables: { type: array, maxItems: 50, items: { type: string } }, values: { $ref: '#/components/schemas/Variables' } } } } } }
+      responses: { '200': { description: '{rendered_subject, rendered_body}; nothing delivered or logged' }, '422': { description: validation_failed } }
+  # ---- notifications -------------------------------------------------------------
+  /api/notification/v1/notifications/send:
+    post:
+      operationId: sendNotification
+      x-freya-permission: notifications:send
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SendInput' } } } }
+      responses: { '200': { description: 'LogEntry with status sent|failed (delivery_failed keeps 200: the outcome is in the entry)' }, '403': { description: 'forbidden: no use on template or channel' }, '422': { description: 'validation_failed (missing variable, recipient invalid for the type), channel_disabled, no_provider' }, '429': { description: rate_limited } }
+  /api/notification/v1/notifications:
+    get:
+      operationId: listNotifications
+      x-freya-permission: notifications:read
+      parameters: [{ name: channel_id, in: query, schema: { type: string, format: uuid } }, { name: template_id, in: query, schema: { type: string, format: uuid } }, { name: recipient, in: query, schema: { type: string, maxLength: 512 } }, { name: status, in: query, schema: { type: string, enum: [pending, sent, failed] } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      responses: { '200': { description: 'newest first; without stats:read only the callers own sends; rendered_body omitted' } }
+  /api/notification/v1/notifications/{id}:
+    get: { operationId: getNotification, x-freya-permission: notifications:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: 'LogEntry with rendered_body' }, '404': { description: not_found } } }
+  # ---- permissions -------------------------------------------------------------
+  /api/notification/v1/grants:
+    get:
+      operationId: listGrants
+      x-freya-permission: permissions:manage
+      parameters: [{ name: resource_type, in: query, required: true, schema: { type: string, enum: [channel, template] } }, { name: resource_id, in: query, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: 'grants on the resource (requires read)' } }
+    post:
+      operationId: grant
+      x-freya-permission: permissions:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GrantInput' } } } }
+      responses: { '201': { description: 'granted (requires share; relation <= own); replaces an earlier grant to the same subject' }, '403': { description: 'forbidden: relation_above_granter' } }
+  /api/notification/v1/grants/{id}/revoke:
+    post: { operationId: revoke, x-freya-permission: permissions:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: 'revoked (requires share on the resource)' } } }
+  /api/notification/v1/access/check:
+    get:
+      operationId: checkAccess
+      x-freya-permission: channels:read
+      parameters: [{ name: resource_type, in: query, required: true, schema: { type: string, enum: [channel, template] } }, { name: resource_id, in: query, required: true, schema: { type: string, format: uuid } }, { name: action, in: query, required: true, schema: { type: string, enum: [read, write, delete, share, use] } }]
+      responses: { '200': { description: '{allowed: bool}' } }
+  /api/notification/v1/access/effective:
+    get:
+      operationId: effectivePermissions
+      x-freya-permission: channels:read
+      parameters: [{ name: resource_type, in: query, required: true, schema: { type: string, enum: [channel, template] } }, { name: resource_id, in: query, required: true, schema: { type: string, format: uuid } }, { name: subject_type, in: query, schema: { type: string, enum: [user, role] } }, { name: subject_id, in: query, schema: { type: string } }]
+      responses: { '200': { description: '{relation, permissions, grants[]} for the caller, or for a subject when the caller holds share' } }
+  # ---- categories ----------------------------------------------------------------
+  /api/notification/v1/categories:
+    get: { operationId: listCategories, x-freya-permission: messages:read, responses: { '200': { description: 'ordered by sort, name' } } }
+    post:
+      operationId: createCategory
+      x-freya-permission: messages:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CategoryInput' } } } }
+      responses: { '201': { description: created }, '409': { description: 'name taken' } }
+  /api/notification/v1/categories/{id}:
+    put:
+      operationId: updateCategory
+      x-freya-permission: messages:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CategoryInput' } } } }
+      responses: { '200': { description: updated } }
+  /api/notification/v1/categories/{id}/remove:
+    post: { operationId: deleteCategory, x-freya-permission: messages:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: deleted }, '409': { description: 'conflict: messages use it (detail.messages)' } } }
+  # ---- messages ------------------------------------------------------------------
+  /api/notification/v1/messages:
+    get:
+      operationId: listMessages
+      x-freya-permission: messages:read
+      parameters: [{ name: status, in: query, schema: { type: string, enum: [draft, scheduled, publishing, published, revoked, archived] } }, { name: category_id, in: query, schema: { type: string, format: uuid } }, { name: q, in: query, schema: { type: string, maxLength: 100 } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      responses: { '200': { description: 'newest first; without messages:manage only the callers own messages' } }
+    post:
+      operationId: createMessage
+      x-freya-permission: messages:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MessageInput' } } } }
+      responses: { '201': { description: 'draft created' } }
+  /api/notification/v1/messages/{id}:
+    get: { operationId: getMessage, x-freya-permission: messages:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: message }, '404': { description: not_found } } }
+    put:
+      operationId: updateMessage
+      x-freya-permission: messages:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MessageInput' } } } }
+      responses: { '200': { description: 'updated (draft or scheduled only)' }, '409': { description: 'conflict: not editable in this status' } }
+  /api/notification/v1/messages/{id}/send:
+    post:
+      operationId: sendMessage
+      x-freya-permission: messages:manage
+      x-freya-timeout-seconds: 120
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses: { '200': { description: 'published now (recipient_count, dropped_recipients[]) or scheduled when scheduled_at is in the future' }, '409': { description: 'conflict: not a draft' } }
+  /api/notification/v1/messages/{id}/cancel:
+    post: { operationId: cancelSchedule, x-freya-permission: messages:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '200': { description: 'scheduled -> draft' } } }
+  /api/notification/v1/messages/{id}/revoke:
+    post: { operationId: revokeMessage, x-freya-permission: messages:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '200': { description: 'published -> revoked; unread inbox entries revoked and hidden' } } }
+  /api/notification/v1/messages/{id}/archive:
+    post: { operationId: archiveMessage, x-freya-permission: messages:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '200': { description: 'published|revoked -> archived' } } }
+  /api/notification/v1/messages/{id}/remove:
+    post: { operationId: deleteMessage, x-freya-permission: messages:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: 'draft removed; archived/revoked removed with their inbox entries' } } }
+  /api/notification/v1/messages/{id}/recipients:
+    get:
+      operationId: listMessageRecipients
+      x-freya-permission: messages:manage
+      parameters: [{ $ref: '#/components/parameters/id' }, { name: status, in: query, schema: { type: string } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      responses: { '200': { description: '[{recipient_id, status, read_at}]' } }
+  # ---- inbox ---------------------------------------------------------------------
+  /api/notification/v1/inbox:
+    get:
+      operationId: listInbox
+      x-freya-permission: inbox:read
+      parameters: [{ name: status, in: query, schema: { type: string, enum: [unread, read, all], default: all } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      responses: { '200': { description: '{items: InboxEntry[], unread: int, next_cursor}; the callers inbox only' } }
+  /api/notification/v1/inbox/unread:
+    get: { operationId: unreadCount, x-freya-permission: inbox:read, responses: { '200': { description: '{unread: int}' } } }
+  /api/notification/v1/inbox/{id}:
+    get: { operationId: readInboxEntry, x-freya-permission: inbox:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: 'entry with content; marks it read' }, '404': { description: not_found } } }
+  /api/notification/v1/inbox/status:
+    post:
+      operationId: markInbox
+      x-freya-permission: inbox:read
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [ids, status], properties: { ids: { type: array, minItems: 1, maxItems: 500, items: { type: string, format: uuid } }, status: { type: string, enum: [read, unread, received] } } } } } }
+      responses: { '200': { description: '{updated: int, unread: int}' } }
+  /api/notification/v1/inbox/remove:
+    post:
+      operationId: deleteFromInbox
+      x-freya-permission: inbox:read
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Ids' } } } }
+      responses: { '200': { description: '{updated: int, unread: int}' } }
+  # ---- live stream -----------------------------------------------------------------
+  /api/notification/v1/stream:
+    get:
+      operationId: stream
+      x-freya-permission: inbox:read
+      x-freya-timeout-seconds: 300
+      parameters: [{ name: Last-Event-ID, in: header, schema: { type: string, maxLength: 64 } }]
+      responses: { '200': { description: 'text/event-stream (contracts/stream.md); closed by the module after 290 s; 429 rate_limited over 5 streams per person' } }
+  # ---- backup ----------------------------------------------------------------------
+  /api/notification/v1/backup/export:
+    post:
+      operationId: exportBackup
+      x-freya-permission: backup:manage
+      x-freya-timeout-seconds: 120
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { content: { application/json: { schema: { type: object, additionalProperties: false, properties: { include_credentials: { type: boolean, default: false } } } } } }
+      responses: { '200': { description: 'backup.schema.json document (attachment); audited as bulk disclosure when include_credentials' } }
+  /api/notification/v1/backup/import:
+    post:
+      operationId: importBackup
+      x-freya-permission: backup:manage
+      x-freya-max-body-bytes: 16777216
+      x-freya-timeout-seconds: 120
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { name: mode, in: query, schema: { type: string, enum: [skip, overwrite], default: skip } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, description: 'backup.schema.json' } } } }
+      responses: { '200': { description: BackupReport }, '413': { description: body_too_large }, '422': { description: 'validation_failed: nothing imported' } }
+  # ---- operations -------------------------------------------------------------------
+  /api/notification/v1/stats:
+    get: { operationId: stats, x-freya-permission: stats:read, responses: { '200': { description: Stats } } }
+  /api/notification/v1/audit:
+    get:
+      operationId: auditTrail
+      x-freya-permission: stats:read
+      parameters: [{ name: event_type, in: query, schema: { type: string } }, { name: actor_id, in: query, schema: { type: string } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/cursor' }]
+      responses: { '200': { description: 'page of audit events (details never carry credentials or content; subject_name resolves live subjects)' } }
+  /api/notification/v1/health:
+    get: { operationId: health, x-freya-permission: stats:read, responses: { '200': { description: '{status, database, valkey, scheduler_last_tick, version}' } } }
