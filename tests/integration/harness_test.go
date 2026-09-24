@@ -163,7 +163,7 @@ valkey: { addresses: ["%s"], password: test, ca_file: %s }
 openfga: { url: http://%s:%s, preshared_key: test-key, allow_plaintext: true }
 kek: { source: file, path: %s }
 email: { transport: smtp, host: %s, port: %s, from: auth@example.org, allow_plaintext: true }
-`, trustDomain, authCert, authKey, bundle, abs(t, "../../../auth/deploy/policy.yaml"), authGRPC, authHTTP, gwGRPC, gwEdge,
+`, trustDomain, authCert, authKey, bundle, filepath.Join(serviceDir(t, "auth"), "deploy", "policy.yaml"), authGRPC, authHTTP, gwGRPC, gwEdge,
 		pg, adminAuth, valkeyAddr, certPath, fgaHost, fgaPorts["8080/tcp"], kekPath, mpHost, mpPorts["1025/tcp"])
 	if err := os.WriteFile(authCfg, []byte(authYAML), 0o600); err != nil {
 		t.Fatal(err)
@@ -202,7 +202,7 @@ forward: { body_bytes: 1048576, streams_per_client: 32, stream_max: 10m, module_
 operators: { roles: [operator] }
 limits:
   max_request_bytes: 16842752
-`, trustDomain, gwCert, gwKey, bundle, abs(t, "../../../gateway/deploy/policy.yaml"), gwGRPC, authGRPC, gwEdge, gwEdge, gwEdge, pg, pg, valkeyAddr, certPath, gwEdge)
+`, trustDomain, gwCert, gwKey, bundle, filepath.Join(serviceDir(t, "gateway"), "deploy", "policy.yaml"), gwGRPC, authGRPC, gwEdge, gwEdge, gwEdge, pg, pg, valkeyAddr, certPath, gwEdge)
 	if err := os.WriteFile(gwCfg, []byte(gwYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -747,7 +747,8 @@ var (
 	buildErrs = map[string]error{}
 )
 
-// buildService compiles a sibling service once per test binary.
+// buildService compiles a platform service from its checkout (see serviceDir)
+// once per test binary.
 func buildService(t *testing.T, name, pkg string) string {
 	t.Helper()
 	buildMu.Lock()
@@ -760,13 +761,42 @@ func buildService(t *testing.T, name, pkg string) string {
 	}
 	out := filepath.Join(os.TempDir(), fmt.Sprintf("%ssvc-notification-%d", name, os.Getpid()))
 	cmd := exec.Command("go", "build", "-o", out, pkg)
-	cmd.Dir = abs(t, "../../../"+name)
+	cmd.Dir = serviceDir(t, name)
 	if b, err := cmd.CombinedOutput(); err != nil {
 		buildErrs[name] = fmt.Errorf("build %s: %v\n%s", name, err, b)
 		t.Fatal(buildErrs[name])
 	}
 	built[name] = out
 	return out
+}
+
+// serviceCheckouts maps the services the harness runs to their repositories
+// and the variable that overrides the checkout location.
+var serviceCheckouts = map[string]struct{ repo, env, cmd string }{
+	"auth":    {"go-tangra-auth", "GO_TANGRA_AUTH_DIR", "authsvc"},
+	"gateway": {"go-tangra-portal", "GO_TANGRA_PORTAL_DIR", "gatewaysvc"},
+}
+
+// serviceDir is the checkout the harness builds a service from. The auth and
+// portal modules keep their sdks as in-repo replaces, so they cannot be built
+// from the module cache: GO_TANGRA_AUTH_DIR / GO_TANGRA_PORTAL_DIR name the
+// checkouts, and by default sibling clones next to this repository
+// (../go-tangra-auth, ../go-tangra-portal) are used.
+func serviceDir(t *testing.T, name string) string {
+	t.Helper()
+	c, ok := serviceCheckouts[name]
+	if !ok {
+		t.Fatalf("unknown service %q", name)
+	}
+	dir := os.Getenv(c.env)
+	if dir == "" {
+		dir = "../../../" + c.repo
+	}
+	dir = abs(t, dir)
+	if _, err := os.Stat(filepath.Join(dir, "cmd", c.cmd)); err != nil {
+		t.Fatalf("%s checkout not found at %s (clone github.com/go-tangra/%s there or set %s): %v", name, dir, c.repo, c.env, err)
+	}
+	return dir
 }
 
 func abs(t *testing.T, p string) string {

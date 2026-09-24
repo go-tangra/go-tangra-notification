@@ -1,7 +1,10 @@
 package contract
 
 import (
+	"errors"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -55,8 +58,22 @@ func TestPolicyShape(t *testing.T) {
 	if !gateway || !services {
 		t.Fatalf("gateway=%v services=%v", gateway, services)
 	}
-	// The auth policy admits the notification service on the directory RPCs it needs.
-	raw, err = os.ReadFile("../../../auth/deploy/policy.yaml")
+}
+
+// TestAuthPolicyAdmitsNotification proves the auth policy admits the
+// notification service on the directory RPCs it needs. The auth policy lives in
+// the go-tangra-auth repository: GO_TANGRA_AUTH_DIR names a checkout, and by
+// default a sibling clone next to this repository (../go-tangra-auth) is used.
+// Without a checkout the check is skipped.
+func TestAuthPolicyAdmitsNotification(t *testing.T) {
+	dir := os.Getenv("GO_TANGRA_AUTH_DIR")
+	if dir == "" {
+		dir = "../../../go-tangra-auth"
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "deploy", "policy.yaml"))
+	if errors.Is(err, fs.ErrNotExist) {
+		t.Skipf("auth checkout not found at %s (clone github.com/go-tangra/go-tangra-auth there or set GO_TANGRA_AUTH_DIR)", dir)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
