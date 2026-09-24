@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+// Service-to-service surface of the notification module. Callers are other
+// platform services on the Freya mTLS channel (Freya.Client("notification"));
+// the callee's policy.yaml lists the SPIFFE identities allowed per method and
+// tenant_id is taken from the request for those identities only. Nothing here
+// is proxied by the gateway. Every call is audited with actor_kind=service.
+package notification.v1;
+
+option go_package = "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1;notificationv1";
+
+import "google/protobuf/timestamp.proto";
+
+service Notifier {
+  // Send renders a template and delivers it through its channel (or the
+  // override). The caller acts for the tenant like a member holding `use`
+  // through the tenant grant; templates or channels without a tenant-wide
+  // `use` are refused (PERMISSION_DENIED). Returns the log entry.
+  rpc Send(SendRequest) returns (SendResponse);
+  // SendTest delivers the built-in test message through a channel
+  // (INVALID_ARGUMENT no_provider for types without a provider).
+  rpc SendTest(SendTestRequest) returns (SendResponse);
+}
+
+service Events {
+  // Publish pushes one live event to one or many users of the tenant
+  // (1..1000 ids, or all=true for everyone). Delivered to open streams within
+  // two seconds; kept for the replay window. Types are namespaced by the
+  // caller ("warden.import.finished"); "inbox" and "reset" are reserved.
+  rpc Publish(PublishRequest) returns (PublishResponse);
+}
+
+message SendRequest {
+  string tenant_id = 1;                 // uuid
+  string template_id = 2;               // uuid, required
+  string channel_id = 3;                // uuid, optional override
+  string recipient = 4;                 // 1..512, valid for the channel type, no CR/LF
+  map<string, string> variables = 5;    // <= 50 keys, <= 64 KiB serialised
+  string correlation_id = 6;            // propagated to the audit event
+}
+
+message SendTestRequest {
+  string tenant_id = 1;
+  string channel_id = 2;
+  string recipient = 3;
+}
+
+message SendResponse {
+  string log_id = 1;
+  DeliveryStatus status = 2;
+  string error = 3;                     // scrubbed provider reason when FAILED
+  google.protobuf.Timestamp sent_at = 4;
+}
+
+enum DeliveryStatus {
+  DELIVERY_STATUS_UNSPECIFIED = 0;
+  DELIVERY_STATUS_PENDING = 1;
+  DELIVERY_STATUS_SENT = 2;
+  DELIVERY_STATUS_FAILED = 3;
+}
+
+message PublishRequest {
+  string tenant_id = 1;
+  repeated string user_ids = 2;         // 1..1000 uuids, ignored when all=true
+  bool all = 3;                         // everyone in the tenant
+  string type = 4;                      // ^[a-z][a-z0-9._-]{0,63}$, not "inbox"/"reset"
+  bytes data = 5;                       // JSON, <= 16 KiB
+}
+
+message PublishResponse {
+  string event_id = 1;                  // stream id, usable as Last-Event-ID
+}

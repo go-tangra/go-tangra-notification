@@ -1,15 +1,8 @@
-# Claude Code
-CLAUDE.md
-
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.__mf__temp/
-.pnpm-store/
-
-# Temp
-tmp/
-
-# Embedded frontend build artifacts (populated by CI/Docker build)
-cmd/server/assets/frontend-dist/*
-!cmd/server/assets/frontend-dist/.gitkeep
+deploy/kek.dev
+ui/node_modules/
+ui/dist/
+ui/test-results/
+ui/playwright-report/
+.artifacts/
+coverage.out
+bin/

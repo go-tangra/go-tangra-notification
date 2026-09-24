@@ -1,80 +1,51 @@
-# Makefile for Notification Service
+GO        ?= go
+PKGS      := $(shell $(GO) list ./... | grep -v /ui/)
+COVER_OUT := coverage.out
 
-include ../../../app.mk
+.PHONY: lint vuln test test-integration cover fuzz generate ui-build redaction-scan e2e compose-up compose-down
 
-NOTIFICATION_IMAGE_NAME ?= menta2l/notification-service
-NOTIFICATION_IMAGE_TAG ?= $(VERSION)
-DOCKER_REGISTRY ?=
+lint:
+	$(GO) vet ./...
+	staticcheck ./...
+	gosec -quiet -exclude-generated -exclude-dir=ui ./...
 
-.PHONY: build-server
-build-server:
-	@echo "Building Notification server..."
-	@go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o ./bin/notification-server ./cmd/server
+vuln:
+	../../scripts/vulncheck.sh
 
-.PHONY: docker
-docker:
-	@echo "Building Docker image $(NOTIFICATION_IMAGE_NAME):$(NOTIFICATION_IMAGE_TAG)..."
-	@docker build \
-		-t $(NOTIFICATION_IMAGE_NAME):$(NOTIFICATION_IMAGE_TAG) \
-		-t $(NOTIFICATION_IMAGE_NAME):latest \
-		--build-arg APP_VERSION=$(VERSION) \
-		-f ./Dockerfile \
-		.
-
-.PHONY: docker-tag
-docker-tag: docker
-ifdef DOCKER_REGISTRY
-	@echo "Tagging image for registry $(DOCKER_REGISTRY)..."
-	@docker tag $(NOTIFICATION_IMAGE_NAME):$(NOTIFICATION_IMAGE_TAG) $(DOCKER_REGISTRY)/$(NOTIFICATION_IMAGE_NAME):$(NOTIFICATION_IMAGE_TAG)
-	@docker tag $(NOTIFICATION_IMAGE_NAME):latest $(DOCKER_REGISTRY)/$(NOTIFICATION_IMAGE_NAME):latest
-endif
-
-.PHONY: docker-push
-docker-push: docker-tag
-ifdef DOCKER_REGISTRY
-	@echo "Pushing image to $(DOCKER_REGISTRY)..."
-	@docker push $(DOCKER_REGISTRY)/$(NOTIFICATION_IMAGE_NAME):$(NOTIFICATION_IMAGE_TAG)
-	@docker push $(DOCKER_REGISTRY)/$(NOTIFICATION_IMAGE_NAME):latest
-else
-	@echo "Pushing image to Docker Hub..."
-	@docker push $(NOTIFICATION_IMAGE_NAME):$(NOTIFICATION_IMAGE_TAG)
-	@docker push $(NOTIFICATION_IMAGE_NAME):latest
-endif
-
-.PHONY: run-server
-run-server:
-	@go run ./cmd/server -c ./configs
-
-.PHONY: ent
-ent:
-ifneq ("$(wildcard ./internal/data/ent)","")
-	@ent generate \
-		--feature sql/modifier \
-		--feature sql/upsert \
-		--feature sql/lock \
-		./internal/data/ent/schema
-endif
-
-.PHONY: wire
-wire:
-	@cd ./cmd/server && wire
-
-.PHONY: test
 test:
-	@go test -v ./...
+	$(GO) test -race -count=1 ./...
 
-.PHONY: test-cover
-test-cover:
-	@go test -v -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+test-integration:
+	$(GO) test -race -count=1 -tags integration ./tests/integration/...
 
-.PHONY: clean
-clean:
-	@rm -rf ./bin
-	@rm -f coverage.out coverage.html
-	@echo "Clean complete!"
+# Unit coverage is measured over packages that carry logic. Generated protobuf
+# code, the SQL bindings (internal/store, */*db), the wiring (internal/app, cmd)
+# and the test packages are exercised by the tagged integration suite and are
+# excluded from the unit gate on purpose.
+COVERPKG := $(shell $(GO) list ./... | grep -v -E '/api/|/internal/store$$|db$$|/internal/app$$|/valkeykv$$|/cmd/|/tests/|/ui' | paste -sd, -)
 
-.PHONY: generate
-generate: ent wire
-	@echo "Generation complete!"
+cover:
+	$(GO) test -count=1 -coverprofile=$(COVER_OUT) -coverpkg=$(COVERPKG) $(PKGS)
+	./scripts/coverage-gate.sh $(COVER_OUT)
+
+fuzz:
+	for f in FuzzHeaderValue FuzzRecipient FuzzTemplate FuzzVariables FuzzSSEFrame FuzzBackup; do \
+	  $(GO) test -run xxx -fuzz=$$f -fuzztime=20s ./tests/fuzz/ || exit 1; done
+
+generate:
+	buf generate
+
+ui-build:
+	cd ui && npm ci && npm run build
+
+redaction-scan:
+	./scripts/redaction-scan.sh
+
+e2e:
+	cd ui && npx playwright test
+
+compose-up:
+	docker compose -p notification -f deploy/compose.yaml up -d
+
+compose-down:
+	docker compose -p notification -f deploy/compose.yaml down -v
