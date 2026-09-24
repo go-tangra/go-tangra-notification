@@ -81,9 +81,9 @@ func Less(a, b string) bool {
 
 func (m *Memory) XAdd(_ context.Context, key string, fields map[string]string, maxLen int64) (string, error) {
 	m.mu.Lock()
-	if m.Err != nil {
+	if err := m.Err; err != nil {
 		m.mu.Unlock()
-		return "", m.Err
+		return "", err
 	}
 	m.seq++
 	id := ID(m.Now(), m.seq)
@@ -117,9 +117,9 @@ func (m *Memory) after(key, afterID string, count int64) []Entry {
 
 func (m *Memory) XRead(ctx context.Context, key, afterID string, block time.Duration, count int64) ([]Entry, error) {
 	m.mu.Lock()
-	if m.Err != nil {
+	if err := m.Err; err != nil {
 		m.mu.Unlock()
-		return nil, m.Err
+		return nil, err
 	}
 	if afterID == "" || afterID == "$" {
 		afterID = "0-0"

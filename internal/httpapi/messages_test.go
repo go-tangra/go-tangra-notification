@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -168,14 +169,14 @@ func TestCategoriesAndMessages(t *testing.T) {
 
 func TestStreamRoute(t *testing.T) {
 	f := newFx(t)
-	serve := func(tok, lastID string) (*httptest.ResponseRecorder, context.CancelFunc, chan struct{}) {
+	serve := func(tok, lastID string) (*syncRecorder, context.CancelFunc, chan struct{}) {
 		ctx, cancel := context.WithCancel(context.Background())
 		r := httptest.NewRequest("GET", "https://localhost"+Prefix+"/stream", nil).WithContext(ctx)
 		r.Header.Set("Authorization", "Bearer "+tok)
 		if lastID != "" {
 			r.Header.Set("Last-Event-ID", lastID)
 		}
-		w := httptest.NewRecorder()
+		w := &syncRecorder{ResponseRecorder: httptest.NewRecorder()}
 		done := make(chan struct{})
 		go func() { f.s.Handler().ServeHTTP(w, r); close(done) }()
 		return w, cancel, done
@@ -194,7 +195,7 @@ func TestStreamRoute(t *testing.T) {
 	if _, err := f.hub.PublishID(context.Background(), tA, []string{uC}, false, "other", `{}`, true); err != nil {
 		t.Fatal(err)
 	}
-	for !strings.Contains(w.Body.String(), "event: warden.secret") && time.Now().Before(deadline) {
+	for !strings.Contains(w.body(), "event: warden.secret") && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	cancel()
@@ -208,7 +209,7 @@ func TestStreamRoute(t *testing.T) {
 	}
 	// Replay from a stale id yields a reset event.
 	w, cancel, done = serve(f.member, "1-0")
-	for !strings.Contains(w.Body.String(), "event: reset") && time.Now().Before(deadline) {
+	for !strings.Contains(w.body(), "event: reset") && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	cancel()
@@ -241,4 +242,41 @@ func TestStreamRoute(t *testing.T) {
 	if w := do(f.s, "GET", Prefix+"/stream", "", nil); w.Code != 401 {
 		t.Fatalf("anon: %d", w.Code)
 	}
+}
+
+// syncRecorder lets the test poll the body while the stream handler writes it
+// from another goroutine.
+type syncRecorder struct {
+	mu sync.Mutex
+	*httptest.ResponseRecorder
+}
+
+func (r *syncRecorder) WriteHeader(code int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ResponseRecorder.WriteHeader(code)
+}
+
+func (r *syncRecorder) Write(b []byte) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.ResponseRecorder.Write(b)
+}
+
+func (r *syncRecorder) WriteString(s string) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.ResponseRecorder.WriteString(s)
+}
+
+func (r *syncRecorder) Flush() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ResponseRecorder.Flush()
+}
+
+func (r *syncRecorder) body() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.Body.String()
 }

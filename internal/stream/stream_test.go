@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -129,7 +130,7 @@ func TestMemoryClient(t *testing.T) {
 	}
 	// Outage: every call fails, including a blocked read that wakes to an error.
 	boom := errors.New("down")
-	m.Err = boom
+	setErr(m, boom)
 	for _, err := range []error{
 		func() error { _, err := m.XAdd(ctx, "k", nil, 0); return err }(),
 		func() error { _, err := m.XRead(ctx, "k", "", 0, 1); return err }(),
@@ -143,7 +144,7 @@ func TestMemoryClient(t *testing.T) {
 			t.Fatalf("outage: %v", err)
 		}
 	}
-	m.Err = nil
+	setErr(m, nil)
 	if last, err := m.XLast(ctx, "k"); err != nil || last != "" {
 		t.Fatalf("xlast empty: %q %v", last, err)
 	}
@@ -184,7 +185,7 @@ func TestLimiter(t *testing.T) {
 	if lim, _ := l.Limited(ctx, "tenant", tA, 2, at.Add(time.Minute)); lim {
 		t.Fatal("next window limited")
 	}
-	m.Err = errors.New("down")
+	setErr(m, errors.New("down"))
 	if lim, err := l.Limited(ctx, "tenant", tA, 2, at); !lim || err == nil {
 		t.Fatal("outage must fail closed")
 	}
@@ -261,7 +262,7 @@ func TestValidateAndPublish(t *testing.T) {
 	if entries[0].Fields["to"] != uA+","+uB || entries[0].Fields["data"] != "{}" || entries[5].Fields["to"] != "*" || entries[5].Fields["at"] == "" {
 		t.Fatalf("fields %v", entries)
 	}
-	m.Err = errors.New("down")
+	setErr(m, errors.New("down"))
 	if _, err := h.PublishID(ctx, tA, []string{uA}, false, "x", nil, false); err == nil {
 		t.Fatal("outage")
 	}
@@ -269,10 +270,12 @@ func TestValidateAndPublish(t *testing.T) {
 
 func TestSubscribeFanoutReplayAndLimits(t *testing.T) {
 	m := NewMemory()
+	var clockMu sync.Mutex
 	now := time.Now()
-	m.Now = func() time.Time { return now }
+	clock := func() time.Time { clockMu.Lock(); defer clockMu.Unlock(); return now }
+	m.Now = clock
 	h := NewHub(m, Config{StreamsPerUser: 2, StreamsPerTenant: 3, ReplayWindow: time.Minute, ReadBlock: 20 * time.Millisecond, TrimInterval: 30 * time.Millisecond, RetryDelay: 10 * time.Millisecond}, nil)
-	h.SetClock(func() time.Time { return now })
+	h.SetClock(clock)
 	ctx := context.Background()
 	a, err := h.Subscribe(ctx, tA, uA, "")
 	if err != nil {
@@ -321,13 +324,13 @@ func TestSubscribeFanoutReplayAndLimits(t *testing.T) {
 		}
 		s.Close()
 	}
-	m.Err = errors.New("down")
+	setErr(m, errors.New("down"))
 	s, _ := h.Subscribe(ctx, tA, uB, ID(now, 0))
 	if ev := recv(t, s); ev.Type != "reset" || !strings.Contains(ev.Data, "replay_unavailable") {
 		t.Fatalf("outage replay %+v", ev)
 	}
 	s.Close()
-	m.Err = nil
+	setErr(m, nil)
 	// Limits per user and per tenant.
 	c1, _ := h.Subscribe(ctx, tA, "u3", "")
 	if _, err := h.Subscribe(ctx, tA, "u4", ""); !errors.Is(err, ErrTooMany) {
@@ -342,7 +345,9 @@ func TestSubscribeFanoutReplayAndLimits(t *testing.T) {
 	c2.Close() // idempotent
 	// The trim ticker drops entries older than the window.
 	before := m.Len(Key(tA))
+	clockMu.Lock()
 	now = now.Add(2 * time.Minute)
+	clockMu.Unlock()
 	waitFor(t, func() bool { return m.Len(Key(tA)) < before })
 	// A stalled reader is dropped once its buffer fills.
 	for i := 0; i < connBuffer+5; i++ {
@@ -350,13 +355,13 @@ func TestSubscribeFanoutReplayAndLimits(t *testing.T) {
 	}
 	waitFor(t, func() bool { _, open := <-a.Events(); return !open })
 	// Read failures are logged and retried; a subscribe during the outage is refused.
-	m.Err = errors.New("down")
+	setErr(m, errors.New("down"))
 	if _, err := h.Subscribe(ctx, "other-tenant", uA, ""); err == nil {
 		t.Fatal("subscribe during outage")
 	}
 	d, _ := h.Subscribe(ctx, tA, uA, "")
 	time.Sleep(30 * time.Millisecond)
-	m.Err = nil
+	setErr(m, nil)
 	_, _ = h.PublishID(ctx, tA, []string{uA}, false, "back", `{}`, false)
 	if ev := recv(t, d); ev.Type != "back" {
 		t.Fatalf("after outage %+v", ev)
@@ -454,7 +459,7 @@ func TestCloseDuringOutage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m.Err = errors.New("down")
+	setErr(m, errors.New("down"))
 	time.Sleep(30 * time.Millisecond) // the loop is now waiting to retry
 	done := make(chan struct{})
 	go func() { h.Close(); close(done) }()
@@ -466,4 +471,12 @@ func TestCloseDuringOutage(t *testing.T) {
 	if _, open := <-s.Events(); open {
 		t.Fatal("subscription open")
 	}
+}
+
+// setErr switches the in-memory stream's outage error under its lock; the hub
+// loop reads it concurrently.
+func setErr(m *Memory, err error) {
+	m.mu.Lock()
+	m.Err = err
+	m.mu.Unlock()
 }

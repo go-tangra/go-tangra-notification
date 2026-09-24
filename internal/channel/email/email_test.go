@@ -62,6 +62,9 @@ func (f *fakeSMTP) addr() (string, int) {
 
 func (f *fakeSMTP) serve(c net.Conn) {
 	defer c.Close()
+	f.mu.Lock()
+	refuseAt := f.refuseAt
+	f.mu.Unlock()
 	if f.implicit {
 		c = tls.Server(c, &tls.Config{Certificates: []tls.Certificate{*f.cert}, MinVersion: tls.VersionTLS12})
 		f.mu.Lock()
@@ -70,7 +73,7 @@ func (f *fakeSMTP) serve(c net.Conn) {
 	}
 	r := bufio.NewReader(c)
 	w := func(s string) { _, _ = c.Write([]byte(s + "\r\n")) }
-	if f.refuseAt == "greeting" {
+	if refuseAt == "greeting" {
 		w("554 go away")
 		return
 	}
@@ -104,7 +107,7 @@ func (f *fakeSMTP) serve(c net.Conn) {
 			f.tlsUsed = true
 			f.mu.Unlock()
 		case strings.HasPrefix(cmd, "AUTH PLAIN"):
-			if f.refuseAt == "auth" {
+			if refuseAt == "auth" {
 				w("535 authentication failed for " + strings.TrimSpace(line[10:]))
 				continue
 			}
@@ -113,19 +116,19 @@ func (f *fakeSMTP) serve(c net.Conn) {
 			f.mu.Unlock()
 			w("235 ok")
 		case strings.HasPrefix(cmd, "MAIL FROM"):
-			if f.refuseAt == "mail" {
+			if refuseAt == "mail" {
 				w("553 sender refused")
 				continue
 			}
 			w("250 ok")
 		case strings.HasPrefix(cmd, "RCPT TO"):
-			if f.refuseAt == "rcpt" {
+			if refuseAt == "rcpt" {
 				w("550 no such user")
 				continue
 			}
 			w("250 ok")
 		case cmd == "DATA":
-			if f.refuseAt == "data" {
+			if refuseAt == "data" {
 				w("451 try later")
 				continue
 			}
@@ -144,7 +147,7 @@ func (f *fakeSMTP) serve(c net.Conn) {
 			f.mu.Lock()
 			f.last = sb.String()
 			f.mu.Unlock()
-			if f.refuseAt == "end" {
+			if refuseAt == "end" {
 				w("554 rejected after data")
 				continue
 			}
@@ -293,7 +296,9 @@ func TestSendVariants(t *testing.T) {
 	msg := Message{To: "Alice <alice@example.org>", Subject: "Hello", HTMLBody: "<p>Hi Alice</p>"}
 	t.Run("starttls with auth", func(t *testing.T) {
 		f := newFake(t, cert, false)
+		f.mu.Lock()
 		f.wantUser = "u"
+		f.mu.Unlock()
 		h, port := f.addr()
 		p := &Provider{TLSConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}, DialTimeout: 5 * time.Second}
 		if err := p.Send(ctx, settings(h, port, map[string]any{"username": "u", "password": "NOTIF-MARKER-PW-1"}), msg); err != nil {
@@ -335,7 +340,9 @@ func TestSendVariants(t *testing.T) {
 	t.Run("provider refusals surface without credentials", func(t *testing.T) {
 		for _, at := range []string{"greeting", "auth", "mail", "rcpt", "data", "end"} {
 			f := newFake(t, cert, false)
+			f.mu.Lock()
 			f.refuseAt = at
+			f.mu.Unlock()
 			h, port := f.addr()
 			p := &Provider{TLSConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}}
 			err := p.Send(ctx, settings(h, port, map[string]any{"username": "u", "password": "NOTIF-MARKER-PW-2"}), msg)
