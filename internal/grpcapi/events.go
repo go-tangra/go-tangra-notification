@@ -7,9 +7,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	notificationv1 "github.com/go-freya/freya/services/notification/api/proto/notification/v1"
-	"github.com/go-freya/freya/services/notification/internal/audit"
-	"github.com/go-freya/freya/services/notification/internal/stream"
+	notificationv1 "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/stream"
 )
 
 // EventsServer implements notification.v1.Events.

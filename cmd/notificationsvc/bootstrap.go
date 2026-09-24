@@ -9,10 +9,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/go-freya/freya/services/auth/pkg/authclient"
-	"github.com/go-freya/freya/services/notification/internal/app"
-	"github.com/go-freya/freya/services/notification/internal/config"
-	"github.com/go-freya/freya/services/notification/internal/sealed"
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/app"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/config"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
 )
 
 // bootstrap prepares a deployment: migrations, a KEK check (seal/open round

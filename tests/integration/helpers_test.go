@@ -14,7 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 const api = "/api/notification/v1"

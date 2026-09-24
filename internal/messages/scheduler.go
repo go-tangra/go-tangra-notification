@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/authz"
-	"github.com/go-freya/freya/services/notification/internal/repo"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/repo"
 )
 
 // SchedulerConfig bounds the worker.

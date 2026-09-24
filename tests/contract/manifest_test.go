@@ -10,8 +10,8 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/go-freya/freya/services/gateway/api/schema"
-	"github.com/go-freya/freya/services/notification/pkg/notificationmanifest"
+	"github.com/go-tangra/go-tangra-notification/v4/pkg/notificationmanifest"
+	"github.com/go-tangra/go-tangra-portal/sdk/v4/api/schema"
 )
 
 // TestManifestMatchesContract builds the manifest from the OpenAPI document

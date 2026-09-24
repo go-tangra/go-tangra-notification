@@ -3,7 +3,7 @@
 # credentials, render templates, serve streams or decide access.
 set -euo pipefail
 PROFILE="${1:-coverage.out}"
-MODULE="github.com/go-freya/freya/services/notification"
+MODULE="github.com/go-tangra/go-tangra-notification/v4"
 SECURITY_PKGS=("internal/authz" "internal/render" "internal/sealed" "internal/stream" "internal/channel/email")
 total=$(go tool cover -func="$PROFILE" | awk '/^total:/ {gsub("%","",$3); print $3}')
 echo "coverage: total ${total}%"

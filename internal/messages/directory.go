@@ -3,7 +3,7 @@ package messages
 import (
 	"context"
 
-	authv1 "github.com/go-freya/freya/services/auth/api/proto/auth/v1"
+	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
 )
 
 // AuthDirectory resolves members through the auth service's Profiles RPCs

@@ -3,7 +3,7 @@ package contract
 import (
 	"testing"
 
-	notificationv1 "github.com/go-freya/freya/services/notification/api/proto/notification/v1"
+	notificationv1 "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1"
 )
 
 // TestGRPCSurface proves the generated services match contracts/notification.v1.proto.

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/authz"
-	"github.com/go-freya/freya/services/notification/internal/messages"
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/messages"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 // TestPerformance checks the budgets of SC-005/SC-006/SC-007 on the real

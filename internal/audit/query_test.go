@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 type memQ struct {

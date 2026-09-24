@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/channel/email"
-	"github.com/go-freya/freya/services/notification/internal/sealed"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/channel/email"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
 )
 
 // Channel types.

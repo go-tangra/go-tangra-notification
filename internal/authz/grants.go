@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/audit"
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 // GrantInput is a grant request.

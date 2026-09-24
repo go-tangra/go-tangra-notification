@@ -4,17 +4,17 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-freya/freya/services/auth/pkg/authclient"
-	notificationv1 "github.com/go-freya/freya/services/notification/api/proto/notification/v1"
-	"github.com/go-freya/freya/services/notification/internal/authz"
-	"github.com/go-freya/freya/services/notification/internal/grpcapi"
-	"github.com/go-freya/freya/services/notification/internal/httpapi"
-	"github.com/go-freya/freya/services/notification/internal/inbox"
-	"github.com/go-freya/freya/services/notification/internal/messages"
-	"github.com/go-freya/freya/services/notification/internal/notify"
-	"github.com/go-freya/freya/services/notification/internal/stats"
-	"github.com/go-freya/freya/services/notification/internal/stream"
-	"github.com/go-freya/freya/services/notification/internal/transfer"
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
+	notificationv1 "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/grpcapi"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/httpapi"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/inbox"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/messages"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/stats"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/stream"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/transfer"
 )
 
 // Version is reported by the health route.

@@ -14,14 +14,14 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/go-freya/freya/services/notification/api/schema"
-	"github.com/go-freya/freya/services/notification/internal/audit"
-	"github.com/go-freya/freya/services/notification/internal/authz"
-	"github.com/go-freya/freya/services/notification/internal/messages"
-	"github.com/go-freya/freya/services/notification/internal/notify"
-	"github.com/go-freya/freya/services/notification/internal/repo"
-	"github.com/go-freya/freya/services/notification/internal/sealed"
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/api/schema"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/messages"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 // Limits.

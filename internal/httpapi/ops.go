@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/audit"
-	"github.com/go-freya/freya/services/notification/internal/stats"
-	"github.com/go-freya/freya/services/notification/internal/transfer"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/stats"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/transfer"
 )
 
 // OpsDeps are the services behind backup, stats, audit and health.

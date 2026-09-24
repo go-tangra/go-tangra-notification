@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-freya/freya/services/notification/internal/transfer"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/transfer"
 )
 
 // FuzzBackup: the backup parser never panics, enforces size and depth

@@ -7,7 +7,7 @@ syntax = "proto3";
 // is proxied by the gateway. Every call is audited with actor_kind=service.
 package notification.v1;
 
-option go_package = "github.com/go-freya/freya/services/notification/api/proto/notification/v1;notificationv1";
+option go_package = "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1;notificationv1";
 
 import "google/protobuf/timestamp.proto";
 

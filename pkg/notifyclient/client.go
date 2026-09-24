@@ -10,7 +10,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	notificationv1 "github.com/go-freya/freya/services/notification/api/proto/notification/v1"
+	notificationv1 "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1"
 )
 
 // Service is the discovery name of the notification module.

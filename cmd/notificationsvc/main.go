@@ -11,9 +11,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/go-freya/freya/services/notification/internal/app"
-	"github.com/go-freya/freya/services/notification/internal/config"
-	"github.com/go-freya/freya/services/notification/ui"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/app"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/config"
+	"github.com/go-tangra/go-tangra-notification/v4/ui"
 )
 
 func main() {

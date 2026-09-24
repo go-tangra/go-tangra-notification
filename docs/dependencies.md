@@ -4,9 +4,9 @@ Every direct dependency is justified here (Constitution VI). Versions are pinned
 
 | Dependency | Purpose | Alternatives rejected | Maintenance |
 |------------|---------|-----------------------|-------------|
-| `github.com/go-freya/freya` (`replace ../..`) | mTLS transports, identity, service policy, audit, observability | — | this repository |
-| `github.com/go-freya/freya/services/auth` (`pkg/authclient`) | verify the platform token forwarded by the gateway; resolve members (`Profiles.ListMembers`) and decisions (`Authorization.Check`) | re-implementing JWT/revocation checks | this repository |
-| `github.com/go-freya/freya/services/gateway` (`pkg/gatewayclient`, `api/schema`) | gateway registration, manifest types and schema | — | this repository |
+| `github.com/go-tangra/go-tangra/v4` (`replace ../..`) | mTLS transports, identity, service policy, audit, observability | — | this repository |
+| `github.com/go-tangra/go-tangra-auth/v4` (`pkg/authclient`) | verify the platform token forwarded by the gateway; resolve members (`Profiles.ListMembers`) and decisions (`Authorization.Check`) | re-implementing JWT/revocation checks | this repository |
+| `github.com/go-tangra/go-tangra-portal/v4` (`pkg/gatewayclient`, `api/schema`) | gateway registration, manifest types and schema | — | this repository |
 | `github.com/jackc/pgx/v5` | TimescaleDB driver and pool (per-call tenant transactions, RLS) | database/sql + lib/pq | Active |
 | `github.com/pressly/goose/v3` | embedded SQL migrations | golang-migrate | Active |
 | `github.com/valkey-io/valkey-go` | live-event streams (`XADD`/`XREAD`) and rate-limit counters (research R4) | go-redis | Active |

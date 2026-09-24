@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-freya/freya/services/notification/internal/memstore"
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 type streams int

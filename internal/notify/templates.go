@@ -5,12 +5,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/audit"
-	"github.com/go-freya/freya/services/notification/internal/authz"
-	"github.com/go-freya/freya/services/notification/internal/channel"
-	"github.com/go-freya/freya/services/notification/internal/render"
-	"github.com/go-freya/freya/services/notification/internal/repo"
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/render"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 // Templates manages notification templates.

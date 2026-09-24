@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/inbox"
-	"github.com/go-freya/freya/services/notification/internal/messages"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/inbox"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/messages"
 )
 
 // MessageDeps are the services behind the category, message and inbox routes.

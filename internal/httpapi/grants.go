@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/authz"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 )
 
 // RegisterGrants mounts the grant and access routes (contracts §permissions).

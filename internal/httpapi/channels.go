@@ -3,8 +3,8 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/go-freya/freya/services/notification/internal/notify"
-	"github.com/go-freya/freya/services/notification/internal/sealed"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
 )
 
 type channelBody struct {

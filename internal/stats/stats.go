@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/repo"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/repo"
 )
 
 // Streams reports open live streams (the hub).

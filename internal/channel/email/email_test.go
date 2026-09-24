@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/sealed"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
 )
 
 // fakeSMTP is a minimal relay: EHLO, STARTTLS (when cert set), AUTH PLAIN,

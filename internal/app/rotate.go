@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-freya/freya/services/notification/internal/sealed"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
 )
 
 // RotateKEK re-seals every channel's settings with the key in newKEKPath,

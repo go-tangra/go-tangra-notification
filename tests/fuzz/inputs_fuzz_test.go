@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/channel"
-	"github.com/go-freya/freya/services/notification/internal/channel/email"
-	"github.com/go-freya/freya/services/notification/internal/render"
-	"github.com/go-freya/freya/services/notification/internal/stream"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/channel/email"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/render"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/stream"
 )
 
 // FuzzHeaderValue: a header value is safe iff it has no CR/LF/NUL/control

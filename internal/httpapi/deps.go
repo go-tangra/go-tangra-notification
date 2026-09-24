@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/go-freya/freya/services/notification/internal/authz"
-	"github.com/go-freya/freya/services/notification/internal/channel"
-	"github.com/go-freya/freya/services/notification/internal/notify"
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 // Prefix of the browser API.

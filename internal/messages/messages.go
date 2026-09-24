@@ -11,10 +11,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/audit"
-	"github.com/go-freya/freya/services/notification/internal/authz"
-	"github.com/go-freya/freya/services/notification/internal/repo"
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 // Statuses and types.

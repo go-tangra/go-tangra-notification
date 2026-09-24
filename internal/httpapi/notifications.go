@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/notify"
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 // MaxSendBody bounds send requests (64 KiB variables + slack).

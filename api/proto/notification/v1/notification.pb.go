@@ -456,7 +456,7 @@ const file_notification_v1_notification_proto_rawDesc = "" +
 	"\x04Send\x12\x1c.notification.v1.SendRequest\x1a\x1d.notification.v1.SendResponse\x12K\n" +
 	"\bSendTest\x12 .notification.v1.SendTestRequest\x1a\x1d.notification.v1.SendResponse2V\n" +
 	"\x06Events\x12L\n" +
-	"\aPublish\x12\x1f.notification.v1.PublishRequest\x1a .notification.v1.PublishResponseBZZXgithub.com/go-freya/freya/services/notification/api/proto/notification/v1;notificationv1b\x06proto3"
+	"\aPublish\x12\x1f.notification.v1.PublishRequest\x1a .notification.v1.PublishResponseBYZWgithub.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1;notificationv1b\x06proto3"
 
 var (
 	file_notification_v1_notification_proto_rawDescOnce sync.Once

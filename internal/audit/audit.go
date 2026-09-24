@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-freya/freya/services/notification/internal/store"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 // EventType is the closed vocabulary (data-model.md).

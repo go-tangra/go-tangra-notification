@@ -15,17 +15,17 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
-	"github.com/go-freya/freya/authn"
-	"github.com/go-freya/freya/identity"
-	notificationv1 "github.com/go-freya/freya/services/notification/api/proto/notification/v1"
-	"github.com/go-freya/freya/services/notification/internal/audit"
-	"github.com/go-freya/freya/services/notification/internal/authz"
-	"github.com/go-freya/freya/services/notification/internal/channel"
-	"github.com/go-freya/freya/services/notification/internal/memstore"
-	"github.com/go-freya/freya/services/notification/internal/notify"
-	"github.com/go-freya/freya/services/notification/internal/sealed"
-	"github.com/go-freya/freya/services/notification/internal/stream"
-	"github.com/go-freya/freya/services/notification/pkg/notifyclient"
+	notificationv1 "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/stream"
+	"github.com/go-tangra/go-tangra-notification/v4/pkg/notifyclient"
+	"github.com/go-tangra/go-tangra/v4/authn"
+	"github.com/go-tangra/go-tangra/v4/identity"
 )
 
 const (

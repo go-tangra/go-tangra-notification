@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-freya/freya/services/notification/internal/audit"
-	"github.com/go-freya/freya/services/notification/internal/stream"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/stream"
 )
 
 // StreamDeps are the services behind the live stream route.

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	fconfig "github.com/go-freya/freya/config"
+	fconfig "github.com/go-tangra/go-tangra/v4/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -75,12 +75,12 @@ type Gateway struct {
 // network (instead of reading it from a file), for multi-host deployments.
 type Enroll struct {
 	Enabled       bool   `yaml:"enabled"`
-	EnrollURL     string `yaml:"enroll_url"`  // public first-enroll endpoint (via the gateway edge)
-	LCMGRPCTarget string `yaml:"lcm_grpc"`    // lcm gRPC endpoint for mTLS renewal
-	TenantID      string `yaml:"tenant_id"`   // the lcm mesh tenant (so the SVID chains to the mesh root)
+	EnrollURL     string `yaml:"enroll_url"` // public first-enroll endpoint (via the gateway edge)
+	LCMGRPCTarget string `yaml:"lcm_grpc"`   // lcm gRPC endpoint for mTLS renewal
+	TenantID      string `yaml:"tenant_id"`  // the lcm mesh tenant (so the SVID chains to the mesh root)
 	TokenFile     string `yaml:"token_file"`
-	StateFile     string `yaml:"state_file"`  // path to the single-use join token
-	Insecure      bool   `yaml:"insecure"`    // dev: skip server verification (self-signed edge)
+	StateFile     string `yaml:"state_file"` // path to the single-use join token
+	Insecure      bool   `yaml:"insecure"`   // dev: skip server verification (self-signed edge)
 }
 
 // Limits bound the module's own request shapes and rates.
