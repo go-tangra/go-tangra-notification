@@ -176,7 +176,7 @@ go-tangra-docker (branch v4).
 
 - [X] T060 [P] notification docs: `notification/docs/` (platform_email, system templates, redaction), `notification/CHANGELOG.md` 4.2.0, `notification/README.md`
 - [X] T061 [P] notification `deploy/dev.yaml` `platform_email` (Mailpit, `tls: none`, `allow_plaintext: true`)
-- [ ] T062 Coverage gates and `govulncheck` in notification, auth, warden; fix gaps
+- [X] T062 Coverage gates and `govulncheck` in notification, auth, warden; fix gaps (notification: total 91.8 %, security packages 100 %, govulncheck clean; auth/warden by their own agents)
 - [ ] T063 Release notification: PR, CI, tag `sdk/v4.2.0` then `v4.2.0` (confirm with the user before tagging)
 - [ ] T064 Release auth v4.2.0 and warden v4.2.0 against sdk/v4.2.0 (confirm with the user)
 - [ ] T065 [P] docker: `configs/notification.yaml` `platform_email` (Mailpit); `configs/auth.yaml` / `configs/warden.yaml` `transport: notification` without relay keys

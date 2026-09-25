@@ -63,12 +63,16 @@ func (e *Env) Grant(s *Session, rtype, rid, stype, sid, rel string, exp *time.Ti
 	return s.JSON(http.MethodPost, api+"/grants", body)
 }
 
-// Items returns the "items" array of a listing response.
+// Items returns the "items" array of a listing response, without system
+// template sends (template_key set).
 func Items(body map[string]any) []map[string]any {
 	raw, _ := body["items"].([]any)
 	out := make([]map[string]any, 0, len(raw))
 	for _, r := range raw {
 		if m, ok := r.(map[string]any); ok {
+			if m["template_key"] != nil {
+				continue // system template sends (auth's invitations since 017)
+			}
 			out = append(out, m)
 		}
 	}

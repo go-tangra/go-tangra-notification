@@ -582,12 +582,14 @@ func (e *Env) AuditCount(tenantID, eventType, outcome string) int {
 	e.Notif.Audit.Flush()
 	var n int
 	_ = e.Notif.Store.Tx(context.Background(), store.Scope{System: true}, func(tx pgx.Tx) error {
-		return tx.QueryRow(context.Background(), "SELECT count(*) FROM notification_audit_events WHERE tenant_id = $1 AND ($2 = '' OR event_type = $2) AND ($3 = '' OR outcome = $3)", tenantID, eventType, outcome).Scan(&n)
+		return tx.QueryRow(context.Background(), "SELECT count(*) FROM notification_audit_events WHERE tenant_id = $1 AND ($2 = '' OR event_type = $2) AND ($3 = '' OR outcome = $3) AND NOT (event_type IN ('notification_sent','notification_failed') AND details ? 'template_key')", tenantID, eventType, outcome).Scan(&n)
 	})
 	return n
 }
 
-// AuditRows returns the audit rows of a type, newest first.
+// AuditRows returns the audit rows of a type, newest first, without the
+// system template sends of platform services (auth delivers its invitations
+// through this module since 017; those rows are covered by their own tests).
 func (e *Env) AuditRows(tenantID, eventType string) []store.AuditRow {
 	e.T.Helper()
 	e.Notif.Audit.Flush()
@@ -597,7 +599,14 @@ func (e *Env) AuditRows(tenantID, eventType string) []store.AuditRow {
 		rows, err = store.QueryAudit(context.Background(), tx, tenantID, eventType, "", time.Time{}, time.Now().Add(time.Hour), time.Time{}, 200)
 		return err
 	})
-	return rows
+	out := rows[:0]
+	for _, r := range rows {
+		if (r.EventType == "notification_sent" || r.EventType == "notification_failed") && strings.Contains(string(r.Details), `"template_key"`) {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 // Pause / Unpause freeze a dependency container (Valkey or Mailpit): requests
