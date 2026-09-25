@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notification/v1/templates/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notification/v1/templates/preview": {
         parameters: {
             query?: never;
@@ -639,6 +655,8 @@ export interface components {
             settings?: Record<string, never>;
             enabled?: boolean;
             is_default?: boolean;
+            /** @description the platform channel created from the platform_email configuration: read-only (update/remove answer 409 managed_channel), test sends allowed */
+            managed?: boolean;
             template_count?: number;
             created_by?: string;
             updated_by?: string;
@@ -677,11 +695,22 @@ export interface components {
             /** Format: date-time */
             updated_at?: string;
             permissions?: components["schemas"]["Permissions"];
+            /** @description system templates only ("<service>.<name>"): sent by key by the owning service; channel resolved per send */
+            system_key?: string | null;
+            /** @description must stay referenced in subject or body (system templates) */
+            required_variables?: string[];
+            /** @description redacted as [redacted] in the stored log (system templates) */
+            secret_variables?: string[];
+            /** @description subject/body differ from the built-in wording (system templates) */
+            edited?: boolean;
         };
         TemplateInput: {
             name: components["schemas"]["Name"];
-            /** Format: uuid */
-            channel_id: string;
+            /**
+             * Format: uuid
+             * @description required for ordinary templates; empty/null for system templates (their channel is fixed)
+             */
+            channel_id?: string | null;
             subject: string;
             body: string;
             variables?: string[];
@@ -711,6 +740,8 @@ export interface components {
             channel_type?: components["schemas"]["ChannelType"];
             /** Format: uuid */
             template_id?: string | null;
+            /** @description system template sends */
+            template_key?: string | null;
             recipient?: string;
             rendered_subject?: string;
             /** @description single-entry read only */
@@ -1004,6 +1035,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description managed_channel: the channel is managed by configuration */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     deleteChannel: {
@@ -1026,7 +1064,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description conflict: templates reference it (detail.templates) */
+            /** @description conflict: templates reference it (detail.templates); managed_channel: managed by configuration */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1182,7 +1220,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description validation_failed */
+            /** @description validation_failed; system templates: system_template_field (only subject and body change), missing_required_variable (detail.variable) */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1206,6 +1244,42 @@ export interface operations {
         responses: {
             /** @description deleted (delete) with its grants; log entries keep the id */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description system_template: system templates cannot be deleted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    restoreTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: components["parameters"]["csrf"];
+            };
+            path: {
+                id: components["parameters"]["id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description system template reset to its built-in subject and body (write) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_system_template */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

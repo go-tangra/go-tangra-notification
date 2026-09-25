@@ -13,4 +13,11 @@ export const templateSchema = z.object({
 })
 export type TemplateFormOutput = z.output<typeof templateSchema>
 
+/** System templates: only the wording changes (name, channel and variables are fixed). */
+export const systemTemplateSchema = z.object({
+  subject: nonEmpty(500),
+  body: nonEmpty(65536),
+})
+export type SystemTemplateFormOutput = z.output<typeof systemTemplateSchema>
+
 export const templateSearchSchema = z.object({ q: optionalString(200) })

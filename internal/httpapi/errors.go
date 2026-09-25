@@ -34,6 +34,11 @@ var (
 	ErrNoProvider      = &Error{http.StatusUnprocessableEntity, "no_provider"}
 	ErrNotImplemented  = &Error{http.StatusNotImplemented, "not_implemented"}
 	ErrManagedChannel  = &Error{http.StatusConflict, "managed_channel"}
+	// System templates (feature 017).
+	ErrSystemTemplate       = &Error{http.StatusConflict, "system_template"}
+	ErrNotSystemTemplate    = &Error{http.StatusConflict, "not_system_template"}
+	ErrSystemTemplateField  = &Error{http.StatusUnprocessableEntity, "system_template_field"}
+	ErrMissingRequiredField = &Error{http.StatusUnprocessableEntity, "missing_required_variable"}
 )
 
 // MaxBodyBytes bounds JSON bodies of ordinary operations.

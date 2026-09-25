@@ -159,14 +159,14 @@ go-tangra-docker (branch v4).
 
 ### Tests for User Story 4
 
-- [ ] T055 [P] [US4] Template guard tests: only subject/body editable, missing required variable refused with its name, delete refused, restore resets, `edited` flag, in `notification/internal/notify/templates_test.go`
-- [ ] T056 [P] [US4] HTTP tests for `PUT` 422 reasons, `remove` 409, `POST /templates/{id}/restore` (200 / 409 non-system / permission) in `notification/internal/httpapi/templates_test.go`
+- [X] T055 [P] [US4] Template guard tests: only subject/body editable, missing required variable refused with its name, delete refused, restore resets, `edited` flag, in `notification/internal/notify/templates_test.go`
+- [X] T056 [P] [US4] HTTP tests for `PUT` 422 reasons, `remove` 409, `POST /templates/{id}/restore` (200 / 409 non-system / permission) in `notification/internal/httpapi/templates_test.go`
 
 ### Implementation for User Story 4
 
-- [ ] T057 [US4] System template guards + `Restore` in `notification/internal/notify/templates.go`
-- [ ] T058 [US4] Route `POST /templates/{id}/restore`, read model fields (`system_key`, `required_variables`, `secret_variables`, `edited`) in `notification/internal/httpapi/` and `notification/api/openapi/notification.yaml`
-- [ ] T059 [US4] UI: "System" badge, delete hidden, "Restore built-in" action, required variables shown in `notification/ui/src/views/templates/index.vue`, `notification/ui/src/stores/templates.ts`; vitest
+- [X] T057 [US4] System template guards + `Restore` in `notification/internal/notify/templates.go`
+- [X] T058 [US4] Route `POST /templates/{id}/restore`, read model fields (`system_key`, `required_variables`, `secret_variables`, `edited`) in `notification/internal/httpapi/` and `notification/api/openapi/notification.yaml`
+- [X] T059 [US4] UI: "System" badge, delete hidden, "Restore built-in" action, required variables shown in `notification/ui/src/views/templates/index.vue`, `notification/ui/src/stores/templates.ts`; vitest
 
 **Checkpoint**: quickstart Scenario 4 passes.
 

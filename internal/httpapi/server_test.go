@@ -240,7 +240,7 @@ func boolStr(b bool) string {
 
 func TestDeclaredRoutesMountedAndAuthenticated(t *testing.T) {
 	s, sg := newTestServer(t)
-	if len(s.Declared()) != 45 {
+	if len(s.Declared()) != 46 {
 		t.Fatalf("declared %d", len(s.Declared()))
 	}
 	tok := sg.mint("u1", "t1", []string{"member"})

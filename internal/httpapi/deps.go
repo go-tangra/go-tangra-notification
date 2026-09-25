@@ -69,7 +69,16 @@ func hasPermission(r *http.Request, pc PermissionChecker, perm string) bool {
 func domainError(err error) error {
 	var ve *notify.ValidationError
 	var iu *notify.InUseError
+	var mr *notify.MissingRequiredError
 	switch {
+	case errors.As(err, &mr):
+		return &DetailError{Err: ErrMissingRequiredField, Detail: map[string]any{"variable": mr.Variable}}
+	case errors.Is(err, notify.ErrSystemTemplate):
+		return ErrSystemTemplate
+	case errors.Is(err, notify.ErrNotSystemTemplate):
+		return ErrNotSystemTemplate
+	case errors.Is(err, notify.ErrSystemTemplateField):
+		return ErrSystemTemplateField
 	case errors.As(err, &ve):
 		return &DetailError{Err: ErrValidation, Detail: ve.Detail}
 	case errors.As(err, &iu):

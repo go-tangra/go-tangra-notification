@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
@@ -51,15 +52,43 @@ type TemplateView struct {
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
 	Permissions authz.Permissions `json:"permissions"`
+	// System templates (feature 017): nil key and empty sets otherwise.
+	SystemKey         *string  `json:"system_key"`
+	RequiredVariables []string `json:"required_variables"`
+	SecretVariables   []string `json:"secret_variables"`
+	Edited            bool     `json:"edited"` // subject/body differ from the built-in wording
 }
 
 func templateView(row store.Template, p authz.Permissions) TemplateView {
-	vars := row.Variables
-	if vars == nil {
-		vars = []string{}
+	nonNil := func(s []string) []string {
+		if s == nil {
+			return []string{}
+		}
+		return s
 	}
-	return TemplateView{ID: row.ID, Name: row.Name, ChannelID: row.ChannelID, ChannelName: row.ChannelName, ChannelType: row.ChannelType, Subject: row.Subject, Body: row.Body,
-		Variables: vars, IsDefault: row.IsDefault, CreatedBy: strp(row.CreatedBy), UpdatedBy: strp(row.UpdatedBy), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, Permissions: p}
+	v := TemplateView{ID: row.ID, Name: row.Name, ChannelID: row.ChannelID, ChannelName: row.ChannelName, ChannelType: row.ChannelType, Subject: row.Subject, Body: row.Body,
+		Variables: nonNil(row.Variables), IsDefault: row.IsDefault, CreatedBy: strp(row.CreatedBy), UpdatedBy: strp(row.UpdatedBy), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, Permissions: p,
+		SystemKey: row.SystemKey, RequiredVariables: nonNil(row.RequiredVariables), SecretVariables: nonNil(row.SecretVariables)}
+	if row.SystemKey != nil {
+		v.Edited = row.Subject != row.BuiltinSubject || row.Body != row.BuiltinBody
+		v.Permissions.Delete = false // system templates are never deleted
+	}
+	return v
+}
+
+// System template refusals.
+var (
+	ErrSystemTemplate      = errors.New("notify: system templates cannot be deleted")
+	ErrNotSystemTemplate   = errors.New("notify: not a system template")
+	ErrSystemTemplateField = errors.New("notify: only subject and body of a system template can change")
+)
+
+// MissingRequiredError refuses a system template save that no longer
+// references a variable the owning service relies on (the link).
+type MissingRequiredError struct{ Variable string }
+
+func (e *MissingRequiredError) Error() string {
+	return "notify: the template must reference " + e.Variable
 }
 
 // KindFor maps a channel type to the body rendering kind.
@@ -211,6 +240,9 @@ func (t *Templates) Update(ctx context.Context, s authz.Subjects, id string, in 
 	if err != nil {
 		return TemplateView{}, err
 	}
+	if row.SystemKey != nil {
+		return t.updateSystem(ctx, s, row, in)
+	}
 	if in.ChannelID == "" {
 		return TemplateView{}, invalid("channel_id is required", map[string]any{"field": "channel_id"})
 	}
@@ -244,7 +276,63 @@ func (t *Templates) Update(ctx context.Context, s authz.Subjects, id string, in 
 	return t.Get(ctx, s, id)
 }
 
-// Delete removes a template the caller may delete with its grants.
+// updateSystem saves new wording of a system template: subject and body
+// only (name, channel, default flag and variables are fixed), valid
+// against the declared variables and still referencing every required one.
+func (t *Templates) updateSystem(ctx context.Context, s authz.Subjects, row store.Template, in TemplateInput) (TemplateView, error) {
+	if (in.Name != "" && in.Name != row.Name) || in.ChannelID != "" || in.IsDefault || (in.Variables != nil && !sameSet(in.Variables, row.Variables)) {
+		return TemplateView{}, ErrSystemTemplateField
+	}
+	c, err := render.Parse(in.Subject, in.Body, KindFor(row.ChannelType))
+	if err != nil {
+		return TemplateView{}, validationError(err)
+	}
+	if err := c.Validate(row.Variables); err != nil {
+		return TemplateView{}, validationError(err)
+	}
+	for _, r := range row.RequiredVariables {
+		if !contains(c.Refs, r) {
+			return TemplateView{}, &MissingRequiredError{Variable: r}
+		}
+	}
+	row.Subject, row.Body, row.UpdatedBy = in.Subject, in.Body, userPtr(s)
+	if err := t.st.UpdateTemplate(ctx, row); err != nil {
+		return TemplateView{}, err
+	}
+	t.emit(audit.Event{Type: audit.TemplateUpdated, TenantID: s.TenantID, ActorKind: s.ActorKind(), ActorID: s.ActorID(), SubjectKind: "template", SubjectID: row.ID, Outcome: "ok",
+		Details: map[string]any{"name": row.Name, "system_key": *row.SystemKey}})
+	return t.Get(ctx, s, row.ID)
+}
+
+// Restore resets a system template the caller may write to its built-in
+// subject and body.
+func (t *Templates) Restore(ctx context.Context, s authz.Subjects, id string) (TemplateView, error) {
+	if _, err := t.az.Require(ctx, s, authz.Template, id, authz.Write); err != nil {
+		return TemplateView{}, err
+	}
+	row, err := t.st.GetTemplate(ctx, s.TenantID, id)
+	if err != nil {
+		return TemplateView{}, err
+	}
+	if row.SystemKey == nil {
+		return TemplateView{}, ErrNotSystemTemplate
+	}
+	row.Subject, row.Body, row.UpdatedBy = row.BuiltinSubject, row.BuiltinBody, userPtr(s)
+	if err := t.st.UpdateTemplate(ctx, row); err != nil {
+		return TemplateView{}, err
+	}
+	t.emit(audit.Event{Type: audit.TemplateUpdated, TenantID: s.TenantID, ActorKind: s.ActorKind(), ActorID: s.ActorID(), SubjectKind: "template", SubjectID: id, Outcome: "ok",
+		Details: map[string]any{"name": row.Name, "system_key": *row.SystemKey, "restored": true}})
+	return t.Get(ctx, s, id)
+}
+
+// sameSet reports whether a and b hold the same names in any order.
+func sameSet(a, b []string) bool {
+	return slices.Equal(slices.Sorted(slices.Values(a)), slices.Sorted(slices.Values(b)))
+}
+
+// Delete removes a template the caller may delete with its grants; system
+// templates are never deleted.
 func (t *Templates) Delete(ctx context.Context, s authz.Subjects, id string) error {
 	if _, err := t.az.Require(ctx, s, authz.Template, id, authz.Delete); err != nil {
 		return err
@@ -252,6 +340,9 @@ func (t *Templates) Delete(ctx context.Context, s authz.Subjects, id string) err
 	row, err := t.st.GetTemplate(ctx, s.TenantID, id)
 	if err != nil {
 		return err
+	}
+	if row.SystemKey != nil {
+		return ErrSystemTemplate
 	}
 	err = t.st.Atomic(ctx, s.TenantID, func(tx repo.Store) error {
 		if err := tx.DeleteTemplate(ctx, s.TenantID, id); err != nil {
