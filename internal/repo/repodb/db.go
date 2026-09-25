@@ -67,6 +67,14 @@ func (d *DB) ClearDefaultChannel(ctx context.Context, tid, typ, except string) e
 func (d *DB) DeleteChannel(ctx context.Context, tid, id string) error {
 	return d.tenant(ctx, tid, func(tx pgx.Tx) error { return store.DeleteChannel(ctx, tx, tid, id) })
 }
+func (d *DB) ManagedChannel(ctx context.Context, tid string) (out store.Channel, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error { out, err = store.ManagedChannel(ctx, tx, tid); return err })
+	return
+}
+func (d *DB) DefaultEmailChannel(ctx context.Context, tid string) (out store.Channel, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error { out, err = store.DefaultEmailChannel(ctx, tx, tid); return err })
+	return
+}
 
 // ---- templates
 
@@ -97,6 +105,13 @@ func (d *DB) ClearDefaultTemplate(ctx context.Context, tid, ch, except string) e
 }
 func (d *DB) DeleteTemplate(ctx context.Context, tid, id string) error {
 	return d.tenant(ctx, tid, func(tx pgx.Tx) error { return store.DeleteTemplate(ctx, tx, tid, id) })
+}
+func (d *DB) TemplateByKey(ctx context.Context, tid, key string) (out store.Template, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error { out, err = store.TemplateByKey(ctx, tx, tid, key); return err })
+	return
+}
+func (d *DB) SetTemplateBuiltin(ctx context.Context, t store.Template) error {
+	return d.tenant(ctx, t.TenantID, func(tx pgx.Tx) error { return store.SetTemplateBuiltin(ctx, tx, t) })
 }
 
 // ---- log

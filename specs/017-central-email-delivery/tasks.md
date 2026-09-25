@@ -39,17 +39,17 @@ go-tangra-docker (branch v4).
 ### Tests first
 
 - [ ] T004 [P] Contract test for the new proto fields (`template_key`, `retryable`) and the exactly-one-template-ref rule in `notification/tests/contract/notifier_key_test.go`
-- [ ] T005 [P] Config tests in `notification/internal/config/config_test.go`: `platform_email` defaults (tls starttls), refusals (literal `password`, `tls: none` without `allow_plaintext`, username with `none`, missing host/from, bad port, empty/unreadable/world-readable `password_file`), warning for `allow_plaintext`, `platform_tenant_id` default, `system_send_per_minute` bounds
-- [ ] T006 [P] Fuzz test for the template key parser (`^[a-z][a-z0-9]*\.[a-z][a-z0-9_]{0,62}$`, service prefix extraction) in `notification/tests/fuzz/systemkey_fuzz_test.go`
-- [ ] T007 [P] Store tests for managed channel, system template columns, `template_key` on log entries, `channels_one_managed` and `templates_system_key` uniqueness in `notification/internal/store/store_integration_test.go`
+- [X] T005 [P] Config tests in `notification/internal/config/config_test.go`: `platform_email` defaults (tls starttls), refusals (literal `password`, `tls: none` without `allow_plaintext`, username with `none`, missing host/from, bad port, empty/unreadable/world-readable `password_file`), warning for `allow_plaintext`, `platform_tenant_id` default, `system_send_per_minute` bounds
+- [X] T006 [P] Fuzz test for the template key parser (`^[a-z][a-z0-9]*\.[a-z][a-z0-9_]{0,62}$`, service prefix extraction) in `notification/tests/fuzz/systemkey_fuzz_test.go`
+- [X] T007 [P] Store tests for managed channel, system template columns, `template_key` on log entries, `channels_one_managed` and `templates_system_key` uniqueness in `notification/internal/store/store_integration_test.go`
 
 ### Implementation
 
 - [X] T008 Add `template_key = 7` to `SendRequest` and `retryable = 5` to `SendResponse` in `notification/sdk/api/proto/notification/v1/notification.proto`; regenerate (`buf generate`)
-- [ ] T009 Add `PlatformEmail`, `PlatformTenantID`, `Limits.SystemSendPerMinute` with Validate/Warnings and `password_file` loading in `notification/internal/config/config.go`
-- [ ] T010 Migration `notification/internal/store/migrations/0005_system_email.sql` per data-model.md
-- [ ] T011 Store/repo: `managed` on channels, `system_key`/`builtin_*`/`required_variables`/`secret_variables` on templates, `template_key` on log rows, `TemplateByKey(tenant, key)`, `ManagedChannel(tenant)`, `DefaultEmailChannel(tenant)` in `notification/internal/store/` and `notification/internal/repo/` (+ memstore fakes)
-- [ ] T012 Template key parser + service-prefix helper in `notification/internal/notify/systemkey.go`
+- [X] T009 Add `PlatformEmail`, `PlatformTenantID`, `Limits.SystemSendPerMinute` with Validate/Warnings and `password_file` loading in `notification/internal/config/config.go`
+- [X] T010 Migration `notification/internal/store/migrations/0005_system_email.sql` per data-model.md
+- [X] T011 Store/repo: `managed` on channels, `system_key`/`builtin_*`/`required_variables`/`secret_variables` on templates, `template_key` on log rows, `TemplateByKey(tenant, key)`, `ManagedChannel(tenant)`, `DefaultEmailChannel(tenant)` in `notification/internal/store/` and `notification/internal/repo/` (+ memstore fakes)
+- [X] T012 Template key parser + service-prefix helper in `notification/internal/notify/systemkey.go`
 
 **Checkpoint**: both modules build; foundation tests green.
 

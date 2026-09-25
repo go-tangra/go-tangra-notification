@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/mail"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -28,6 +30,108 @@ type Config struct {
 	Gateway   Gateway   `yaml:"gateway"`
 	Enroll    Enroll    `yaml:"enroll"`
 	Limits    Limits    `yaml:"limits_notification"`
+
+	// PlatformEmail is the platform-wide mail relay (feature 017); nil =
+	// no platform channel, platform email disabled.
+	PlatformEmail *PlatformEmail `yaml:"platform_email"`
+	// PlatformTenantID owns the platform channel and the system templates
+	// (auth's platform tenant).
+	PlatformTenantID string `yaml:"platform_tenant_id"`
+}
+
+// DefaultPlatformTenantID is auth's platform tenant.
+const DefaultPlatformTenantID = "00000000-0000-0000-0000-000000000001"
+
+// PlatformEmail is the relay behind the configuration-managed platform
+// channel. The password comes only from a mounted secret file; a literal
+// password is refused so it never sits in a configuration file.
+type PlatformEmail struct {
+	Host           string `yaml:"host"` // must match the relay certificate
+	Port           int    `yaml:"port"`
+	TLS            string `yaml:"tls"` // implicit | starttls (default) | none
+	Username       string `yaml:"username"`
+	Password       string `yaml:"password"` // refused: use password_file
+	PasswordFile   string `yaml:"password_file"`
+	From           string `yaml:"from"`
+	ReplyTo        string `yaml:"reply_to"`
+	AllowPlaintext bool   `yaml:"allow_plaintext"` // required for tls: none; warned at start
+}
+
+// Mode is the transport security with its default applied.
+func (p *PlatformEmail) Mode() string {
+	if p.TLS == "" {
+		return "starttls"
+	}
+	return p.TLS
+}
+
+// validate checks the relay setting; the password file is read to prove it
+// is usable, its content never appears in an error.
+func (p *PlatformEmail) validate() error {
+	if p.Password != "" {
+		return errors.New("config: platform_email.password is not accepted: use password_file (a mounted secret file)")
+	}
+	if p.Host == "" || len(p.Host) > 253 || strings.ContainsAny(p.Host, " /\\\r\n\t") {
+		return errors.New("config: platform_email.host is required (the relay host name its certificate carries)")
+	}
+	if p.Port < 1 || p.Port > 65535 {
+		return errors.New("config: platform_email.port must be within [1, 65535]")
+	}
+	switch p.Mode() {
+	case "implicit", "starttls":
+	case "none":
+		if !p.AllowPlaintext {
+			return errors.New("config: platform_email.tls none requires platform_email.allow_plaintext: true (mail would travel unencrypted)")
+		}
+		if p.Username != "" {
+			return errors.New("config: platform_email.username is refused with tls none (credentials are never sent unencrypted)")
+		}
+	default:
+		return errors.New("config: platform_email.tls must be implicit, starttls or none")
+	}
+	if p.Username != "" && p.PasswordFile == "" {
+		return errors.New("config: platform_email.password_file is required with platform_email.username")
+	}
+	if p.Username == "" && p.PasswordFile != "" {
+		return errors.New("config: platform_email.username is required with platform_email.password_file")
+	}
+	if a, err := mail.ParseAddress(p.From); err != nil || a.Address == "" || len(p.From) > 320 {
+		return errors.New("config: platform_email.from must be one address")
+	}
+	if p.ReplyTo != "" {
+		if _, err := mail.ParseAddress(p.ReplyTo); err != nil || len(p.ReplyTo) > 320 {
+			return errors.New("config: platform_email.reply_to must be one address")
+		}
+	}
+	if _, err := p.ReadPassword(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ReadPassword reads the relay password from password_file ("" without
+// one): the file must be a regular file of mode 0640 or stricter and not
+// empty; one trailing newline is dropped.
+func (p *PlatformEmail) ReadPassword() (string, error) {
+	if p.PasswordFile == "" {
+		return "", nil
+	}
+	fi, err := os.Stat(p.PasswordFile)
+	if err != nil || !fi.Mode().IsRegular() {
+		return "", errors.New("config: platform_email.password_file is not a readable file")
+	}
+	if fi.Mode().Perm()&^0o640 != 0 {
+		return "", fmt.Errorf("config: platform_email.password_file must have mode 0640 or stricter (has %04o)", fi.Mode().Perm())
+	}
+	raw, err := os.ReadFile(p.PasswordFile) // #nosec G304 -- operator-supplied secret path
+	if err != nil {
+		return "", errors.New("config: platform_email.password_file is not a readable file")
+	}
+	pw := strings.TrimSuffix(strings.TrimSuffix(string(raw), "\n"), "\r")
+	if pw == "" {
+		return "", errors.New("config: platform_email.password_file is empty")
+	}
+	return pw, nil
 }
 
 // DB configures TimescaleDB.
@@ -91,6 +195,7 @@ type Limits struct {
 	StreamsPerUser         int   `yaml:"streams_per_user"`
 	StreamsPerTenant       int   `yaml:"streams_per_tenant"`
 	ReplayWindowSeconds    int   `yaml:"replay_window_seconds"`
+	SystemSendPerMinute    int   `yaml:"system_send_per_minute"` // system template sends per calling service
 }
 
 // Default returns secure defaults on top of the Freya defaults.
@@ -103,7 +208,8 @@ func Default() Config {
 		Scheduler: Scheduler{IntervalSeconds: 15, LeaseSeconds: 60},
 		Gateway:   Gateway{Service: "gateway"},
 		Limits: Limits{BackupMaxBytes: 16 << 20, SendPerTenantPerMinute: 600, SendPerSenderPerMinute: 60,
-			StreamsPerUser: 5, StreamsPerTenant: 2000, ReplayWindowSeconds: 300},
+			StreamsPerUser: 5, StreamsPerTenant: 2000, ReplayWindowSeconds: 300, SystemSendPerMinute: 300},
+		PlatformTenantID: DefaultPlatformTenantID,
 	}
 }
 
@@ -185,8 +291,21 @@ func (c Config) Validate() error {
 	if c.Limits.ReplayWindowSeconds < 60 || c.Limits.ReplayWindowSeconds > 3600 {
 		return errors.New("config: limits_notification.replay_window_seconds must be within [60, 3600]")
 	}
+	if c.Limits.SystemSendPerMinute < 1 || c.Limits.SystemSendPerMinute > 10000 {
+		return errors.New("config: limits_notification.system_send_per_minute must be within [1, 10000]")
+	}
+	if !uuidRE.MatchString(c.PlatformTenantID) {
+		return errors.New("config: platform_tenant_id must be a uuid")
+	}
+	if c.PlatformEmail != nil {
+		if err := c.PlatformEmail.validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
+
+var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 // Warnings lists accepted insecure opt-outs (logged at start).
 func (c Config) Warnings() []string {
@@ -196,6 +315,9 @@ func (c Config) Warnings() []string {
 	}
 	if c.SMTP.AllowPlaintext {
 		w = append(w, "smtp.allow_plaintext: channels may deliver mail without TLS (development only)")
+	}
+	if c.PlatformEmail != nil && c.PlatformEmail.AllowPlaintext {
+		w = append(w, "platform_email.allow_plaintext: the platform relay may be reached without TLS (tls: "+c.PlatformEmail.Mode()+")")
 	}
 	return w
 }

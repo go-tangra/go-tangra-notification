@@ -118,7 +118,7 @@ func (m *Store) InsertChannel(_ context.Context, c store.Channel) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, x := range m.Channels {
-		if x.TenantID == c.TenantID && (lower(x.Name) == lower(c.Name) || (c.IsDefault && x.IsDefault && x.Type == c.Type)) {
+		if x.TenantID == c.TenantID && (lower(x.Name) == lower(c.Name) || (c.IsDefault && x.IsDefault && x.Type == c.Type) || (c.Managed && x.Managed)) {
 			return store.ErrConflict
 		}
 	}
@@ -205,6 +205,36 @@ func (m *Store) ClearDefaultChannel(_ context.Context, tid, typ, except string) 
 	return nil
 }
 
+func (m *Store) ManagedChannel(_ context.Context, tid string) (store.Channel, error) {
+	if err := m.fail("ManagedChannel"); err != nil {
+		return store.Channel{}, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, c := range m.Channels {
+		if c.TenantID == tid && c.Managed {
+			c.TemplateCount = m.templateCount(c.ID)
+			return c, nil
+		}
+	}
+	return store.Channel{}, store.ErrNotFound
+}
+
+func (m *Store) DefaultEmailChannel(_ context.Context, tid string) (store.Channel, error) {
+	if err := m.fail("DefaultEmailChannel"); err != nil {
+		return store.Channel{}, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, c := range m.Channels {
+		if c.TenantID == tid && c.Type == "email" && c.IsDefault {
+			c.TemplateCount = m.templateCount(c.ID)
+			return c, nil
+		}
+	}
+	return store.Channel{}, store.ErrNotFound
+}
+
 func (m *Store) DeleteChannel(_ context.Context, tid, id string) error {
 	if err := m.fail("DeleteChannel"); err != nil {
 		return err
@@ -233,6 +263,12 @@ func (m *Store) decorate(t store.Template) store.Template {
 	if t.Variables == nil {
 		t.Variables = []string{}
 	}
+	if t.RequiredVariables == nil {
+		t.RequiredVariables = []string{}
+	}
+	if t.SecretVariables == nil {
+		t.SecretVariables = []string{}
+	}
 	return t
 }
 
@@ -248,7 +284,8 @@ func (m *Store) InsertTemplate(_ context.Context, t store.Template) error {
 		}
 	}
 	for _, x := range m.Templates {
-		if x.TenantID == t.TenantID && (lower(x.Name) == lower(t.Name) || (t.IsDefault && x.IsDefault && t.ChannelID != nil && strp(x.ChannelID) == strp(t.ChannelID))) {
+		if x.TenantID == t.TenantID && (lower(x.Name) == lower(t.Name) || (t.IsDefault && x.IsDefault && t.ChannelID != nil && strp(x.ChannelID) == strp(t.ChannelID)) ||
+			(t.SystemKey != nil && x.SystemKey != nil && *t.SystemKey == *x.SystemKey)) {
 			return store.ErrConflict
 		}
 	}
@@ -351,6 +388,35 @@ func (m *Store) UpdateTemplate(_ context.Context, t store.Template) error {
 		}
 	}
 	old.Name, old.ChannelID, old.ChannelType, old.Subject, old.Body, old.Variables, old.IsDefault, old.UpdatedBy, old.UpdatedAt = t.Name, t.ChannelID, t.ChannelType, t.Subject, t.Body, t.Variables, t.IsDefault, t.UpdatedBy, m.Now()
+	m.Templates[t.ID] = old
+	return nil
+}
+
+func (m *Store) TemplateByKey(_ context.Context, tid, key string) (store.Template, error) {
+	if err := m.fail("TemplateByKey"); err != nil {
+		return store.Template{}, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, t := range m.Templates {
+		if t.TenantID == tid && t.SystemKey != nil && *t.SystemKey == key {
+			return m.decorate(t), nil
+		}
+	}
+	return store.Template{}, store.ErrNotFound
+}
+
+func (m *Store) SetTemplateBuiltin(_ context.Context, t store.Template) error {
+	if err := m.fail("SetTemplateBuiltin"); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	old, ok := m.Templates[t.ID]
+	if !ok || old.TenantID != t.TenantID || old.SystemKey == nil {
+		return store.ErrNotFound
+	}
+	old.BuiltinSubject, old.BuiltinBody, old.Variables, old.RequiredVariables, old.SecretVariables, old.UpdatedAt = t.BuiltinSubject, t.BuiltinBody, t.Variables, t.RequiredVariables, t.SecretVariables, m.Now()
 	m.Templates[t.ID] = old
 	return nil
 }

@@ -19,6 +19,8 @@ type Channels interface {
 	UpdateChannel(ctx context.Context, c store.Channel) error
 	ClearDefaultChannel(ctx context.Context, tenantID, typ, exceptID string) error
 	DeleteChannel(ctx context.Context, tenantID, id string) error
+	ManagedChannel(ctx context.Context, tenantID string) (store.Channel, error)
+	DefaultEmailChannel(ctx context.Context, tenantID string) (store.Channel, error)
 }
 
 // Templates is the template persistence.
@@ -31,6 +33,8 @@ type Templates interface {
 	UpdateTemplate(ctx context.Context, t store.Template) error
 	ClearDefaultTemplate(ctx context.Context, tenantID, channelID, exceptID string) error
 	DeleteTemplate(ctx context.Context, tenantID, id string) error
+	TemplateByKey(ctx context.Context, tenantID, key string) (store.Template, error)
+	SetTemplateBuiltin(ctx context.Context, t store.Template) error
 }
 
 // Log is the notification log persistence.
