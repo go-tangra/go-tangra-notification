@@ -128,6 +128,9 @@ func (s *Service) Export(ctx context.Context, subj authz.Subjects, includeCreden
 	}
 	names := map[string]string{}
 	for _, c := range channels {
+		if c.Managed {
+			continue // from configuration (platform_email): never exported, credentials included
+		}
 		names[c.ID] = c.Name
 		var settings sealed.Settings
 		if includeCredentials {

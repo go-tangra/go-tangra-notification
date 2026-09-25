@@ -5,7 +5,7 @@
 # NO branch tag and NO registry cleanup job: the v3.x images published by the old
 # workflow must stay available.
 #
-# SDK releases: this repository has no sdk/ module; if one is added it is tagged `sdk/vX.Y.Z` by hand.
+# SDK releases: the nested sdk/ module is released by hand with a `sdk/vX.Y.Z` tag.
 # The tag filter 'v*' is a glob anchored at the start of the tag name (`*` does not
 # cross `/`), so `sdk/v4.0.0` never matches it and never builds or pushes an image.
 name: CI
@@ -45,11 +45,20 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: |
             go.sum
+            sdk/go.sum
 
       - name: go vet (service)
         run: go vet ./...
 
       - name: go test -race (service)
+        run: go test -race ./...
+
+      - name: go vet (sdk)
+        working-directory: sdk
+        run: go vet ./...
+
+      - name: go test -race (sdk)
+        working-directory: sdk
         run: go test -race ./...
 
   ui:
@@ -84,7 +93,7 @@ jobs:
         run: npm run test:unit
 
   buf:
-    name: Buf lint
+    name: Buf lint (sdk)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +104,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: buf lint
+        working-directory: sdk
         run: buf lint
 
   docker:

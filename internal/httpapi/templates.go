@@ -103,6 +103,19 @@ func (s *Server) RegisterTemplates(d NotifyDeps) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	s.MustHandle("POST", Prefix+"/templates/{id}/restore", func(w http.ResponseWriter, r *http.Request) {
+		subj, err := subjects(r)
+		if err != nil {
+			Fail(w, r, nil, err)
+			return
+		}
+		out, err := d.Templates.Restore(r.Context(), subj, r.PathValue("id"))
+		if err != nil {
+			s.fail(w, r, domainError(err))
+			return
+		}
+		WriteJSON(w, http.StatusOK, out)
+	})
 	s.MustHandle("POST", Prefix+"/templates/preview", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)
 		if err != nil {

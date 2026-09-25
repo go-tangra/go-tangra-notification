@@ -31,6 +31,8 @@ const form = useZodForm(channelSchema, {
   },
 })
 const isEmail = computed(() => form.values.type === 'email')
+/** The platform channel comes from the platform_email configuration: read-only here, testable. */
+const readOnly = computed(() => !!selected.value?.managed)
 function open(c: Channel | null): void {
   selected.value = c
   error.value = ''
@@ -73,33 +75,40 @@ const columns: Column<Channel>[] = [
     <UiAlert v-if="store.error" kind="error" class="mb-3">{{ store.error }}</UiAlert>
     <UiCard :padded="false">
       <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" caption="Channels" empty-title="No channels yet" clickable :row-attrs="(c) => ({ 'data-test': 'channel-row-' + c.id })" data-test="channels-table" @row-click="open">
+        <template #cell-name="{ row }">
+          <span>{{ row.name }}</span>
+          <UiBadge v-if="row.managed" class="ms-2" color="info" :data-test="'channel-managed-' + row.id">Managed</UiBadge>
+        </template>
         <template #cell-type="{ row }"><UiBadge>{{ row.type }}</UiBadge></template>
         <template #cell-enabled="{ row }"><UiStatusChip :status="row.enabled ? 'enabled' : 'disabled'" /></template>
         <template #cell-is_default="{ row }"><UiIcon v-if="row.is_default" name="mdi-star" size="sm" class="text-warning" label="Default channel" /></template>
       </UiDataTable>
     </UiCard>
-    <UiDrawer v-model="drawer" :title="selected ? 'Edit channel' : 'New channel'" size="lg" data-test="channel-drawer">
+    <UiDrawer v-model="drawer" :title="readOnly ? 'Platform channel' : selected ? 'Edit channel' : 'New channel'" size="lg" data-test="channel-drawer">
       <UiAlert v-if="error" kind="error" class="mb-3" data-test="channel-error">{{ error }}</UiAlert>
+      <UiAlert v-if="readOnly" kind="info" class="mb-3" data-test="channel-managed-note">
+        Managed by configuration: this channel is created from the notification module's platform_email setting and carries all platform email. Change the relay there and restart the notification module.
+      </UiAlert>
       <UiForm :form="form">
         <div class="flex flex-col gap-3">
-          <UiInput v-bind="form.field('name')" label="Name" required data-test="channel-name" />
-          <UiSelect v-bind="form.field('type')" label="Type" :options="typeOptions" :clearable="false" :disabled="!!selected" required data-test="channel-type" />
+          <UiInput v-bind="form.field('name')" :disabled="readOnly" label="Name" required data-test="channel-name" />
+          <UiSelect v-bind="form.field('type')" :disabled="readOnly || !!selected" label="Type" :options="typeOptions" :clearable="false" required data-test="channel-type" />
           <template v-if="isEmail">
-            <UiInput v-bind="form.field('host')" label="SMTP host" required data-test="channel-host" />
-            <UiNumberInput v-bind="form.field('port')" label="Port" :min="1" :max="65535" required data-test="channel-port" />
-            <UiSelect v-bind="form.field('tls')" label="TLS" :options="tlsOptions" :clearable="false" data-test="channel-tls" />
-            <UiInput v-bind="form.field('from')" label="From" type="email" required data-test="channel-from" />
-            <UiInput v-bind="form.field('reply_to')" label="Reply-To (optional)" type="email" />
-            <UiInput v-bind="form.field('username')" label="Username (optional)" autocomplete="off" />
-            <UiSecretField v-bind="form.field('password')" label="Password" hint="Leave blank to keep the stored value." data-test="channel-password" />
+            <UiInput v-bind="form.field('host')" :disabled="readOnly" label="SMTP host" required data-test="channel-host" />
+            <UiNumberInput v-bind="form.field('port')" :disabled="readOnly" label="Port" :min="1" :max="65535" required data-test="channel-port" />
+            <UiSelect v-bind="form.field('tls')" :disabled="readOnly" label="TLS" :options="tlsOptions" :clearable="false" data-test="channel-tls" />
+            <UiInput v-bind="form.field('from')" :disabled="readOnly" label="From" type="email" required data-test="channel-from" />
+            <UiInput v-bind="form.field('reply_to')" :disabled="readOnly" label="Reply-To (optional)" type="email" />
+            <UiInput v-bind="form.field('username')" :disabled="readOnly" label="Username (optional)" autocomplete="off" />
+            <UiSecretField v-bind="form.field('password')" :disabled="readOnly" label="Password" hint="Leave blank to keep the stored value." data-test="channel-password" />
           </template>
           <template v-else>
-            <UiInput v-bind="form.field('account')" label="Account" required data-test="channel-account" />
-            <UiSecretField v-bind="form.field('api_key')" label="API key" hint="Leave blank to keep the stored value." data-test="channel-apikey" />
+            <UiInput v-bind="form.field('account')" :disabled="readOnly" label="Account" required data-test="channel-account" />
+            <UiSecretField v-bind="form.field('api_key')" :disabled="readOnly" label="API key" hint="Leave blank to keep the stored value." data-test="channel-apikey" />
             <UiAlert kind="info">No provider yet: this type stores settings but cannot deliver.</UiAlert>
           </template>
-          <UiSwitch v-bind="form.field('enabled')" label="Enabled" data-test="channel-enabled" />
-          <UiSwitch v-bind="form.field('is_default')" label="Default for this type" data-test="channel-default" />
+          <UiSwitch v-bind="form.field('enabled')" :disabled="readOnly" label="Enabled" data-test="channel-enabled" />
+          <UiSwitch v-bind="form.field('is_default')" :disabled="readOnly" label="Default for this type" data-test="channel-default" />
         </div>
       </UiForm>
       <UiSection v-if="selected" title="Send a test message" class="mt-4">
@@ -112,9 +121,9 @@ const columns: Column<Channel>[] = [
         <p v-if="testResult" class="mt-2 text-xs" data-test="channel-test-result">{{ testResult }}</p>
       </UiSection>
       <template #actions>
-        <UiButton v-if="selected && selected.permissions?.delete" variant="text" color="error" data-test="channel-delete" @click="remove">Delete</UiButton>
-        <UiButton variant="text" @click="drawer = false">Cancel</UiButton>
-        <UiButton :loading="form.submitting.value" data-test="channel-save" @click="form.submit()">Save</UiButton>
+        <UiButton v-if="selected && selected.permissions?.delete && !readOnly" variant="text" color="error" data-test="channel-delete" @click="remove">Delete</UiButton>
+        <UiButton variant="text" @click="drawer = false">{{ readOnly ? 'Close' : 'Cancel' }}</UiButton>
+        <UiButton v-if="!readOnly" :loading="form.submitting.value" data-test="channel-save" @click="form.submit()">Save</UiButton>
       </template>
     </UiDrawer>
   </UiPage>

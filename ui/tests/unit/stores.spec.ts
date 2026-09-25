@@ -64,6 +64,20 @@ describe('templates store', () => {
     expect(p.rendered_subject).toBe('Hi Ana')
     expect(p.rendered_body).toContain('&lt;Ana&gt;')
   })
+  it('restores a system template to its built-in wording in place', async () => {
+    const sys = { id: 's1', name: 'auth.invite', system_key: 'auth.invite', channel_id: null, subject: 'Edited', body: '{{.link}}', edited: true }
+    const fetch = stubFetch((url, init) => {
+      if (url.endsWith('/templates/s1/restore') && init?.method === 'POST') return { status: 200, body: { ...sys, subject: 'You are invited', edited: false } }
+      if (url.includes('/templates?')) return { status: 200, body: { items: [sys] } }
+      return { status: 404, body: { reason: 'not_found' } }
+    })
+    const s = useTemplates()
+    await s.list()
+    const t = await s.restore('s1')
+    expect(t.edited).toBe(false)
+    expect(s.items[0]?.subject).toBe('You are invited')
+    expect(String(fetch.mock.calls[1]?.[0])).toContain('/templates/s1/restore')
+  })
 })
 
 describe('log store', () => {

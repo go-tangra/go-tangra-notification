@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { useConfirm } from '@go-tangra/ui'
 import { plugins, stubFetch } from './helpers'
 import Channels from '@/views/channels/index.vue'
 import Templates from '@/views/templates/index.vue'
@@ -92,6 +93,34 @@ describe('channels view', () => {
     expect(drawer().textContent).not.toContain('hunter2-secret')
     w.unmount()
   })
+  it('managed channel: badge, read-only drawer without save or delete, test send still available', async () => {
+    const writes: string[] = []
+    const managed = { id: 'm1', name: 'Platform email', type: 'email' as const, managed: true, settings: { host: 'mx01.example.net', port: 587, tls: 'starttls', from: 'tangra@example.net', password: '__set__' }, enabled: true, is_default: true, permissions: { read: true, write: false, delete: false, use: true } }
+    stubFetch((url, init) => {
+      if (url.endsWith('/channels/m1/test')) return { status: 200, body: { id: 'l1', status: 'sent', test: true } }
+      if (init?.method === 'PUT' || url.endsWith('/remove')) {
+        writes.push(url)
+        return { status: 409, body: { reason: 'managed_channel' } }
+      }
+      if (url.includes('/channels')) return { status: 200, body: { items: [managed] } }
+      return { status: 404, body: { reason: 'not_found' } }
+    })
+    const w = mountView(Channels)
+    await flushPromises()
+    expect(w.find('[data-test="channel-managed-m1"]').exists()).toBe(true)
+    await w.find('[data-test="channel-row-m1"]').trigger('click')
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="channel-managed-note"]')?.textContent).toContain('configuration')
+    expect(drawer().querySelector('[data-test="channel-save"]')).toBeNull()
+    expect(drawer().querySelector('[data-test="channel-delete"]')).toBeNull()
+    expect(drawer().querySelector<HTMLInputElement>('input[data-field=host]')?.disabled).toBe(true)
+    set(drawer(), '[data-test="channel-test-recipient"] input', 'ops@x.test')
+    ;(drawer().querySelector('[data-test="channel-test-send"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="channel-test-result"]')?.textContent).toContain('sent')
+    expect(writes).toEqual([])
+    w.unmount()
+  })
 })
 
 describe('templates and messages', () => {
@@ -111,6 +140,65 @@ describe('templates and messages', () => {
     ;(drawer().querySelector('[data-test="template-preview"]') as HTMLButtonElement).click()
     await flushPromises()
     expect(drawer().querySelector('[data-test="template-error"]')).toBeTruthy()
+    w.unmount()
+  })
+  it('system template: badge, required variables shown, only subject/body saved, no delete, restore built-in', async () => {
+    const puts: Array<Record<string, unknown>> = []
+    const posts: string[] = []
+    const sys = { id: 's1', name: 'auth.invite', system_key: 'auth.invite', channel_id: null, channel_type: 'email', subject: 'Edited', body: '<p>{{.link}} {{.valid_for}}</p>', variables: ['link', 'valid_for', 'tenant'], required_variables: ['link', 'valid_for'], secret_variables: ['link'], edited: true, permissions: { read: true, write: true, delete: false } }
+    stubFetch((url, init) => {
+      if (init?.method === 'PUT') {
+        puts.push(JSON.parse(String(init.body)))
+        return { status: 200, body: sys }
+      }
+      if (init?.method === 'POST') {
+        posts.push(url)
+        return { status: 200, body: { ...sys, subject: 'You are invited', edited: false } }
+      }
+      if (url.includes('/channels')) return { status: 200, body: { items: [] } }
+      if (url.includes('/templates')) return { status: 200, body: { items: [sys] } }
+      return { status: 404, body: { reason: 'not_found' } }
+    })
+    const w = mountView(Templates)
+    await flushPromises()
+    expect(w.find('[data-test="template-system-s1"]').exists()).toBe(true)
+    await w.find('[data-test="template-row-s1"]').trigger('click')
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="template-delete"]')).toBeNull()
+    expect(drawer().querySelector('[data-test="template-channel"]')).toBeNull()
+    expect(drawer().querySelector('[data-test="template-required"]')?.textContent).toContain('link')
+    expect(drawer().querySelector('[data-test="template-secret-note"]')?.textContent).toContain('link')
+    set(drawer(), '[data-test="template-subject"] input', 'Welcome to Tangra')
+    ;(drawer().querySelector('[data-test="template-save"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(puts[0]).toMatchObject({ name: 'auth.invite', channel_id: null, subject: 'Welcome to Tangra', body: '<p>{{.link}} {{.valid_for}}</p>' })
+    expect(puts[0]?.is_default).toBeFalsy()
+    await w.find('[data-test="template-row-s1"]').trigger('click')
+    await flushPromises()
+    ;(drawer().querySelector('[data-test="template-restore"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(posts).toEqual([]) // asks first: the edited wording is replaced
+    useConfirm().answer(true)
+    await flushPromises()
+    expect(posts.some((u) => u.endsWith('/templates/s1/restore'))).toBe(true)
+    w.unmount()
+  })
+  it('system template: a save dropping a required variable shows the refusal naming it', async () => {
+    const sys = { id: 's1', name: 'auth.invite', system_key: 'auth.invite', channel_id: null, channel_type: 'email', subject: 'S', body: '{{.link}} {{.valid_for}}', variables: ['link', 'valid_for'], required_variables: ['link', 'valid_for'], secret_variables: ['link'], edited: false, permissions: { read: true, write: true } }
+    stubFetch((url, init) => {
+      if (init?.method === 'PUT') return { status: 422, body: { reason: 'missing_required_variable', detail: { variable: 'link' } } }
+      if (url.includes('/channels')) return { status: 200, body: { items: [] } }
+      if (url.includes('/templates')) return { status: 200, body: { items: [sys] } }
+      return { status: 404, body: { reason: 'not_found' } }
+    })
+    const w = mountView(Templates)
+    await flushPromises()
+    await w.find('[data-test="template-row-s1"]').trigger('click')
+    await flushPromises()
+    set(drawer(), '[data-test="template-body"] textarea', 'no link {{.valid_for}}')
+    ;(drawer().querySelector('[data-test="template-save"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="template-error"]')?.textContent).toContain('link')
     w.unmount()
   })
   it('message drawer requires recipients unless everyone; send transitions after save', async () => {

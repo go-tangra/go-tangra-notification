@@ -10,6 +10,7 @@ type Channel struct {
 	SettingsSealed       []byte
 	SettingsPublic       []byte // JSON object
 	Enabled, IsDefault   bool
+	Managed              bool // the platform channel created from configuration (read-only in the API)
 	CreatedBy, UpdatedBy *string
 	CreatedAt, UpdatedAt time.Time
 	TemplateCount        int // joined for listings
@@ -27,6 +28,12 @@ type Template struct {
 	CreatedBy, UpdatedBy *string
 	CreatedAt, UpdatedAt time.Time
 	ChannelName          string // joined for display
+
+	// System templates (feature 017): set by seeding only.
+	SystemKey                   *string  // "<service>.<name>"; nil for ordinary templates
+	BuiltinSubject, BuiltinBody string   // the built-in wording restore returns to
+	RequiredVariables           []string // must stay referenced on save
+	SecretVariables             []string // redacted in the stored log
 }
 
 // LogRow is one notification log entry (immutable once final).
@@ -36,6 +43,7 @@ type LogRow struct {
 	ChannelID       string
 	ChannelType     string
 	TemplateID      *string
+	TemplateKey     *string // system template sends
 	Recipient       string
 	RenderedSubject string
 	RenderedBody    string

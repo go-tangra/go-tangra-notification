@@ -4,8 +4,8 @@ import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiIcon, UiInput, UiDraw
 import { useZodForm } from '@go-tangra/ui/forms'
 import { useTemplates } from '@/stores/templates'
 import { useChannels } from '@/stores/channels'
-import { describe } from '@/api/client'
-import { templateSchema } from '@/schemas'
+import { ApiError, describe } from '@/api/client'
+import { templateSchema, systemTemplateSchema } from '@/schemas'
 import type { Template } from '@/api/types'
 
 const store = useTemplates()
@@ -35,13 +35,43 @@ const form = useZodForm(templateSchema, {
     void store.list()
   },
 })
+// System templates (sent by key by auth or warden): only subject and body change.
+const isSystem = computed(() => !!selected.value?.system_key)
+const sysForm = useZodForm(systemTemplateSchema, {
+  onSubmit: async (v) => {
+    const t = selected.value!
+    try {
+      await store.update(t.id, { name: t.name, channel_id: null, subject: v.subject, body: v.body, variables: [...(t.variables ?? [])], is_default: false })
+    } catch (e) {
+      error.value = e instanceof ApiError && e.reason === 'missing_required_variable' ? `The template must keep {{.${String(e.detail?.variable ?? '')}}}: the sending service always supplies it.` : describe(e)
+      throw e
+    }
+  },
+  onSuccess: () => {
+    drawer.value = false
+    void store.list()
+  },
+})
+const activeForm = computed(() => (isSystem.value ? sysForm : form))
+const owner = computed(() => selected.value?.system_key?.split('.')[0] ?? '')
+async function restore(): Promise<void> {
+  if (!selected.value || !(await confirm.ask({ title: `Restore the built-in wording of ${selected.value.name}?`, confirmLabel: 'Restore' }))) return
+  try {
+    const t = await store.restore(selected.value.id)
+    selected.value = t
+    sysForm.reset({ subject: t.subject, body: t.body })
+  } catch (e) {
+    error.value = describe(e)
+  }
+}
+
 // Declared variables: a comma-separated field kept in sync with the schema's array.
 const variablesText = ref('')
 watch(variablesText, (t) => (form.values.variables = t.split(',').map((s) => s.trim()).filter(Boolean)))
-const variables = computed(() => (form.values.variables ?? []) as string[])
+const variables = computed(() => (isSystem.value ? (selected.value?.variables ?? []) : ((form.values.variables ?? []) as string[])))
 const previewValues = ref<Record<string, string>>({})
 const preview = ref<{ subject: string; body: string } | null>(null)
-const channelType = computed(() => channels.items.find((c) => c.id === form.values.channel_id)?.type ?? 'email')
+const channelType = computed(() => (isSystem.value ? (selected.value?.channel_type ?? 'email') : (channels.items.find((c) => c.id === form.values.channel_id)?.type ?? 'email')))
 
 function open(t: Template | null): void {
   selected.value = t
@@ -49,6 +79,7 @@ function open(t: Template | null): void {
   preview.value = null
   previewValues.value = {}
   form.reset({ name: t?.name ?? '', channel_id: t?.channel_id ?? channels.items[0]?.id ?? '', subject: t?.subject ?? '', body: t?.body ?? '', variables: [...(t?.variables ?? [])], is_default: t?.is_default ?? false })
+  sysForm.reset({ subject: t?.subject ?? '', body: t?.body ?? '' })
   variablesText.value = (t?.variables ?? []).join(', ')
   drawer.value = true
 }
@@ -65,7 +96,8 @@ async function remove(): Promise<void> {
 async function doPreview(): Promise<void> {
   error.value = ''
   try {
-    const out = await store.preview({ template_id: selected.value?.id, channel_type: channelType.value, subject: String(form.values.subject ?? ''), body: String(form.values.body ?? ''), variables: variables.value, values: { ...previewValues.value } })
+    const f = activeForm.value
+    const out = await store.preview({ template_id: selected.value?.id, channel_type: channelType.value, subject: String(f.values.subject ?? ''), body: String(f.values.body ?? ''), variables: variables.value, values: { ...previewValues.value } })
     preview.value = { subject: out.rendered_subject, body: out.rendered_body }
   } catch (e) {
     error.value = describe(e)
@@ -89,12 +121,35 @@ const columns: Column<Template>[] = [
     <UiAlert v-if="store.error" kind="error" class="mb-3">{{ store.error }}</UiAlert>
     <UiCard :padded="false">
       <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" caption="Templates" empty-title="No templates" clickable :row-attrs="(t) => ({ 'data-test': 'template-row-' + t.id })" data-test="templates-table" @row-click="open">
+        <template #cell-name="{ row }">
+          <span>{{ row.name }}</span>
+          <UiBadge v-if="row.system_key" class="ms-2" color="info" :data-test="'template-system-' + row.id">System</UiBadge>
+          <UiBadge v-if="row.system_key && row.edited" class="ms-1" color="warning" soft>Edited</UiBadge>
+        </template>
         <template #cell-is_default="{ row }"><UiIcon v-if="row.is_default" name="mdi-star" size="sm" class="text-warning" label="Default template" /></template>
       </UiDataTable>
     </UiCard>
     <UiDrawer v-model="drawer" :title="selected ? 'Edit template' : 'New template'" size="xl" data-test="template-drawer">
       <UiAlert v-if="error" kind="error" class="mb-3" data-test="template-error">{{ error }}</UiAlert>
-      <UiForm :form="form">
+      <template v-if="isSystem">
+        <UiAlert kind="info" class="mb-3" data-test="template-system-note">
+          System template <strong>{{ selected?.system_key }}</strong>, sent by the {{ owner }} service. You can change the subject and body; name, channel and variables are fixed. Upgrades keep your wording; "Restore built-in" brings the original back.
+        </UiAlert>
+        <UiForm :form="sysForm">
+          <div class="flex flex-col gap-3">
+            <UiInput v-bind="sysForm.field('subject')" label="Subject" required data-test="template-subject" />
+            <UiTextarea v-bind="sysForm.field('body')" label="Body (Go template, HTML)" :rows="10" required data-test="template-body" />
+            <div class="flex flex-wrap items-center gap-1" data-test="template-required">
+              <span class="text-xs text-base-content/70">Variables (required ones must stay):</span>
+              <UiBadge v-for="v in selected?.variables ?? []" :key="v" :color="selected?.required_variables?.includes(v) ? 'primary' : 'neutral'" soft>{{ v }}{{ selected?.required_variables?.includes(v) ? ' (required)' : '' }}</UiBadge>
+            </div>
+            <p v-if="selected?.secret_variables?.length" class="text-xs text-base-content/70" data-test="template-secret-note">
+              Secret: {{ selected.secret_variables.join(', ') }}. The delivery log stores [redacted] in place of these values.
+            </p>
+          </div>
+        </UiForm>
+      </template>
+      <UiForm v-else :form="form">
         <div class="flex flex-col gap-3">
           <UiInput v-bind="form.field('name')" label="Name" required data-test="template-name" />
           <UiSelect v-bind="form.field('channel_id')" label="Channel" :options="channelOptions" :clearable="false" required data-test="template-channel" />
@@ -118,9 +173,10 @@ const columns: Column<Template>[] = [
         </div>
       </UiSection>
       <template #actions>
-        <UiButton v-if="selected && selected.permissions?.delete" variant="text" color="error" data-test="template-delete" @click="remove">Delete</UiButton>
+        <UiButton v-if="selected && selected.permissions?.delete && !isSystem" variant="text" color="error" data-test="template-delete" @click="remove">Delete</UiButton>
+        <UiButton v-if="isSystem && selected?.permissions?.write" variant="text" icon="mdi-restore" data-test="template-restore" @click="restore">Restore built-in</UiButton>
         <UiButton variant="text" @click="drawer = false">Cancel</UiButton>
-        <UiButton :loading="form.submitting.value" data-test="template-save" @click="form.submit()">Save</UiButton>
+        <UiButton :loading="activeForm.submitting.value" data-test="template-save" @click="activeForm.submit()">Save</UiButton>
       </template>
     </UiDrawer>
   </UiPage>

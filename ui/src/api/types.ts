@@ -26,6 +26,8 @@ export interface Channel {
   settings: Settings
   enabled: boolean
   is_default: boolean
+  /** Created from the platform_email configuration: read-only, test sends allowed. */
+  managed?: boolean
   template_count?: number
   created_by?: string
   updated_by?: string
@@ -57,11 +59,18 @@ export interface Template {
   created_at?: string
   updated_at?: string
   permissions?: Permissions
+  /** System templates (sent by key by a platform service); null otherwise. */
+  system_key?: string | null
+  required_variables?: string[]
+  secret_variables?: string[]
+  /** Subject/body differ from the built-in wording. */
+  edited?: boolean
 }
 
 export interface TemplateInput {
   name: string
-  channel_id: string
+  /** Null for system templates (their channel is resolved per send). */
+  channel_id: string | null
   subject: string
   body: string
   variables?: string[]
@@ -73,6 +82,7 @@ export interface LogEntry {
   channel_id: string
   channel_type: ChannelType
   template_id: string | null
+  template_key?: string | null
   recipient: string
   rendered_subject: string
   rendered_body?: string

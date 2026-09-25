@@ -59,9 +59,16 @@ export const useTemplates = defineStore('notification-templates', () => {
     items.value = items.value.filter((x) => x.id !== id)
   }
 
+  /** Resets a system template to its built-in subject and body. */
+  async function restore(id: string): Promise<Template> {
+    const t = await api<Template>('POST', 'templates/' + id + '/restore')
+    items.value = items.value.map((x) => (x.id === id ? t : x))
+    return t
+  }
+
   async function preview(input: PreviewInput): Promise<Preview> {
     return api<Preview>('POST', 'templates/preview', input)
   }
 
-  return { items, next, loading, error, list, get, create, update, remove, preview }
+  return { items, next, loading, error, list, get, create, update, remove, restore, preview }
 })

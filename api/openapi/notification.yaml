@@ -10,7 +10,9 @@ info:
     channels and templates (read/write/delete/share/use). Errors are
     {"reason": "<closed vocabulary>", "detail"?: {...}}: unauthenticated, forbidden,
     not_found, validation_failed, conflict, channel_disabled, no_provider,
-    delivery_failed, temporarily_unavailable, rate_limited, body_too_large.
+    delivery_failed, temporarily_unavailable, rate_limited, body_too_large,
+    managed_channel, system_template, not_system_template, system_template_field,
+    missing_required_variable.
     Provider credentials never appear in any response (fields are "__set__").
 servers: [{ url: https://platform.example.org }]
 components:
@@ -48,6 +50,7 @@ components:
         settings: { type: object }
         enabled: { type: boolean }
         is_default: { type: boolean }
+        managed: { type: boolean, description: 'the platform channel created from the platform_email configuration: read-only (update/remove answer 409 managed_channel), test sends allowed' }
         template_count: { type: integer }
         created_by: { type: string }
         updated_by: { type: string }
@@ -81,13 +84,17 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         permissions: { $ref: '#/components/schemas/Permissions' }
+        system_key: { type: [string, 'null'], description: 'system templates only ("<service>.<name>"): sent by key by the owning service; channel resolved per send' }
+        required_variables: { type: array, items: { type: string }, description: 'must stay referenced in subject or body (system templates)' }
+        secret_variables: { type: array, items: { type: string }, description: 'redacted as [redacted] in the stored log (system templates)' }
+        edited: { type: boolean, description: 'subject/body differ from the built-in wording (system templates)' }
     TemplateInput:
       type: object
       additionalProperties: false
-      required: [name, channel_id, subject, body]
+      required: [name, subject, body]
       properties:
         name: { $ref: '#/components/schemas/Name' }
-        channel_id: { type: string, format: uuid }
+        channel_id: { type: [string, 'null'], format: uuid, description: 'required for ordinary templates; empty/null for system templates (their channel is fixed)' }
         subject: { type: string, maxLength: 998, pattern: '^[^\r\n]*$' }
         body: { type: string, maxLength: 262144 }
         variables: { type: array, maxItems: 50, items: { type: string, pattern: '^[A-Za-z][A-Za-z0-9_]{0,63}$' } }
@@ -113,6 +120,7 @@ components:
         channel_id: { type: string, format: uuid }
         channel_type: { $ref: '#/components/schemas/ChannelType' }
         template_id: { type: [string, 'null'], format: uuid }
+        template_key: { type: [string, 'null'], description: 'system template sends' }
         recipient: { type: string }
         rendered_subject: { type: string }
         rendered_body: { type: string, description: 'single-entry read only' }
@@ -263,13 +271,13 @@ paths:
       x-freya-permission: channels:manage
       parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChannelInput' } } } }
-      responses: { '200': { description: 'updated (write); credential fields "__set__"/omitted keep stored values; type cannot change' } }
+      responses: { '200': { description: 'updated (write); credential fields "__set__"/omitted keep stored values; type cannot change' }, '409': { description: 'managed_channel: the channel is managed by configuration' } }
   /api/notification/v1/channels/{id}/remove:
     post:
       operationId: deleteChannel
       x-freya-permission: channels:manage
       parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
-      responses: { '204': { description: 'deleted (delete) with its grants' }, '409': { description: 'conflict: templates reference it (detail.templates)' } }
+      responses: { '204': { description: 'deleted (delete) with its grants' }, '409': { description: 'conflict: templates reference it (detail.templates); managed_channel: managed by configuration' } }
   /api/notification/v1/channels/{id}/test:
     post:
       operationId: testChannel
@@ -298,13 +306,19 @@ paths:
       x-freya-permission: templates:manage
       parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TemplateInput' } } } }
-      responses: { '200': { description: 'updated (write)' }, '422': { description: validation_failed } }
+      responses: { '200': { description: 'updated (write)' }, '422': { description: 'validation_failed; system templates: system_template_field (only subject and body change), missing_required_variable (detail.variable)' } }
   /api/notification/v1/templates/{id}/remove:
     post:
       operationId: deleteTemplate
       x-freya-permission: templates:manage
       parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
-      responses: { '204': { description: 'deleted (delete) with its grants; log entries keep the id' } }
+      responses: { '204': { description: 'deleted (delete) with its grants; log entries keep the id' }, '409': { description: 'system_template: system templates cannot be deleted' } }
+  /api/notification/v1/templates/{id}/restore:
+    post:
+      operationId: restoreTemplate
+      x-freya-permission: templates:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses: { '200': { description: 'system template reset to its built-in subject and body (write)' }, '409': { description: 'not_system_template' } }
   /api/notification/v1/templates/preview:
     post:
       operationId: previewTemplate

@@ -7,7 +7,7 @@ syntax = "proto3";
 // is proxied by the gateway. Every call is audited with actor_kind=service.
 package notification.v1;
 
-option go_package = "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1;notificationv1";
+option go_package = "github.com/go-tangra/go-tangra-notification/sdk/v4/api/proto/notification/v1;notificationv1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -32,11 +32,16 @@ service Events {
 
 message SendRequest {
   string tenant_id = 1;                 // uuid
-  string template_id = 2;               // uuid, required
-  string channel_id = 3;                // uuid, optional override
+  string template_id = 2;               // uuid; exactly one of template_id / template_key
+  string channel_id = 3;                // uuid, optional override (template_id sends only)
   string recipient = 4;                 // 1..512, valid for the channel type, no CR/LF
   map<string, string> variables = 5;    // <= 50 keys, <= 64 KiB serialised
   string correlation_id = 6;            // propagated to the audit event
+  // System template key ("auth.invite"), resolved in the platform tenant. The
+  // key must start with the caller's service name ("auth." for svc/auth);
+  // the channel is the tenant's default email channel, else the platform
+  // channel. No per-tenant grant is required.
+  string template_key = 7;
 }
 
 message SendTestRequest {
@@ -50,6 +55,7 @@ message SendResponse {
   DeliveryStatus status = 2;
   string error = 3;                     // scrubbed provider reason when FAILED
   google.protobuf.Timestamp sent_at = 4;
+  bool retryable = 5;                   // FAILED only: a later retry may succeed
 }
 
 enum DeliveryStatus {

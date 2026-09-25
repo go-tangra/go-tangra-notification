@@ -38,11 +38,11 @@ func restricted(err error) error {
 
 // ---------------------------------------------------------------- channels
 
-const channelCols = "c.id, c.tenant_id, c.name, c.type, c.settings_sealed, c.settings_public, c.enabled, c.is_default, c.created_by, c.updated_by, c.created_at, c.updated_at, (SELECT count(*) FROM templates t WHERE t.channel_id = c.id)"
+const channelCols = "c.id, c.tenant_id, c.name, c.type, c.settings_sealed, c.settings_public, c.enabled, c.is_default, c.managed, c.created_by, c.updated_by, c.created_at, c.updated_at, (SELECT count(*) FROM templates t WHERE t.channel_id = c.id)"
 
 func scanChannel(r pgx.Row) (Channel, error) {
 	var c Channel
-	err := r.Scan(&c.ID, &c.TenantID, &c.Name, &c.Type, &c.SettingsSealed, &c.SettingsPublic, &c.Enabled, &c.IsDefault, &c.CreatedBy, &c.UpdatedBy, &c.CreatedAt, &c.UpdatedAt, &c.TemplateCount)
+	err := r.Scan(&c.ID, &c.TenantID, &c.Name, &c.Type, &c.SettingsSealed, &c.SettingsPublic, &c.Enabled, &c.IsDefault, &c.Managed, &c.CreatedBy, &c.UpdatedBy, &c.CreatedAt, &c.UpdatedAt, &c.TemplateCount)
 	return c, notFound(err)
 }
 
@@ -59,11 +59,23 @@ func scanChannels(rows pgx.Rows) ([]Channel, error) {
 	return out, rows.Err()
 }
 
-// InsertChannel creates a channel; a name clash or a second default is ErrConflict.
+// InsertChannel creates a channel; a name clash, a second default or a
+// second managed channel is ErrConflict.
 func InsertChannel(ctx context.Context, tx pgx.Tx, c Channel) error {
-	_, err := tx.Exec(ctx, `INSERT INTO channels (id, tenant_id, name, type, settings_sealed, settings_public, enabled, is_default, created_by, updated_by)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)`, c.ID, c.TenantID, c.Name, c.Type, c.SettingsSealed, jsonOrEmpty(c.SettingsPublic), c.Enabled, c.IsDefault, c.CreatedBy)
+	_, err := tx.Exec(ctx, `INSERT INTO channels (id, tenant_id, name, type, settings_sealed, settings_public, enabled, is_default, managed, created_by, updated_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)`, c.ID, c.TenantID, c.Name, c.Type, c.SettingsSealed, jsonOrEmpty(c.SettingsPublic), c.Enabled, c.IsDefault, c.Managed, c.CreatedBy)
 	return conflict(err)
+}
+
+// ManagedChannel returns the tenant's configuration-managed channel.
+func ManagedChannel(ctx context.Context, tx pgx.Tx, tenantID string) (Channel, error) {
+	return scanChannel(tx.QueryRow(ctx, "SELECT "+channelCols+" FROM channels c WHERE c.tenant_id = $1 AND c.managed", tenantID))
+}
+
+// DefaultEmailChannel returns the tenant's default email channel (enabled
+// or not; the caller decides).
+func DefaultEmailChannel(ctx context.Context, tx pgx.Tx, tenantID string) (Channel, error) {
+	return scanChannel(tx.QueryRow(ctx, "SELECT "+channelCols+" FROM channels c WHERE c.tenant_id = $1 AND c.type = 'email' AND c.is_default", tenantID))
 }
 
 // GetChannel by tenant + id.
@@ -114,15 +126,15 @@ func DeleteChannel(ctx context.Context, tx pgx.Tx, tenantID, id string) error {
 
 // ---------------------------------------------------------------- templates
 
-const templateCols = "t.id, t.tenant_id, t.name, t.channel_id, t.channel_type, t.subject, t.body, t.variables, t.is_default, t.created_by, t.updated_by, t.created_at, t.updated_at, COALESCE(c.name, '')"
+const templateCols = "t.id, t.tenant_id, t.name, t.channel_id, t.channel_type, t.subject, t.body, t.variables, t.is_default, t.created_by, t.updated_by, t.created_at, t.updated_at, COALESCE(c.name, ''), " +
+	"t.system_key, COALESCE(t.builtin_subject, ''), COALESCE(t.builtin_body, ''), t.required_variables, t.secret_variables"
 const templateFrom = " FROM templates t LEFT JOIN channels c ON c.id = t.channel_id "
 
 func scanTemplate(r pgx.Row) (Template, error) {
 	var t Template
-	err := r.Scan(&t.ID, &t.TenantID, &t.Name, &t.ChannelID, &t.ChannelType, &t.Subject, &t.Body, &t.Variables, &t.IsDefault, &t.CreatedBy, &t.UpdatedBy, &t.CreatedAt, &t.UpdatedAt, &t.ChannelName)
-	if t.Variables == nil {
-		t.Variables = []string{}
-	}
+	err := r.Scan(&t.ID, &t.TenantID, &t.Name, &t.ChannelID, &t.ChannelType, &t.Subject, &t.Body, &t.Variables, &t.IsDefault, &t.CreatedBy, &t.UpdatedBy, &t.CreatedAt, &t.UpdatedAt, &t.ChannelName,
+		&t.SystemKey, &t.BuiltinSubject, &t.BuiltinBody, &t.RequiredVariables, &t.SecretVariables)
+	t.Variables, t.RequiredVariables, t.SecretVariables = nonNil(t.Variables), nonNil(t.RequiredVariables), nonNil(t.SecretVariables)
 	return t, notFound(err)
 }
 
@@ -139,11 +151,36 @@ func scanTemplates(rows pgx.Rows) ([]Template, error) {
 	return out, rows.Err()
 }
 
-// InsertTemplate creates a template.
+// InsertTemplate creates a template (system columns only for system templates).
 func InsertTemplate(ctx context.Context, tx pgx.Tx, t Template) error {
-	_, err := tx.Exec(ctx, `INSERT INTO templates (id, tenant_id, name, channel_id, channel_type, subject, body, variables, is_default, created_by, updated_by)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)`, t.ID, t.TenantID, t.Name, t.ChannelID, t.ChannelType, t.Subject, t.Body, nonNil(t.Variables), t.IsDefault, t.CreatedBy)
+	var builtinSubject, builtinBody *string
+	if t.SystemKey != nil {
+		builtinSubject, builtinBody = &t.BuiltinSubject, &t.BuiltinBody
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO templates (id, tenant_id, name, channel_id, channel_type, subject, body, variables, is_default, created_by, updated_by,
+		system_key, builtin_subject, builtin_body, required_variables, secret_variables)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,$14,$15)`, t.ID, t.TenantID, t.Name, t.ChannelID, t.ChannelType, t.Subject, t.Body, nonNil(t.Variables), t.IsDefault, t.CreatedBy,
+		t.SystemKey, builtinSubject, builtinBody, nonNil(t.RequiredVariables), nonNil(t.SecretVariables))
 	return conflict(err)
+}
+
+// TemplateByKey returns the system template of the tenant with the key.
+func TemplateByKey(ctx context.Context, tx pgx.Tx, tenantID, key string) (Template, error) {
+	return scanTemplate(tx.QueryRow(ctx, "SELECT "+templateCols+templateFrom+"WHERE t.tenant_id = $1 AND t.system_key = $2", tenantID, key))
+}
+
+// SetTemplateBuiltin refreshes the built-in wording and the variable sets
+// of a system template; subject and body (operator edits) are untouched.
+func SetTemplateBuiltin(ctx context.Context, tx pgx.Tx, t Template) error {
+	ct, err := tx.Exec(ctx, `UPDATE templates SET builtin_subject = $3, builtin_body = $4, variables = $5, required_variables = $6, secret_variables = $7, updated_at = now()
+		WHERE tenant_id = $1 AND id = $2 AND system_key IS NOT NULL`, t.TenantID, t.ID, t.BuiltinSubject, t.BuiltinBody, nonNil(t.Variables), nonNil(t.RequiredVariables), nonNil(t.SecretVariables))
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // GetTemplate by tenant + id.
@@ -217,18 +254,18 @@ func escapeLike(q string) string {
 
 // ---------------------------------------------------------------- notification log
 
-const logCols = "id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, rendered_body, status, error, sender_kind, sender_id, test, sent_at"
+const logCols = "id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, rendered_body, status, error, sender_kind, sender_id, test, sent_at, template_key"
 
 func scanLog(r pgx.Row) (LogRow, error) {
 	var l LogRow
-	err := r.Scan(&l.ID, &l.TenantID, &l.CreatedAt, &l.ChannelID, &l.ChannelType, &l.TemplateID, &l.Recipient, &l.RenderedSubject, &l.RenderedBody, &l.Status, &l.Error, &l.SenderKind, &l.SenderID, &l.Test, &l.SentAt)
+	err := r.Scan(&l.ID, &l.TenantID, &l.CreatedAt, &l.ChannelID, &l.ChannelType, &l.TemplateID, &l.Recipient, &l.RenderedSubject, &l.RenderedBody, &l.Status, &l.Error, &l.SenderKind, &l.SenderID, &l.Test, &l.SentAt, &l.TemplateKey)
 	return l, notFound(err)
 }
 
 // InsertLog writes a pending entry.
 func InsertLog(ctx context.Context, tx pgx.Tx, l LogRow) error {
-	_, err := tx.Exec(ctx, `INSERT INTO notification_log (id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, rendered_body, status, error, sender_kind, sender_id, test, sent_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, l.ID, l.TenantID, l.CreatedAt, l.ChannelID, l.ChannelType, l.TemplateID, l.Recipient, l.RenderedSubject, l.RenderedBody, l.Status, l.Error, l.SenderKind, l.SenderID, l.Test, l.SentAt)
+	_, err := tx.Exec(ctx, `INSERT INTO notification_log (id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, rendered_body, status, error, sender_kind, sender_id, test, sent_at, template_key)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`, l.ID, l.TenantID, l.CreatedAt, l.ChannelID, l.ChannelType, l.TemplateID, l.Recipient, l.RenderedSubject, l.RenderedBody, l.Status, l.Error, l.SenderKind, l.SenderID, l.Test, l.SentAt, l.TemplateKey)
 	return err
 }
 
@@ -261,7 +298,7 @@ func LogPage(ctx context.Context, tx pgx.Tx, tenantID string, f LogFilter) ([]Lo
 	if !f.CursorTS.IsZero() {
 		cursorTS = &f.CursorTS
 	}
-	rows, err := tx.Query(ctx, `SELECT id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, '', status, error, sender_kind, sender_id, test, sent_at
+	rows, err := tx.Query(ctx, `SELECT id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, '', status, error, sender_kind, sender_id, test, sent_at, template_key
 		FROM notification_log WHERE tenant_id = $1
 		AND ($2 = '' OR channel_id::text = $2) AND ($3 = '' OR template_id::text = $3) AND ($4 = '' OR recipient ILIKE '%' || $4 || '%')
 		AND ($5 = '' OR status = $5) AND ($6 = '' OR sender_id = $6) AND created_at >= $7 AND created_at <= $8

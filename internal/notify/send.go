@@ -3,6 +3,8 @@ package notify
 import (
 	"context"
 	"errors"
+	"html"
+	"net/url"
 	"strings"
 	"time"
 
@@ -30,6 +32,8 @@ type Sender struct {
 	limiter   Limiter
 	limits    Limits
 	now       func() time.Time
+	// platformTenant owns the system templates and the platform channel.
+	platformTenant string
 }
 
 // NewSender wires the pipeline.
@@ -39,6 +43,10 @@ func NewSender(st repo.Store, ch *Channels, tp *Templates, az *authz.Authz, aw *
 
 // SetClock injects the clock (tests).
 func (s *Sender) SetClock(now func() time.Time) { s.now = now }
+
+// SetPlatformTenant names the tenant holding the system templates and the
+// platform channel (config platform_tenant_id).
+func (s *Sender) SetPlatformTenant(id string) { s.platformTenant = id }
 
 // SendInput is a send request.
 type SendInput struct {
@@ -104,9 +112,116 @@ func (s *Sender) Send(ctx context.Context, subj authz.Subjects, in SendInput) (L
 		return LogView{}, err
 	}
 	tid := tpl.ID
-	return s.deliver(ctx, subj, ch, settings, provider, &tid, in.Recipient, false, in.CorrelationID, func(ctx context.Context) (string, string, error) {
-		return compiled.Render(ctx, in.Variables)
-	})
+	// A system template sent by id keeps its secret variables out of the log too.
+	return s.deliver(ctx, subj, delivery{ch: ch, settings: settings, provider: provider, templateID: &tid, recipient: in.Recipient, correlationID: in.CorrelationID,
+		secrets: secretValues(tpl.SecretVariables, in.Variables),
+		render: func(ctx context.Context) (render.Output, render.Output, error) {
+			return compiled.RenderRedacted(ctx, in.Variables, tpl.SecretVariables)
+		}})
+}
+
+// KeyInput is a system template send (feature 017).
+type KeyInput struct {
+	Key           string // "<service>.<name>"
+	Recipient     string
+	Variables     map[string]string
+	CorrelationID string
+}
+
+// SendKey renders a system template of the platform tenant and delivers it
+// for the tenant on behalf of a service (contracts notification-grpc.md):
+// the key must lie in the caller's namespace (service = the name from its
+// verified mesh identity), no per-tenant grant is needed, the channel is
+// the tenant's enabled default email channel or else the platform channel,
+// secret variables are redacted in the log, and sends count against the
+// service's system rate limit. Delivery failures are reported in the
+// returned entry with Retryable set, not as an error.
+func (s *Sender) SendKey(ctx context.Context, subj authz.Subjects, service string, in KeyInput) (LogView, error) {
+	if !ValidKey(in.Key) {
+		return LogView{}, invalid("template_key", map[string]any{"field": "template_key"})
+	}
+	if service == "" || KeyService(in.Key) != service {
+		s.emit(audit.Event{Type: audit.AccessRefused, TenantID: subj.TenantID, ActorKind: subj.ActorKind(), ActorID: subj.ActorID(), SubjectKind: "template", SubjectID: in.Key,
+			Outcome: "refused", Reason: "key_namespace", CorrelationID: in.CorrelationID, Details: map[string]any{"template_key": in.Key}})
+		return LogView{}, ErrKeyNamespace
+	}
+	if err := checkVariables(in.Variables); err != nil {
+		return LogView{}, err
+	}
+	tpl, err := s.st.TemplateByKey(ctx, s.platformTenant, in.Key)
+	if errors.Is(err, store.ErrNotFound) {
+		return LogView{}, ErrUnknownKey
+	}
+	if err != nil {
+		return LogView{}, err
+	}
+	for _, r := range tpl.RequiredVariables {
+		if _, ok := in.Variables[r]; !ok {
+			return LogView{}, invalid("missing_variable:"+r, map[string]any{"variable": r})
+		}
+	}
+	if err := channel.ValidateRecipient(channel.TypeEmail, in.Recipient); err != nil {
+		return LogView{}, invalid("recipient is not valid for the channel type", map[string]any{"field": "recipient"})
+	}
+	compiled, err := render.Parse(tpl.Subject, tpl.Body, KindFor(tpl.ChannelType))
+	if err != nil {
+		return LogView{}, validationError(err)
+	}
+	ch, settings, provider, err := s.systemChannel(ctx, subj.TenantID)
+	if err != nil {
+		return LogView{}, err
+	}
+	// Optional declared variables the caller left out render empty.
+	values := make(map[string]string, len(tpl.Variables))
+	for _, v := range tpl.Variables {
+		values[v] = ""
+	}
+	for k, v := range in.Variables {
+		values[k] = v
+	}
+	if s.limiter != nil {
+		if limited, err := s.limiter.Limited(ctx, "system", service, s.limits.System, s.now()); err != nil || limited {
+			return LogView{}, ErrRateLimited
+		}
+	}
+	tid, key := tpl.ID, in.Key
+	return s.deliver(ctx, subj, delivery{ch: ch, settings: settings, provider: provider, templateID: &tid, templateKey: &key, recipient: in.Recipient, correlationID: in.CorrelationID,
+		secrets: secretValues(tpl.SecretVariables, values),
+		render: func(ctx context.Context) (render.Output, render.Output, error) {
+			return compiled.RenderRedacted(ctx, values, tpl.SecretVariables)
+		}})
+}
+
+// systemChannel resolves the channel of a system send (research D5): the
+// tenant's enabled default email channel, else the enabled platform
+// channel, else ErrEmailNotConfigured.
+func (s *Sender) systemChannel(ctx context.Context, tenantID string) (store.Channel, sealed.Settings, channel.Provider, error) {
+	own, err := s.st.DefaultEmailChannel(ctx, tenantID)
+	switch {
+	case err == nil && own.Enabled:
+		return s.channels.Resolve(ctx, tenantID, own.ID)
+	case err != nil && !errors.Is(err, store.ErrNotFound):
+		return store.Channel{}, nil, nil, err
+	}
+	platform, err := s.st.ManagedChannel(ctx, s.platformTenant)
+	switch {
+	case err == nil && platform.Enabled:
+		return s.channels.Resolve(ctx, s.platformTenant, platform.ID)
+	case err != nil && !errors.Is(err, store.ErrNotFound):
+		return store.Channel{}, nil, nil, err
+	}
+	return store.Channel{}, nil, nil, ErrEmailNotConfigured
+}
+
+// secretValues lists the non-empty values of the secret variables.
+func secretValues(names []string, values map[string]string) []string {
+	var out []string
+	for _, n := range names {
+		if v := values[n]; v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // testSubject / testBody are the built-in test message.
@@ -131,9 +246,11 @@ func (s *Sender) SendTest(ctx context.Context, subj authz.Subjects, channelID, r
 	if err := s.limit(ctx, subj); err != nil {
 		return LogView{}, err
 	}
-	return s.deliver(ctx, subj, ch, settings, provider, nil, recipient, true, correlationID, func(context.Context) (string, string, error) {
-		return testSubject, testBody, nil
-	})
+	return s.deliver(ctx, subj, delivery{ch: ch, settings: settings, provider: provider, recipient: recipient, test: true, correlationID: correlationID,
+		render: func(context.Context) (render.Output, render.Output, error) {
+			out := render.Output{Subject: testSubject, Body: testBody}
+			return out, out, nil
+		}})
 }
 
 func checkVariables(vars map[string]string) error {
@@ -167,46 +284,78 @@ func (s *Sender) limit(ctx context.Context, subj authz.Subjects) error {
 	return nil
 }
 
-// deliver writes the pending entry, renders, sends and finalises the entry.
-func (s *Sender) deliver(ctx context.Context, subj authz.Subjects, ch store.Channel, settings sealed.Settings, provider channel.Provider, templateID *string, recipient string, test bool, correlationID string, render func(context.Context) (string, string, error)) (LogView, error) {
+// delivery is one send in flight.
+type delivery struct {
+	ch            store.Channel
+	settings      sealed.Settings
+	provider      channel.Provider
+	templateID    *string
+	templateKey   *string
+	recipient     string
+	test          bool
+	correlationID string
+	secrets       []string // secret variable values: never in the failure reason
+	// render returns what is delivered and what the log stores (secrets redacted).
+	render func(context.Context) (sent, stored render.Output, err error)
+}
+
+// deliver writes the pending entry, renders, sends and finalises the entry
+// with the stored (redacted) render.
+func (s *Sender) deliver(ctx context.Context, subj authz.Subjects, d delivery) (LogView, error) {
 	now := s.now()
-	row := store.LogRow{ID: store.NewID(), TenantID: subj.TenantID, CreatedAt: now, ChannelID: ch.ID, ChannelType: ch.Type, TemplateID: templateID, Recipient: recipient,
-		Status: "pending", SenderKind: subj.ActorKind(), SenderID: subj.ActorID(), Test: test}
+	row := store.LogRow{ID: store.NewID(), TenantID: subj.TenantID, CreatedAt: now, ChannelID: d.ch.ID, ChannelType: d.ch.Type, TemplateID: d.templateID, TemplateKey: d.templateKey,
+		Recipient: d.recipient, Status: "pending", SenderKind: subj.ActorKind(), SenderID: subj.ActorID(), Test: d.test}
 	if err := s.st.InsertLog(ctx, row); err != nil {
 		return LogView{}, err
 	}
-	subject, body, err := render(ctx)
+	sent, stored, err := d.render(ctx)
 	if err == nil {
-		msg := channel.Message{To: recipient, Subject: subject}
-		if ch.Type == channel.TypeEmail {
-			msg.HTMLBody = body
+		msg := channel.Message{To: d.recipient, Subject: sent.Subject}
+		if d.ch.Type == channel.TypeEmail {
+			msg.HTMLBody = sent.Body
 		} else {
-			msg.TextBody = body
+			msg.TextBody = sent.Body
 		}
-		err = provider.Send(ctx, settings, msg)
+		err = d.provider.Send(ctx, d.settings, msg)
 	}
-	fields := s.channels.SecretFields(ch.Type)
+	details := map[string]any{"channel_id": d.ch.ID, "template_id": strp(d.templateID), "test": d.test}
+	if d.templateKey != nil {
+		details["template_key"] = *d.templateKey
+	}
 	if err != nil {
-		reason := sealed.Scrub(err.Error(), settings, fields)
+		reason := scrubSecrets(sealed.Scrub(err.Error(), d.settings, s.channels.SecretFields(d.ch.Type)), d.secrets)
 		if errors.Is(err, channel.ErrNoProvider) {
 			reason = "no_provider"
 		}
-		if e := s.st.SetLogOutcome(ctx, subj.TenantID, row.ID, "failed", reason, subject, body, nil); e != nil {
+		if e := s.st.SetLogOutcome(ctx, subj.TenantID, row.ID, "failed", reason, stored.Subject, stored.Body, nil); e != nil {
 			return LogView{}, e
 		}
-		row.Status, row.Error, row.RenderedSubject, row.RenderedBody = "failed", reason, subject, body
+		row.Status, row.Error, row.RenderedSubject, row.RenderedBody = "failed", reason, stored.Subject, stored.Body
 		s.emit(audit.Event{Type: audit.NotificationFailed, TenantID: subj.TenantID, ActorKind: subj.ActorKind(), ActorID: subj.ActorID(), SubjectKind: "notification", SubjectID: row.ID,
-			Outcome: "failed", Reason: shortReason(reason), CorrelationID: correlationID, Details: map[string]any{"channel_id": ch.ID, "template_id": strp(templateID), "test": test}})
-		return logView(row), nil
+			Outcome: "failed", Reason: shortReason(reason), CorrelationID: d.correlationID, Details: details})
+		v := logView(row)
+		v.Retryable = channel.Retryable(err)
+		return v, nil
 	}
-	sent := s.now()
-	if e := s.st.SetLogOutcome(ctx, subj.TenantID, row.ID, "sent", "", subject, body, &sent); e != nil {
+	at := s.now()
+	if e := s.st.SetLogOutcome(ctx, subj.TenantID, row.ID, "sent", "", stored.Subject, stored.Body, &at); e != nil {
 		return LogView{}, e
 	}
-	row.Status, row.RenderedSubject, row.RenderedBody, row.SentAt = "sent", subject, body, &sent
+	row.Status, row.RenderedSubject, row.RenderedBody, row.SentAt = "sent", stored.Subject, stored.Body, &at
 	s.emit(audit.Event{Type: audit.NotificationSent, TenantID: subj.TenantID, ActorKind: subj.ActorKind(), ActorID: subj.ActorID(), SubjectKind: "notification", SubjectID: row.ID,
-		Outcome: "ok", CorrelationID: correlationID, Details: map[string]any{"channel_id": ch.ID, "template_id": strp(templateID), "test": test}})
+		Outcome: "ok", CorrelationID: d.correlationID, Details: details})
 	return logView(row), nil
+}
+
+// scrubSecrets removes secret variable values from a failure reason in the
+// forms a relay may echo them (raw, HTML-escaped, URL-escaped).
+func scrubSecrets(reason string, secrets []string) string {
+	for _, v := range secrets {
+		for _, f := range []string{v, html.EscapeString(v), url.QueryEscape(v)} {
+			reason = strings.ReplaceAll(reason, f, render.Redacted)
+		}
+	}
+	return reason
 }
 
 func shortReason(r string) string {

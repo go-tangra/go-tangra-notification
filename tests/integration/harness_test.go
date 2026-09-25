@@ -84,7 +84,11 @@ type Session struct {
 	Tenant string // slug
 }
 
-func Start(t *testing.T) *Env {
+// Mod adjusts the notification configuration and build options before the
+// module starts (feature tests: platform relay, providers).
+type Mod func(*config.Config, *app.Options)
+
+func Start(t *testing.T, mods ...Mod) *Env {
 	t.Helper()
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -154,6 +158,7 @@ admin: { addr: 127.0.0.1:0 }
 discovery:
   static:
     gateway: ["%s"]
+    notification: ["%s"]
 gateway: { enabled: true, service: gateway }
 issuer: https://%s
 db:
@@ -163,7 +168,7 @@ valkey: { addresses: ["%s"], password: test, ca_file: %s }
 openfga: { url: http://%s:%s, preshared_key: test-key, allow_plaintext: true }
 kek: { source: file, path: %s }
 email: { transport: smtp, host: %s, port: %s, from: auth@example.org, allow_plaintext: true }
-`, trustDomain, authCert, authKey, bundle, filepath.Join(serviceDir(t, "auth"), "deploy", "policy.yaml"), authGRPC, authHTTP, gwGRPC, gwEdge,
+`, trustDomain, authCert, authKey, bundle, filepath.Join(serviceDir(t, "auth"), "deploy", "policy.yaml"), authGRPC, authHTTP, gwGRPC, notifGRPC, gwEdge,
 		pg, adminAuth, valkeyAddr, certPath, fgaHost, fgaPorts["8080/tcp"], kekPath, mpHost, mpPorts["1025/tcp"])
 	if err := os.WriteFile(authCfg, []byte(authYAML), 0o600); err != nil {
 		t.Fatal(err)
@@ -237,6 +242,9 @@ limits:
 	ncfg.Scheduler = config.Scheduler{IntervalSeconds: 1, LeaseSeconds: 5}
 	ncfg.Gateway = config.Gateway{Service: "gateway", Issuer: "https://" + gwEdge}
 	ncfg.Limits.SendPerTenantPerMinute, ncfg.Limits.SendPerSenderPerMinute = 600, 600
+	// The platform relay is Mailpit (plain SMTP, development opt-out): auth
+	// releases that deliver through notification send invitations here.
+	ncfg.PlatformEmail = &config.PlatformEmail{Host: mpHost, Port: atoi(mpPorts["1025/tcp"]), TLS: "none", AllowPlaintext: true, From: "tangra@example.org"}
 	disc, err := discovery.NewStatic(map[string][]string{"auth": {authGRPC}, "gateway": {gwGRPC}, "notification": {notifGRPC}})
 	if err != nil {
 		t.Fatal(err)
@@ -245,8 +253,12 @@ limits:
 	nlog := filepath.Join(dir, "notification.log")
 	logs["notification"] = nlog
 	nf, _ := os.Create(nlog)
-	w, err := app.Build(ctx, ncfg, app.Options{Migrate: true, Logger: slog.NewTextHandler(nf, &slog.HandlerOptions{Level: slog.LevelDebug}), Register: app.Wire,
-		Freya: []freya.Option{freya.WithIdentityProvider(prov), freya.WithDiscovery(disc)}})
+	opts := app.Options{Migrate: true, Logger: slog.NewTextHandler(nf, &slog.HandlerOptions{Level: slog.LevelDebug}), Register: app.Wire,
+		Freya: []freya.Option{freya.WithIdentityProvider(prov), freya.WithDiscovery(disc)}}
+	for _, m := range mods {
+		m(&ncfg, &opts)
+	}
+	w, err := app.Build(ctx, ncfg, opts)
 	if err != nil {
 		t.Fatalf("notification build: %v", err)
 	}
@@ -280,9 +292,9 @@ limits:
 }
 
 // StartPlatform boots the stack and signs the bootstrap operator in.
-func StartPlatform(t *testing.T) *Env {
+func StartPlatform(t *testing.T, mods ...Mod) *Env {
 	t.Helper()
-	e := Start(t)
+	e := Start(t, mods...)
 	tid, accept := e.bootstrapAuth("ops@example.org")
 	e.PlatformID = tid
 	op := e.NewSession("ops@example.org", "platform")
@@ -570,12 +582,14 @@ func (e *Env) AuditCount(tenantID, eventType, outcome string) int {
 	e.Notif.Audit.Flush()
 	var n int
 	_ = e.Notif.Store.Tx(context.Background(), store.Scope{System: true}, func(tx pgx.Tx) error {
-		return tx.QueryRow(context.Background(), "SELECT count(*) FROM notification_audit_events WHERE tenant_id = $1 AND ($2 = '' OR event_type = $2) AND ($3 = '' OR outcome = $3)", tenantID, eventType, outcome).Scan(&n)
+		return tx.QueryRow(context.Background(), "SELECT count(*) FROM notification_audit_events WHERE tenant_id = $1 AND ($2 = '' OR event_type = $2) AND ($3 = '' OR outcome = $3) AND NOT (event_type IN ('notification_sent','notification_failed') AND details ? 'template_key')", tenantID, eventType, outcome).Scan(&n)
 	})
 	return n
 }
 
-// AuditRows returns the audit rows of a type, newest first.
+// AuditRows returns the audit rows of a type, newest first, without the
+// system template sends of platform services (auth delivers its invitations
+// through this module since 017; those rows are covered by their own tests).
 func (e *Env) AuditRows(tenantID, eventType string) []store.AuditRow {
 	e.T.Helper()
 	e.Notif.Audit.Flush()
@@ -585,7 +599,14 @@ func (e *Env) AuditRows(tenantID, eventType string) []store.AuditRow {
 		rows, err = store.QueryAudit(context.Background(), tx, tenantID, eventType, "", time.Time{}, time.Now().Add(time.Hour), time.Time{}, 200)
 		return err
 	})
-	return rows
+	out := rows[:0]
+	for _, r := range rows {
+		if (r.EventType == "notification_sent" || r.EventType == "notification_failed") && strings.Contains(string(r.Details), `"template_key"`) {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 // Pause / Unpause freeze a dependency container (Valkey or Mailpit): requests

@@ -16,7 +16,7 @@ test:
 	$(GO) test -race -count=1 ./...
 
 test-integration:
-	$(GO) test -race -count=1 -tags integration ./tests/integration/...
+	$(GO) test -race -count=1 -tags integration ./internal/store/ ./tests/integration/...
 
 # Unit coverage is measured over packages that carry logic. Generated protobuf
 # code, the SQL bindings (internal/store, */*db), the wiring (internal/app, cmd)
@@ -29,11 +29,11 @@ cover:
 	./scripts/coverage-gate.sh $(COVER_OUT)
 
 fuzz:
-	for f in FuzzHeaderValue FuzzRecipient FuzzTemplate FuzzVariables FuzzSSEFrame FuzzBackup; do \
+	for f in FuzzHeaderValue FuzzRecipient FuzzTemplate FuzzVariables FuzzSSEFrame FuzzBackup FuzzSystemKey FuzzServiceFromSPIFFE; do \
 	  $(GO) test -run xxx -fuzz=$$f -fuzztime=20s ./tests/fuzz/ || exit 1; done
 
 generate:
-	buf generate
+	cd sdk && buf generate
 
 ui-build:
 	cd ui && npm ci && npm run build

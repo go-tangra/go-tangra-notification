@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-tangra/go-tangra-notification/v4/internal/channel/email"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
 )
 
@@ -51,5 +52,14 @@ func TestRegistryAndRecipients(t *testing.T) {
 	}
 	if err := ValidateRecipient(TypeSMS, string(make([]byte, 513))); !errors.Is(err, ErrRecipient) {
 		t.Fatal("long recipient accepted")
+	}
+}
+
+func TestRetryable(t *testing.T) {
+	if Retryable(Nop{Kind: TypeSMS}.Send(context.Background(), nil, Message{})) {
+		t.Fatal("no provider is retryable")
+	}
+	if !Retryable(errors.New("connection reset")) || Retryable(email.ErrPlaintext) {
+		t.Fatal("email classification not applied")
 	}
 }

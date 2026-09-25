@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	notificationv1 "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1"
+	notificationv1 "github.com/go-tangra/go-tangra-notification/sdk/v4/api/proto/notification/v1"
 )
 
 // TestStream covers the live stream through the gateway: inbox events reach

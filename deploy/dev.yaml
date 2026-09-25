@@ -23,6 +23,7 @@ limits_notification:
   streams_per_user: 5
   streams_per_tenant: 2000
   replay_window_seconds: 300
+  system_send_per_minute: 300
 db:
   dsn: postgres://notification_app:dev@127.0.0.1:5434/notification?sslmode=disable
   migrate_dsn: postgres://postgres:dev@127.0.0.1:5434/notification?sslmode=disable
@@ -37,6 +38,17 @@ kek:
 smtp:
   allow_plaintext: true # Mailpit speaks plain SMTP on 1027 (development only)
   dial_timeout_seconds: 30
+# Central outbound email (feature 017): auth invitations/recovery and warden
+# share links go out through the managed "Platform email" channel. Production
+# uses tls: starttls|implicit, a host matching the relay certificate and
+# password_file (a mounted secret); a literal password is refused.
+platform_email:
+  host: 127.0.0.1
+  port: 1027
+  tls: none
+  allow_plaintext: true # Mailpit speaks plain SMTP (development only; warned at start)
+  from: Tangra <tangra@example.org>
+platform_tenant_id: 00000000-0000-0000-0000-000000000001
 scheduler:
   interval_seconds: 15
   lease_seconds: 60

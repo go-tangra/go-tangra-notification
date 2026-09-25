@@ -17,6 +17,10 @@ var (
 	ErrChannelDisabled = errors.New("notify: channel disabled")
 	ErrRateLimited     = errors.New("notify: rate limited")
 	ErrTypeMismatch    = errors.New("notify: channel type does not match the template")
+	// System template sends (feature 017).
+	ErrKeyNamespace       = errors.New("notify: template key outside the caller's namespace")
+	ErrUnknownKey         = errors.New("notify: unknown template key")
+	ErrEmailNotConfigured = errors.New("notify: email not configured")
 )
 
 // ValidationError carries a client-safe detail object (positions, names).
@@ -45,6 +49,7 @@ func (e *InUseError) Error() string {
 type Limits struct {
 	PerTenant int
 	PerSender int
+	System    int // system template sends per calling service
 }
 
 func strp(s *string) string {
@@ -68,6 +73,7 @@ type LogView struct {
 	ChannelID       string     `json:"channel_id"`
 	ChannelType     string     `json:"channel_type"`
 	TemplateID      *string    `json:"template_id"`
+	TemplateKey     *string    `json:"template_key"`
 	Recipient       string     `json:"recipient"`
 	RenderedSubject string     `json:"rendered_subject"`
 	RenderedBody    string     `json:"rendered_body,omitempty"`
@@ -78,9 +84,12 @@ type LogView struct {
 	Test            bool       `json:"test"`
 	CreatedAt       time.Time  `json:"created_at"`
 	SentAt          *time.Time `json:"sent_at"`
+	// Retryable reports, for a failed delivery, whether a later attempt may
+	// succeed (service callers decide on retries; not part of the API body).
+	Retryable bool `json:"-"`
 }
 
 func logView(l store.LogRow) LogView {
-	return LogView{ID: l.ID, ChannelID: l.ChannelID, ChannelType: l.ChannelType, TemplateID: l.TemplateID, Recipient: l.Recipient, RenderedSubject: l.RenderedSubject,
+	return LogView{ID: l.ID, ChannelID: l.ChannelID, ChannelType: l.ChannelType, TemplateID: l.TemplateID, TemplateKey: l.TemplateKey, Recipient: l.Recipient, RenderedSubject: l.RenderedSubject,
 		RenderedBody: l.RenderedBody, Status: l.Status, Error: l.Error, SenderKind: l.SenderKind, SenderID: l.SenderID, Test: l.Test, CreatedAt: l.CreatedAt, SentAt: l.SentAt}
 }

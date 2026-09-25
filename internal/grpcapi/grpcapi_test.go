@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,7 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
-	notificationv1 "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1"
+	notificationv1 "github.com/go-tangra/go-tangra-notification/sdk/v4/api/proto/notification/v1"
+	"github.com/go-tangra/go-tangra-notification/sdk/v4/pkg/notifyclient"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
@@ -23,7 +25,6 @@ import (
 	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/stream"
-	"github.com/go-tangra/go-tangra-notification/v4/pkg/notifyclient"
 	"github.com/go-tangra/go-tangra/v4/authn"
 	"github.com/go-tangra/go-tangra/v4/identity"
 )
@@ -49,11 +50,19 @@ func (f *fakeProvider) Send(_ context.Context, _ sealed.Settings, m channel.Mess
 	return nil
 }
 
-type fakeLimiter struct{ n int }
+type fakeLimiter struct {
+	mu     sync.Mutex
+	counts map[string]int
+}
 
-func (l *fakeLimiter) Limited(context.Context, string, string, int, time.Time) (bool, error) {
-	l.n++
-	return l.n > 100, nil
+func (l *fakeLimiter) Limited(_ context.Context, kind, subject string, limit int, _ time.Time) (bool, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.counts == nil {
+		l.counts = map[string]int{}
+	}
+	l.counts[kind+":"+subject]++
+	return limit > 0 && l.counts[kind+":"+subject] > limit, nil
 }
 
 // peerInterceptor stamps the calling service identity (the Freya authn middleware in production).
@@ -74,6 +83,8 @@ type fx struct {
 	hub    *stream.Hub
 	ch     *notify.Channels
 	tp     *notify.Templates
+	snd    *notify.Sender
+	lim    *fakeLimiter
 	client *notifyclient.Client
 	raw    *grpc.ClientConn
 }
@@ -89,7 +100,8 @@ func newFx(t *testing.T, spiffe string) *fx {
 	reg := channel.NewRegistry(email, channel.Nop{Kind: "sms"})
 	ch := notify.NewChannels(ms, env, reg, az, aw)
 	tp := notify.NewTemplates(ms, az, aw)
-	snd := notify.NewSender(ms, ch, tp, az, aw, &fakeLimiter{}, notify.Limits{PerTenant: 100, PerSender: 100})
+	lim := &fakeLimiter{}
+	snd := notify.NewSender(ms, ch, tp, az, aw, lim, notify.Limits{PerTenant: 100, PerSender: 100, System: 100})
 	hub := stream.NewHub(stream.NewMemory(), stream.Config{}, nil)
 	t.Cleanup(hub.Close)
 	lis := bufconn.Listen(1 << 20)
@@ -103,7 +115,7 @@ func newFx(t *testing.T, spiffe string) *fx {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	return &fx{ms: ms, aw: aw, email: email, hub: hub, ch: ch, tp: tp, client: notifyclient.New(conn), raw: conn}
+	return &fx{ms: ms, aw: aw, email: email, hub: hub, ch: ch, tp: tp, snd: snd, lim: lim, client: notifyclient.New(conn), raw: conn}
 }
 
 func admin() authz.Subjects {

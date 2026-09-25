@@ -123,3 +123,142 @@ func TestLoad(t *testing.T) {
 		t.Fatalf("dev.yaml: %v", err)
 	}
 }
+
+// secretFile writes a relay password file with mode perm.
+func secretFile(t *testing.T, body string, perm os.FileMode) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "smtp.password")
+	if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(p, perm); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func platformEmail(t *testing.T) *PlatformEmail {
+	return &PlatformEmail{Host: "mx01.example.net", Port: 587, Username: "tangra@example.net", PasswordFile: secretFile(t, "NOTIF-MARKER-RELAY-PW\n", 0o640), From: "tangra@example.net"}
+}
+
+func TestPlatformEmailDefaults(t *testing.T) {
+	c := Default()
+	if c.PlatformEmail != nil || c.PlatformTenantID != "00000000-0000-0000-0000-000000000001" || c.Limits.SystemSendPerMinute != 300 {
+		t.Fatalf("defaults %+v %q %d", c.PlatformEmail, c.PlatformTenantID, c.Limits.SystemSendPerMinute)
+	}
+	c = valid()
+	c.PlatformEmail = platformEmail(t)
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if c.PlatformEmail.Mode() != "starttls" {
+		t.Fatalf("tls default %q", c.PlatformEmail.Mode())
+	}
+	pw, err := c.PlatformEmail.ReadPassword()
+	if err != nil || pw != "NOTIF-MARKER-RELAY-PW" {
+		t.Fatalf("password %q %v", pw, err)
+	}
+	// Warnings never carry the password; TLS without opt-out adds none.
+	if w := strings.Join(c.Warnings(), "\n"); strings.Contains(w, "NOTIF-MARKER") || strings.Contains(w, "platform_email") {
+		t.Fatalf("warnings %q", w)
+	}
+	// No credentials: no password file needed; implicit TLS accepted.
+	c.PlatformEmail = &PlatformEmail{Host: "mx01.example.net", Port: 465, TLS: "implicit", From: "Tangra <tangra@example.net>", ReplyTo: "ops@example.net"}
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if pw, err := c.PlatformEmail.ReadPassword(); err != nil || pw != "" {
+		t.Fatalf("no password %q %v", pw, err)
+	}
+	// Plaintext with the named opt-out is accepted (also in production) and warned.
+	c.PlatformEmail = &PlatformEmail{Host: "mailpit", Port: 1025, TLS: "none", AllowPlaintext: true, From: "tangra@example.org"}
+	production(&c)
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if w := strings.Join(c.Warnings(), "\n"); !strings.Contains(w, "platform_email.allow_plaintext") {
+		t.Fatalf("warnings %q", w)
+	}
+	// The opt-out without tls none is still reported: it is set.
+	c.PlatformEmail.TLS = "starttls"
+	if w := strings.Join(c.Warnings(), "\n"); !strings.Contains(w, "platform_email.allow_plaintext") {
+		t.Fatalf("warnings %q", w)
+	}
+}
+
+func TestPlatformEmailRejects(t *testing.T) {
+	cases := []struct {
+		name string
+		mut  func(*PlatformEmail)
+		want string
+	}{
+		{"literal password", func(p *PlatformEmail) { p.Password = "hunter2" }, "use password_file"},
+		{"plaintext without opt-out", func(p *PlatformEmail) { p.TLS, p.Username, p.PasswordFile = "none", "", "" }, "platform_email.allow_plaintext"},
+		{"username with none", func(p *PlatformEmail) { p.TLS, p.AllowPlaintext = "none", true }, "platform_email.username"},
+		{"missing host", func(p *PlatformEmail) { p.Host = "" }, "platform_email.host"},
+		{"bad host", func(p *PlatformEmail) { p.Host = "mx01 example" }, "platform_email.host"},
+		{"missing from", func(p *PlatformEmail) { p.From = "" }, "platform_email.from"},
+		{"bad from", func(p *PlatformEmail) { p.From = "not an address" }, "platform_email.from"},
+		{"bad reply_to", func(p *PlatformEmail) { p.ReplyTo = "a@b.c, d@e.f" }, "platform_email.reply_to"},
+		{"port zero", func(p *PlatformEmail) { p.Port = 0 }, "platform_email.port"},
+		{"port high", func(p *PlatformEmail) { p.Port = 70000 }, "platform_email.port"},
+		{"tls mode", func(p *PlatformEmail) { p.TLS = "ssl" }, "platform_email.tls"},
+		{"username without file", func(p *PlatformEmail) { p.PasswordFile = "" }, "platform_email.password_file"},
+		{"file without username", func(p *PlatformEmail) { p.Username = "" }, "platform_email.username"},
+		{"missing file", func(p *PlatformEmail) { p.PasswordFile = "/nonexistent/smtp.password" }, "platform_email.password_file"},
+		{"empty file", func(p *PlatformEmail) { p.PasswordFile = secretFile(t, "\n", 0o600) }, "empty"},
+		{"world readable", func(p *PlatformEmail) { p.PasswordFile = secretFile(t, "pw", 0o644) }, "0640"},
+		{"group writable", func(p *PlatformEmail) { p.PasswordFile = secretFile(t, "pw", 0o660) }, "0640"},
+		{"directory", func(p *PlatformEmail) { p.PasswordFile = t.TempDir() }, "platform_email.password_file"},
+	}
+	for _, tc := range cases {
+		c := valid()
+		c.PlatformEmail = platformEmail(t)
+		tc.mut(c.PlatformEmail)
+		err := c.Validate()
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: %v", tc.name, err)
+			continue
+		}
+		if strings.Contains(err.Error(), "hunter2") || strings.Contains(err.Error(), "NOTIF-MARKER") {
+			t.Errorf("%s: secret in error %v", tc.name, err)
+		}
+	}
+	for name, mut := range map[string]func(*Config){
+		"platform tenant": func(c *Config) { c.PlatformTenantID = "platform" },
+		"system rate low": func(c *Config) { c.Limits.SystemSendPerMinute = 0 },
+		"system rate hi":  func(c *Config) { c.Limits.SystemSendPerMinute = 10001 },
+	} {
+		c := valid()
+		mut(&c)
+		if err := c.Validate(); err == nil {
+			t.Errorf("%s accepted", name)
+		}
+	}
+	c := valid()
+	c.Limits.SystemSendPerMinute = 10000
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLoadPlatformEmail(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "c.yaml")
+	_ = os.WriteFile(p, []byte("service_name: notification\nplatform_email:\n  host: mx01.example.net\n  port: 587\n  from: tangra@example.net\nplatform_tenant_id: 0190f7c2-6a3e-7c1a-9b2e-2f6f9d1b4c55\nlimits_notification:\n  system_send_per_minute: 120\n"), 0o600)
+	c, err := Load(p)
+	if err != nil || c.PlatformEmail == nil || c.PlatformEmail.Host != "mx01.example.net" || c.PlatformEmail.Port != 587 ||
+		c.PlatformTenantID != "0190f7c2-6a3e-7c1a-9b2e-2f6f9d1b4c55" || c.Limits.SystemSendPerMinute != 120 {
+		t.Fatalf("%v %+v", err, c)
+	}
+}
+
+func TestDevConfigPlatformEmail(t *testing.T) {
+	c, err := Load("../../deploy/dev.yaml")
+	if err != nil || c.PlatformEmail == nil || c.PlatformEmail.Mode() != "none" || !c.PlatformEmail.AllowPlaintext || c.Limits.SystemSendPerMinute != 300 {
+		t.Fatalf("%v %+v", err, c.PlatformEmail)
+	}
+	if err := c.PlatformEmail.validate(); err != nil {
+		t.Fatal(err)
+	}
+}

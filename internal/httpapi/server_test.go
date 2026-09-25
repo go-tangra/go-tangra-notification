@@ -138,6 +138,8 @@ type fx struct {
 	hub      *stream.Hub
 	kv       *stream.Memory
 	ops      OpsDeps
+	ch       *notify.Channels
+	tp       *notify.Templates
 	perms    map[string]bool // "user:perm" → held
 	now      time.Time
 	admin    string
@@ -161,6 +163,7 @@ func newFx(t *testing.T) *fx {
 	az.SetClock(func() time.Time { return f.now })
 	ch := notify.NewChannels(ms, env, reg, az, aw)
 	tp := notify.NewTemplates(ms, az, aw)
+	f.ch, f.tp = ch, tp
 	snd := notify.NewSender(ms, ch, tp, az, aw, &fakeLimiter{}, notify.Limits{PerTenant: 100, PerSender: 50})
 	snd.SetClock(func() time.Time { return f.now })
 	perms := PermissionFunc(func(_ context.Context, _, userID, perm string) bool { return f.perms[userID+":"+perm] })
@@ -237,7 +240,7 @@ func boolStr(b bool) string {
 
 func TestDeclaredRoutesMountedAndAuthenticated(t *testing.T) {
 	s, sg := newTestServer(t)
-	if len(s.Declared()) != 45 {
+	if len(s.Declared()) != 46 {
 		t.Fatalf("declared %d", len(s.Declared()))
 	}
 	tok := sg.mint("u1", "t1", []string{"member"})

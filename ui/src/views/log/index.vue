@@ -120,13 +120,13 @@ const reportColumns: Column<(typeof reportRows.value)[number]>[] = [{ key: 'kind
       <UiAlert v-if="store.error" kind="error" class="mb-3">{{ store.error }}</UiAlert>
       <UiCard :padded="false">
         <UiDataTable :items="store.items" :columns="logColumns" :loading="store.loading" caption="Delivery log" empty-title="No entries" clickable :row-attrs="(e) => ({ 'data-test': 'log-row-' + e.id })" data-test="log-table" @row-click="show">
-          <template #cell-status="{ row }"><UiStatusChip :status="row.status" :colors="{ pending: 'neutral' }" /> <UiBadge v-if="row.test" size="xs">test</UiBadge></template>
+          <template #cell-status="{ row }"><UiStatusChip :status="row.status" :colors="{ pending: 'neutral' }" /> <UiBadge v-if="row.test" size="xs">test</UiBadge> <UiBadge v-if="row.template_key" size="xs" color="info" soft>{{ row.template_key }}</UiBadge></template>
         </UiDataTable>
       </UiCard>
     </template>
     <UiDrawer v-model="open" :title="detail?.rendered_subject ?? ''" size="lg" data-test="log-detail">
       <template v-if="detail">
-        <p class="text-xs text-base-content/70">To {{ detail.recipient }} · {{ detail.status }}</p>
+        <p class="text-xs text-base-content/70">To {{ detail.recipient }} · {{ detail.status }}<template v-if="detail.template_key"> · system template {{ detail.template_key }} (secret values shown as [redacted])</template></p>
         <UiAlert v-if="detail.error" kind="error" class="my-2">{{ detail.error }}</UiAlert>
         <pre class="whitespace-pre-wrap break-words font-sans" data-test="log-body">{{ detail.rendered_body }}</pre>
       </template>
