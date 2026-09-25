@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
-	notificationv1 "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1"
+	notificationv1 "github.com/go-tangra/go-tangra-notification/sdk/v4/api/proto/notification/v1"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
@@ -23,7 +23,7 @@ import (
 	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/stream"
-	"github.com/go-tangra/go-tangra-notification/v4/pkg/notifyclient"
+	"github.com/go-tangra/go-tangra-notification/sdk/v4/pkg/notifyclient"
 	"github.com/go-tangra/go-tangra/v4/authn"
 	"github.com/go-tangra/go-tangra/v4/identity"
 )

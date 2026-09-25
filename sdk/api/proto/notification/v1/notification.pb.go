@@ -83,11 +83,16 @@ func (DeliveryStatus) EnumDescriptor() ([]byte, []int) {
 type SendRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`                                                             // uuid
-	TemplateId    string                 `protobuf:"bytes,2,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`                                                       // uuid, required
-	ChannelId     string                 `protobuf:"bytes,3,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`                                                          // uuid, optional override
+	TemplateId    string                 `protobuf:"bytes,2,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`                                                       // uuid; exactly one of template_id / template_key
+	ChannelId     string                 `protobuf:"bytes,3,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`                                                          // uuid, optional override (template_id sends only)
 	Recipient     string                 `protobuf:"bytes,4,opt,name=recipient,proto3" json:"recipient,omitempty"`                                                                           // 1..512, valid for the channel type, no CR/LF
 	Variables     map[string]string      `protobuf:"bytes,5,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // <= 50 keys, <= 64 KiB serialised
 	CorrelationId string                 `protobuf:"bytes,6,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty"`                                              // propagated to the audit event
+	// System template key ("auth.invite"), resolved in the platform tenant. The
+	// key must start with the caller's service name ("auth." for svc/auth);
+	// the channel is the tenant's default email channel, else the platform
+	// channel. No per-tenant grant is required.
+	TemplateKey   string `protobuf:"bytes,7,opt,name=template_key,json=templateKey,proto3" json:"template_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -164,6 +169,13 @@ func (x *SendRequest) GetCorrelationId() string {
 	return ""
 }
 
+func (x *SendRequest) GetTemplateKey() string {
+	if x != nil {
+		return x.TemplateKey
+	}
+	return ""
+}
+
 type SendTestRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -230,6 +242,7 @@ type SendResponse struct {
 	Status        DeliveryStatus         `protobuf:"varint,2,opt,name=status,proto3,enum=notification.v1.DeliveryStatus" json:"status,omitempty"`
 	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"` // scrubbed provider reason when FAILED
 	SentAt        *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
+	Retryable     bool                   `protobuf:"varint,5,opt,name=retryable,proto3" json:"retryable,omitempty"` // FAILED only: a later retry may succeed
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -290,6 +303,13 @@ func (x *SendResponse) GetSentAt() *timestamppb.Timestamp {
 		return x.SentAt
 	}
 	return nil
+}
+
+func (x *SendResponse) GetRetryable() bool {
+	if x != nil {
+		return x.Retryable
+	}
+	return false
 }
 
 type PublishRequest struct {
@@ -416,7 +436,7 @@ var File_notification_v1_notification_proto protoreflect.FileDescriptor
 
 const file_notification_v1_notification_proto_rawDesc = "" +
 	"\n" +
-	"\"notification/v1/notification.proto\x12\x0fnotification.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb8\x02\n" +
+	"\"notification/v1/notification.proto\x12\x0fnotification.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdb\x02\n" +
 	"\vSendRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vtemplate_id\x18\x02 \x01(\tR\n" +
@@ -425,7 +445,8 @@ const file_notification_v1_notification_proto_rawDesc = "" +
 	"channel_id\x18\x03 \x01(\tR\tchannelId\x12\x1c\n" +
 	"\trecipient\x18\x04 \x01(\tR\trecipient\x12I\n" +
 	"\tvariables\x18\x05 \x03(\v2+.notification.v1.SendRequest.VariablesEntryR\tvariables\x12%\n" +
-	"\x0ecorrelation_id\x18\x06 \x01(\tR\rcorrelationId\x1a<\n" +
+	"\x0ecorrelation_id\x18\x06 \x01(\tR\rcorrelationId\x12!\n" +
+	"\ftemplate_key\x18\a \x01(\tR\vtemplateKey\x1a<\n" +
 	"\x0eVariablesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"k\n" +
@@ -433,12 +454,13 @@ const file_notification_v1_notification_proto_rawDesc = "" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
 	"channel_id\x18\x02 \x01(\tR\tchannelId\x12\x1c\n" +
-	"\trecipient\x18\x03 \x01(\tR\trecipient\"\xa9\x01\n" +
+	"\trecipient\x18\x03 \x01(\tR\trecipient\"\xc7\x01\n" +
 	"\fSendResponse\x12\x15\n" +
 	"\x06log_id\x18\x01 \x01(\tR\x05logId\x127\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x1f.notification.v1.DeliveryStatusR\x06status\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\x123\n" +
-	"\asent_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\"\x82\x01\n" +
+	"\asent_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\x12\x1c\n" +
+	"\tretryable\x18\x05 \x01(\bR\tretryable\"\x82\x01\n" +
 	"\x0ePublishRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
 	"\buser_ids\x18\x02 \x03(\tR\auserIds\x12\x10\n" +
@@ -456,7 +478,7 @@ const file_notification_v1_notification_proto_rawDesc = "" +
 	"\x04Send\x12\x1c.notification.v1.SendRequest\x1a\x1d.notification.v1.SendResponse\x12K\n" +
 	"\bSendTest\x12 .notification.v1.SendTestRequest\x1a\x1d.notification.v1.SendResponse2V\n" +
 	"\x06Events\x12L\n" +
-	"\aPublish\x12\x1f.notification.v1.PublishRequest\x1a .notification.v1.PublishResponseBYZWgithub.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1;notificationv1b\x06proto3"
+	"\aPublish\x12\x1f.notification.v1.PublishRequest\x1a .notification.v1.PublishResponseB]Z[github.com/go-tangra/go-tangra-notification/sdk/v4/api/proto/notification/v1;notificationv1b\x06proto3"
 
 var (
 	file_notification_v1_notification_proto_rawDescOnce sync.Once

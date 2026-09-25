@@ -26,9 +26,9 @@ go-tangra-docker (branch v4).
 
 **Purpose**: the nested sdk module every caller depends on.
 
-- [ ] T001 Create nested module `notification/sdk/go.mod` (`github.com/go-tangra/go-tangra-notification/sdk/v4`, go 1.26, requires grpc + protobuf only) and add `replace github.com/go-tangra/go-tangra-notification/sdk/v4 => ./sdk` + require to `notification/go.mod`
-- [ ] T002 Move `notification/api/proto/notification/v1` to `notification/sdk/api/proto/notification/v1` (update `go_package`, `notification/buf.gen.yaml`, `notification/buf.yaml`) and `notification/pkg/notifyclient` to `notification/sdk/pkg/notifyclient`; rewrite imports in `notification/internal/**` and `notification/cmd/**`
-- [ ] T003 [P] Add the sdk module to the CI matrix (go vet/test, buf lint) in `notification/.github/workflows/ci.yaml`; `go build ./... && go test ./...` in both modules
+- [X] T001 Create nested module `notification/sdk/go.mod` (`github.com/go-tangra/go-tangra-notification/sdk/v4`, go 1.26, requires grpc + protobuf only) and add `replace github.com/go-tangra/go-tangra-notification/sdk/v4 => ./sdk` + require to `notification/go.mod`
+- [X] T002 Move `notification/api/proto/notification/v1` to `notification/sdk/api/proto/notification/v1` (update `go_package`, `notification/buf.gen.yaml`, `notification/buf.yaml`) and `notification/pkg/notifyclient` to `notification/sdk/pkg/notifyclient`; rewrite imports in `notification/internal/**` and `notification/cmd/**`
+- [X] T003 [P] Add the sdk module to the CI matrix (go vet/test, buf lint) in `notification/.github/workflows/ci.yaml`; `go build ./... && go test ./...` in both modules
 
 ---
 
@@ -45,7 +45,7 @@ go-tangra-docker (branch v4).
 
 ### Implementation
 
-- [ ] T008 Add `template_key = 7` to `SendRequest` and `retryable = 5` to `SendResponse` in `notification/sdk/api/proto/notification/v1/notification.proto`; regenerate (`buf generate`)
+- [X] T008 Add `template_key = 7` to `SendRequest` and `retryable = 5` to `SendResponse` in `notification/sdk/api/proto/notification/v1/notification.proto`; regenerate (`buf generate`)
 - [ ] T009 Add `PlatformEmail`, `PlatformTenantID`, `Limits.SystemSendPerMinute` with Validate/Warnings and `password_file` loading in `notification/internal/config/config.go`
 - [ ] T010 Migration `notification/internal/store/migrations/0005_system_email.sql` per data-model.md
 - [ ] T011 Store/repo: `managed` on channels, `system_key`/`builtin_*`/`required_variables`/`secret_variables` on templates, `template_key` on log rows, `TemplateByKey(tenant, key)`, `ManagedChannel(tenant)`, `DefaultEmailChannel(tenant)` in `notification/internal/store/` and `notification/internal/repo/` (+ memstore fakes)
@@ -92,7 +92,7 @@ go-tangra-docker (branch v4).
 - [ ] T023 [P] [US2] Negative security tests: auth sending `warden.share` and warden sending `auth.invite` refused + `access_refused` audit; `channel_id` override with key refused; both id and key refused, in `notification/internal/grpcapi/notifier_test.go`
 - [ ] T024 [P] [US2] Redaction tests (100 % of `RenderRedacted`): link with `&`, `=`, `<`, quotes in html and text bodies and subjects never appears in stored subject/body/error; audit rows carry no variables, in `notification/internal/render/redact_test.go` and `notification/internal/notify/send_redaction_test.go`
 - [ ] T025 [P] [US2] Classification tests (4xx/5xx `textproto.Error`, dial/greeting timeouts, `ErrPlaintext`, x509 errors, throttled) in `notification/internal/channel/email/classify_test.go`
-- [ ] T026 [P] [US2] Client tests for `SendKey` status mapping (Unavailable/DeadlineExceeded/ResourceExhausted/Aborted → retryable; others → error) in `notification/sdk/pkg/notifyclient/client_test.go`
+- [X] T026 [P] [US2] Client tests for `SendKey` status mapping (Unavailable/DeadlineExceeded/ResourceExhausted/Aborted → retryable; others → error) in `notification/sdk/pkg/notifyclient/client_test.go`
 
 ### Implementation for User Story 2 — notification
 
@@ -101,7 +101,7 @@ go-tangra-docker (branch v4).
 - [ ] T029 [US2] Retryable classification in `notification/internal/channel/email/classify.go` (wrap provider errors, keep scrubbing)
 - [ ] T030 [US2] Key send path in `notification/internal/notify/send.go`: resolve template by key in platform tenant, channel resolution (D5), skip grants, `system:<service>` limiter, store redacted render + `template_key`, scrub secret values from error, set retryable
 - [ ] T031 [US2] gRPC handler: exactly-one ref, key regex, namespace check from verified SPIFFE id, `retryable` in response, error mapping in `notification/internal/grpcapi/notifier.go`
-- [ ] T032 [US2] `SendKey` + `Result` in `notification/sdk/pkg/notifyclient/client.go`
+- [X] T032 [US2] `SendKey` + `Result` in `notification/sdk/pkg/notifyclient/client.go`
 - [ ] T033 [US2] Integration test: auth-like caller identity sends `auth.invite` through the in-process SMTP server; stored log row, audit rows and captured logs contain no token (redaction scan) in `notification/tests/integration/system_send_test.go`
 
 ### Tests for User Story 2 — auth

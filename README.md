@@ -39,14 +39,14 @@ go-tangra-auth  <---->  go-tangra-portal (gateway)  <---->  go-tangra-lcm
   (`github.com/go-tangra/go-tangra-lcm/sdk/v4`), as the platform stack does.
 
 The repository holds one Go module, `github.com/go-tangra/go-tangra-notification/v4`.
-Other services call it through `pkg/notifyclient` and the `notification.v1` protos.
+Other services call it through the `sdk` module (`github.com/go-tangra/go-tangra-notification/sdk/v4`): `pkg/notifyclient` and the `notification.v1` protos.
 
 ## Layout
 
 | Path | What |
 |------|------|
 | `api/openapi/notification.yaml` | browser API contract (served under `/api/notification/v1`) |
-| `api/proto/notification/v1/` | `Notifier` (Send, SendTest) and `Events` (Publish) gRPC for services |
+| `sdk/api/proto/notification/v1/` | `Notifier` (Send, SendTest) and `Events` (Publish) gRPC for services |
 | `api/schema/backup.schema.json` | tenant backup document schema |
 | `internal/config` | configuration + validation (secure defaults, named opt-outs) |
 | `internal/store`, `internal/repo` | TimescaleDB schema (RLS, hypertables), repositories + in-memory double |
@@ -62,7 +62,7 @@ Other services call it through `pkg/notifyclient` and the `notification.v1` prot
 | `internal/httpapi`, `internal/grpcapi` | browser and service APIs |
 | `internal/app`, `cmd/notificationsvc` | wiring and the service binary (serve, `bootstrap`, `version`) |
 | `pkg/notificationmanifest` | gateway manifest built from the OpenAPI document |
-| `pkg/notifyclient` | Go client other services use to Send / Publish |
+| `sdk/pkg/notifyclient` | Go client other services use to Send / Publish |
 | `deploy` | compose stack, dev configuration, service policy |
 | `tests/{contract,fuzz,integration}` | contract, fuzz and Docker-backed integration suites |
 | `ui/` | Vue 3 + FlyonUI federated remote on `@go-tangra/ui` (channels, templates, log, messages, inbox, permissions, ops) |
@@ -74,7 +74,7 @@ GitHub token with `read:packages` to install `@go-tangra/ui` from GitHub Package
 
 ```bash
 go build ./... && go vet ./... && go test -race ./...
-buf lint
+(cd sdk && buf lint)
 make test-integration                     # -tags integration, needs Docker (see below)
 make lint cover fuzz redaction-scan vuln
 

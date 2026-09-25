@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
-	notificationv1 "github.com/go-tangra/go-tangra-notification/v4/api/proto/notification/v1"
+	notificationv1 "github.com/go-tangra/go-tangra-notification/sdk/v4/api/proto/notification/v1"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/grpcapi"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/httpapi"

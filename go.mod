@@ -46,6 +46,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
 	github.com/go-openapi/swag/jsonname v0.25.5 // indirect
 	github.com/go-playground/form/v4 v4.3.0 // indirect
+	github.com/go-tangra/go-tangra-notification/sdk/v4 v4.0.0
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
@@ -95,3 +96,5 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
 )
+
+replace github.com/go-tangra/go-tangra-notification/sdk/v4 => ./sdk
