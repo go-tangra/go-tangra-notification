@@ -44,20 +44,20 @@ import (
 // Options override infrastructure (tests) and attach optional parts.
 type Options struct {
 	Logger    slog.Handler
-	KV        stream.Client             // nil = Valkey from config
-	KEK       []byte                    // nil = from config
-	Verifier  httpapi.Verifier          // nil = authclient against the auth service
-	GRPCAuth  kmiddleware.Middleware    // gRPC user middleware when Verifier is not an authclient.Verifier (tests)
-	Remote    fs.FS                     // nil = no federated remote
-	Providers *channel.Registry         // nil = the built-in providers
+	KV        stream.Client          // nil = Valkey from config
+	KEK       []byte                 // nil = from config
+	Verifier  httpapi.Verifier       // nil = authclient against the auth service
+	GRPCAuth  kmiddleware.Middleware // gRPC user middleware when Verifier is not an authclient.Verifier (tests)
+	Remote    fs.FS                  // nil = no federated remote
+	Providers *channel.Registry      // nil = the built-in providers
 	// PlatformProvider delivers through the managed platform channel; nil =
 	// the built-in email provider with the platform_email plaintext opt-out
 	// (or the registry's email provider when Providers is set).
 	PlatformProvider channel.Provider
-	Members   messages.Directory        // nil = the auth service over the Freya channel
-	Perms     httpapi.PermissionChecker // nil = the auth service's Authorization/Check
-	Freya     []freya.Option
-	Migrate   bool
+	Members          messages.Directory        // nil = the auth service over the Freya channel
+	Perms            httpapi.PermissionChecker // nil = the auth service's Authorization/Check
+	Freya            []freya.Option
+	Migrate          bool
 	// Register lets the caller mount handlers after the core is wired (Wire).
 	Register func(a *App) error
 }
