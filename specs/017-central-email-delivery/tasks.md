@@ -106,23 +106,23 @@ go-tangra-docker (branch v4).
 
 ### Tests for User Story 2 — auth
 
-- [ ] T034 [P] [US2] Payload tests: v2 encode/decode, legacy `{subject,text}` decoded as `auth.message`, AAD unchanged; fuzz the decoder in `auth/internal/email/outbox_test.go` and `auth/tests/fuzz/outbox_payload_fuzz_test.go`
-- [ ] T035 [P] [US2] Outbox tests with a fake Deliverer: sent → MarkSent; retry → stays pending; permanent → failed_at set, one `email_given_up` report; attempts > max → retired once; no re-report on later passes, in `auth/internal/email/outbox_test.go`
-- [ ] T036 [P] [US2] Store tests for `ClaimOutbox` (exponential `next_attempt_at` capped at 1 h, `failed_at` filter) and `MarkOutboxFailed` in `auth/internal/store/outbox_integration_test.go`
-- [ ] T037 [P] [US2] Notification deliverer tests with a fake Notifier gRPC server (lazy connection on first use, key + vars + correlation id passed, retryable/permanent mapping, notification down → retry) in `auth/internal/email/notify_test.go`
-- [ ] T038 [P] [US2] Producer tests: invite/resend/LDAP activation enqueue `auth.invite` {link, valid_for "72 hours", tenant}; bootstrap operator `auth.invite` {valid_for "7 days"}; reset `auth.account_reset`; recovery `auth.recovery` {valid_for "30 minutes"} — in `auth/internal/invite/invite_test.go`, `auth/internal/password/recovery_test.go` (keep 100 %), `auth/internal/app/reset_test.go`
-- [ ] T039 [P] [US2] Config tests: `transport: notification` default, `log` refused in production, `smtp` + relay keys accepted and reported in one warning in `auth/internal/config/config_test.go`
+- [X] T034 [P] [US2] Payload tests: v2 encode/decode, legacy `{subject,text}` decoded as `auth.message`, AAD unchanged; fuzz the decoder in `auth/internal/email/outbox_test.go` and `auth/tests/fuzz/outbox_payload_fuzz_test.go`
+- [X] T035 [P] [US2] Outbox tests with a fake Deliverer: sent → MarkSent; retry → stays pending; permanent → failed_at set, one `email_given_up` report; attempts > max → retired once; no re-report on later passes, in `auth/internal/email/outbox_test.go`
+- [X] T036 [P] [US2] Store tests for `ClaimOutbox` (exponential `next_attempt_at` capped at 1 h, `failed_at` filter) and `MarkOutboxFailed` in `auth/internal/store/outbox_integration_test.go`
+- [X] T037 [P] [US2] Notification deliverer tests with a fake Notifier gRPC server (lazy connection on first use, key + vars + correlation id passed, retryable/permanent mapping, notification down → retry) in `auth/internal/email/notify_test.go`
+- [X] T038 [P] [US2] Producer tests: invite/resend/LDAP activation enqueue `auth.invite` {link, valid_for "72 hours", tenant}; bootstrap operator `auth.invite` {valid_for "7 days"}; reset `auth.account_reset`; recovery `auth.recovery` {valid_for "30 minutes"} — in `auth/internal/invite/invite_test.go`, `auth/internal/password/recovery_test.go` (keep 100 %), `auth/internal/app/reset_test.go`
+- [X] T039 [P] [US2] Config tests: `transport: notification` default, `log` refused in production, `smtp` + relay keys accepted and reported in one warning in `auth/internal/config/config_test.go`
 
 ### Implementation for User Story 2 — auth
 
-- [ ] T040 [US2] Require `github.com/go-tangra/go-tangra-notification/sdk/v4 v4.2.0` in `auth/go.mod`
-- [ ] T041 [US2] Migration `auth/internal/store/migrations/0009_outbox_retire.sql`; `ClaimOutbox` backoff + filter and `MarkOutboxFailed` in `auth/internal/store/repos.go`; `auth/internal/email/emaildb/db.go`; memstore fake
-- [ ] T042 [US2] Payload v2 + legacy decode, `Deliverer` interface, outcome handling and single give-up report in `auth/internal/email/outbox.go`
-- [ ] T043 [US2] Notification deliverer (lazy `Freya.Client(ctx, "notification")`, `SendKey`, platform tenant/tenant id from the item) in `auth/internal/email/notify.go`; log deliverer keeps printing the link (dev)
-- [ ] T044 [US2] Producers enqueue template key + vars in `auth/internal/invite/invite.go`, `auth/internal/password/recovery.go`, `auth/internal/app/app.go` (bootstrap), `auth/internal/app/reset.go`
-- [ ] T045 [US2] Config: `email.transport` notification|log, deprecated keys kept + warning, in `auth/internal/config/config.go`; wiring in `auth/internal/app/app.go`
-- [ ] T046 [US2] Integration harness: fake Notifier gRPC server recording key/vars replaces Mailpit; `LastMail` returns the rendered link; update `auth/tests/integration/*` and `auth/deploy/{dev,dev-standalone,gateway-mode}.yaml`, `auth/deploy/compose.yaml`
-- [ ] T047 [US2] Docs: `auth/docs/operations.md` (email section, given-up messages), `auth/docs/security-model.md` (links leave auth only through notification)
+- [X] T040 [US2] Require `github.com/go-tangra/go-tangra-notification/sdk/v4 v4.2.0` in `auth/go.mod`
+- [X] T041 [US2] Migration `auth/internal/store/migrations/0009_outbox_retire.sql`; `ClaimOutbox` backoff + filter and `MarkOutboxFailed` in `auth/internal/store/repos.go`; `auth/internal/email/emaildb/db.go`; memstore fake
+- [X] T042 [US2] Payload v2 + legacy decode, `Deliverer` interface, outcome handling and single give-up report in `auth/internal/email/outbox.go`
+- [X] T043 [US2] Notification deliverer (lazy `Freya.Client(ctx, "notification")`, `SendKey`, platform tenant/tenant id from the item) in `auth/internal/email/notify.go`; log deliverer keeps printing the link (dev)
+- [X] T044 [US2] Producers enqueue template key + vars in `auth/internal/invite/invite.go`, `auth/internal/password/recovery.go`, `auth/internal/app/app.go` (bootstrap), `auth/internal/app/reset.go`
+- [X] T045 [US2] Config: `email.transport` notification|log, deprecated keys kept + warning, in `auth/internal/config/config.go`; wiring in `auth/internal/app/app.go`
+- [X] T046 [US2] Integration harness: fake Notifier gRPC server recording key/vars replaces Mailpit; `LastMail` returns the rendered link; update `auth/tests/integration/*` and `auth/deploy/{dev,dev-standalone,gateway-mode}.yaml`, `auth/deploy/compose.yaml`
+- [X] T047 [US2] Docs: `auth/docs/operations.md` (email section, given-up messages), `auth/docs/security-model.md` (links leave auth only through notification)
 
 **Checkpoint**: invitations flow end to end through notification (quickstart Scenario 2).
 
@@ -136,16 +136,16 @@ go-tangra-docker (branch v4).
 
 ### Tests for User Story 3
 
-- [ ] T048 [P] [US3] Share tests with a fake sender: `warden.share` key, vars {link (secret), secret_name, expires, openings, message}; failure → cancelled + `ErrMail` in `warden/internal/share/share_test.go`, `warden/internal/httpapi/share_test.go`
-- [ ] T049 [P] [US3] Notification sender tests with a fake Notifier server (lazy connection, retryable → error, permanent → error) in `warden/internal/share/notify_test.go`
-- [ ] T050 [P] [US3] Config tests: `mail.transport` notification default, `log` dev only, relay keys accepted + warned in `warden/internal/config/config_test.go`
+- [X] T048 [P] [US3] Share tests with a fake sender: `warden.share` key, vars {link (secret), secret_name, expires, openings, message}; failure → cancelled + `ErrMail` in `warden/internal/share/share_test.go`, `warden/internal/httpapi/share_test.go`
+- [X] T049 [P] [US3] Notification sender tests with a fake Notifier server (lazy connection, retryable → error, permanent → error) in `warden/internal/share/notify_test.go`
+- [X] T050 [P] [US3] Config tests: `mail.transport` notification default, `log` dev only, relay keys accepted + warned in `warden/internal/config/config_test.go`
 
 ### Implementation for User Story 3
 
-- [ ] T051 [US3] Require the notification sdk in `warden/go.mod`
-- [ ] T052 [US3] `Message{To, Template, Vars}` and notification sender in `warden/internal/share/mail.go` / `warden/internal/share/notify.go`; `Create` builds vars in `warden/internal/share/share.go`
-- [ ] T053 [US3] Wiring with `Freya.Client(ctx, "notification")` in `warden/internal/app/wire.go`, `warden/internal/app/app.go`; config in `warden/internal/config/config.go`
-- [ ] T054 [P] [US3] Docs `warden/docs/` (mail now through notification)
+- [X] T051 [US3] Require the notification sdk in `warden/go.mod`
+- [X] T052 [US3] `Message{To, Template, Vars}` and notification sender in `warden/internal/share/mail.go` / `warden/internal/share/notify.go`; `Create` builds vars in `warden/internal/share/share.go`
+- [X] T053 [US3] Wiring with `Freya.Client(ctx, "notification")` in `warden/internal/app/wire.go`, `warden/internal/app/app.go`; config in `warden/internal/config/config.go`
+- [X] T054 [P] [US3] Docs `warden/docs/` (mail now through notification)
 
 **Checkpoint**: quickstart Scenario 3 passes.
 
@@ -179,10 +179,10 @@ go-tangra-docker (branch v4).
 - [X] T062 Coverage gates and `govulncheck` in notification, auth, warden; fix gaps (notification: total 91.8 %, security packages 100 %, govulncheck clean; auth/warden by their own agents)
 - [ ] T063 Release notification: PR, CI, tag `sdk/v4.2.0` then `v4.2.0` (confirm with the user before tagging)
 - [ ] T064 Release auth v4.2.0 and warden v4.2.0 against sdk/v4.2.0 (confirm with the user)
-- [ ] T065 [P] docker: `configs/notification.yaml` `platform_email` (Mailpit); `configs/auth.yaml` / `configs/warden.yaml` `transport: notification` without relay keys
-- [ ] T066 docker: `scripts/prod-init.sh` writes `platform_email` from `SMTP_*` (tls from port 465/587), password to `prod/secrets/smtp.password`; drop auth/warden relay rewrites; overlay mounts the secret into notification in `docker-compose.production.yaml.example`
+- [X] T065 [P] docker: `configs/notification.yaml` `platform_email` (Mailpit); `configs/auth.yaml` / `configs/warden.yaml` `transport: notification` without relay keys
+- [X] T066 docker: `scripts/prod-init.sh` writes `platform_email` from `SMTP_*` (tls from port 465/587), password to `prod/secrets/smtp.password`; drop auth/warden relay rewrites; overlay mounts the secret into notification in `docker-compose.production.yaml.example`
 - [ ] T067 [P] docker: refresh `policies/notification.yaml` from notification 4.2.0; `.env.example` versions (notification/auth/warden 4.2.0)
-- [ ] T068 docker: `PRODUCTION.md` — single relay setting, certificate host-name rule, verifying delivery (log entry, `sent_at`), upgrade steps for existing installs (move `email:`/`mail:` values into `platform_email`), troubleshooting rows
+- [X] T068 docker: `PRODUCTION.md` — single relay setting, certificate host-name rule, verifying delivery (log entry, `sent_at`), upgrade steps for existing installs (move `email:`/`mail:` values into `platform_email`), troubleshooting rows
 - [ ] T069 Run quickstart.md scenarios 1–4 on the development stack; record results in `specs/017-central-email-delivery/quickstart-results.md`
 
 ---
