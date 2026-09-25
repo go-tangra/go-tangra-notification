@@ -86,6 +86,8 @@ func domainError(err error) error {
 		return &DetailError{Err: ErrValidation, Detail: map[string]any{"field": "channel_id", "message": "channel type differs from the template"}}
 	case errors.Is(err, notify.ErrChannelDisabled):
 		return ErrChannelDisabled
+	case errors.Is(err, notify.ErrManagedChannel):
+		return ErrManagedChannel
 	case errors.Is(err, channel.ErrNoProvider):
 		return ErrNoProvider
 	case errors.Is(err, channel.ErrRecipient):

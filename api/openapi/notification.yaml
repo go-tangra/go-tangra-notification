@@ -10,7 +10,9 @@ info:
     channels and templates (read/write/delete/share/use). Errors are
     {"reason": "<closed vocabulary>", "detail"?: {...}}: unauthenticated, forbidden,
     not_found, validation_failed, conflict, channel_disabled, no_provider,
-    delivery_failed, temporarily_unavailable, rate_limited, body_too_large.
+    delivery_failed, temporarily_unavailable, rate_limited, body_too_large,
+    managed_channel, system_template, not_system_template, system_template_field,
+    missing_required_variable.
     Provider credentials never appear in any response (fields are "__set__").
 servers: [{ url: https://platform.example.org }]
 components:
@@ -48,6 +50,7 @@ components:
         settings: { type: object }
         enabled: { type: boolean }
         is_default: { type: boolean }
+        managed: { type: boolean, description: 'the platform channel created from the platform_email configuration: read-only (update/remove answer 409 managed_channel), test sends allowed' }
         template_count: { type: integer }
         created_by: { type: string }
         updated_by: { type: string }
@@ -263,13 +266,13 @@ paths:
       x-freya-permission: channels:manage
       parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChannelInput' } } } }
-      responses: { '200': { description: 'updated (write); credential fields "__set__"/omitted keep stored values; type cannot change' } }
+      responses: { '200': { description: 'updated (write); credential fields "__set__"/omitted keep stored values; type cannot change' }, '409': { description: 'managed_channel: the channel is managed by configuration' } }
   /api/notification/v1/channels/{id}/remove:
     post:
       operationId: deleteChannel
       x-freya-permission: channels:manage
       parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
-      responses: { '204': { description: 'deleted (delete) with its grants' }, '409': { description: 'conflict: templates reference it (detail.templates)' } }
+      responses: { '204': { description: 'deleted (delete) with its grants' }, '409': { description: 'conflict: templates reference it (detail.templates); managed_channel: managed by configuration' } }
   /api/notification/v1/channels/{id}/test:
     post:
       operationId: testChannel

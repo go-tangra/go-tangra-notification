@@ -92,6 +92,34 @@ describe('channels view', () => {
     expect(drawer().textContent).not.toContain('hunter2-secret')
     w.unmount()
   })
+  it('managed channel: badge, read-only drawer without save or delete, test send still available', async () => {
+    const writes: string[] = []
+    const managed = { id: 'm1', name: 'Platform email', type: 'email' as const, managed: true, settings: { host: 'mx01.example.net', port: 587, tls: 'starttls', from: 'tangra@example.net', password: '__set__' }, enabled: true, is_default: true, permissions: { read: true, write: false, delete: false, use: true } }
+    stubFetch((url, init) => {
+      if (url.endsWith('/channels/m1/test')) return { status: 200, body: { id: 'l1', status: 'sent', test: true } }
+      if (init?.method === 'PUT' || url.endsWith('/remove')) {
+        writes.push(url)
+        return { status: 409, body: { reason: 'managed_channel' } }
+      }
+      if (url.includes('/channels')) return { status: 200, body: { items: [managed] } }
+      return { status: 404, body: { reason: 'not_found' } }
+    })
+    const w = mountView(Channels)
+    await flushPromises()
+    expect(w.find('[data-test="channel-managed-m1"]').exists()).toBe(true)
+    await w.find('[data-test="channel-row-m1"]').trigger('click')
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="channel-managed-note"]')?.textContent).toContain('configuration')
+    expect(drawer().querySelector('[data-test="channel-save"]')).toBeNull()
+    expect(drawer().querySelector('[data-test="channel-delete"]')).toBeNull()
+    expect(drawer().querySelector<HTMLInputElement>('input[data-field=host]')?.disabled).toBe(true)
+    set(drawer(), '[data-test="channel-test-recipient"] input', 'ops@x.test')
+    ;(drawer().querySelector('[data-test="channel-test-send"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="channel-test-result"]')?.textContent).toContain('sent')
+    expect(writes).toEqual([])
+    w.unmount()
+  })
 })
 
 describe('templates and messages', () => {

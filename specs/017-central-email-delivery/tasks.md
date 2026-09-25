@@ -63,17 +63,17 @@ go-tangra-docker (branch v4).
 
 ### Tests for User Story 1
 
-- [ ] T013 [P] [US1] Unit tests for `EnsurePlatformChannel` (insert, update on change, no-op when equal, disable when block removed, password sealed, never logged) in `notification/internal/notify/platform_test.go`
-- [ ] T014 [P] [US1] Negative tests: update/delete of a managed channel refused (`managed_channel`), permissions `write/delete=false`, test send allowed, in `notification/internal/notify/channels_test.go` and `notification/internal/httpapi/channels_test.go`
-- [ ] T015 [P] [US1] Integration test with an in-process SMTP server (STARTTLS with a test CA): start with `platform_email`, test send delivered; relay without STARTTLS → failure `relay offers no STARTTLS`, no plaintext fallback, in `notification/tests/integration/platform_email_test.go`
+- [X] T013 [P] [US1] Unit tests for `EnsurePlatformChannel` (insert, update on change, no-op when equal, disable when block removed, password sealed, never logged) in `notification/internal/notify/platform_test.go`
+- [X] T014 [P] [US1] Negative tests: update/delete of a managed channel refused (`managed_channel`), permissions `write/delete=false`, test send allowed, in `notification/internal/notify/channels_test.go` and `notification/internal/httpapi/channels_test.go`
+- [X] T015 [P] [US1] Integration test with an in-process SMTP server (STARTTLS with a test CA): start with `platform_email`, test send delivered; relay without STARTTLS → failure `relay offers no STARTTLS`, no plaintext fallback, in `notification/tests/integration/platform_email_test.go`
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] `EnsurePlatformChannel` (system scope, platform tenant, name "Platform email", default+enabled email, tenant-wide `use` grant, sealed settings) in `notification/internal/notify/platform.go`
-- [ ] T017 [US1] Run seeding at start after migrations and before serving (`Wire`), log "platform email channel ready" / "platform email disabled" in `notification/internal/app/wire.go`
-- [ ] T018 [US1] Managed guards in `notification/internal/notify/channels.go` (update/remove refused; permissions projection) and HTTP mapping `409 managed_channel` in `notification/internal/httpapi/`
-- [ ] T019 [P] [US1] OpenAPI: `managed` on Channel, 409 responses in `notification/api/openapi/notification.yaml`
-- [ ] T020 [P] [US1] UI: "Managed" badge, edit/delete disabled, test enabled in `notification/ui/src/views/channels/index.vue`, `notification/ui/src/schemas/channel.ts`; vitest in `notification/ui/tests/`
+- [X] T016 [US1] `EnsurePlatformChannel` (system scope, platform tenant, name "Platform email", default+enabled email, tenant-wide `use` grant, sealed settings) in `notification/internal/notify/platform.go`
+- [X] T017 [US1] Run seeding at start after migrations and before serving (`Wire`), log "platform email channel ready" / "platform email disabled" in `notification/internal/app/wire.go`
+- [X] T018 [US1] Managed guards in `notification/internal/notify/channels.go` (update/remove refused; permissions projection) and HTTP mapping `409 managed_channel` in `notification/internal/httpapi/`
+- [X] T019 [P] [US1] OpenAPI: `managed` on Channel, 409 responses in `notification/api/openapi/notification.yaml`
+- [X] T020 [P] [US1] UI: "Managed" badge, edit/delete disabled, test enabled in `notification/ui/src/views/channels/index.vue`, `notification/ui/src/schemas/channel.ts`; vitest in `notification/ui/tests/`
 
 **Checkpoint**: US1 independently demonstrable (quickstart Scenario 1).
 

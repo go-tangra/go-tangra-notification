@@ -21,6 +21,8 @@ type Channels struct {
 	az    *authz.Authz
 	audit *audit.Writer
 	now   func() time.Time
+	// platform delivers through the managed channel (nil = the registry's email provider).
+	platform channel.Provider
 }
 
 // NewChannels wires the service.
@@ -45,6 +47,7 @@ type ChannelView struct {
 	Settings      sealed.Settings   `json:"settings"`
 	Enabled       bool              `json:"enabled"`
 	IsDefault     bool              `json:"is_default"`
+	Managed       bool              `json:"managed"` // created from configuration: read-only
 	TemplateCount int               `json:"template_count"`
 	CreatedBy     string            `json:"created_by"`
 	UpdatedBy     string            `json:"updated_by"`
@@ -57,7 +60,10 @@ func (c *Channels) view(row store.Channel, public sealed.Settings, p authz.Permi
 	if public == nil {
 		public = sealed.Settings{}
 	}
-	return ChannelView{ID: row.ID, Name: row.Name, Type: row.Type, Settings: public, Enabled: row.Enabled, IsDefault: row.IsDefault, TemplateCount: row.TemplateCount,
+	if row.Managed { // configuration owns it: only read, use (and test) remain
+		p.Write, p.Delete, p.Share = false, false, false
+	}
+	return ChannelView{ID: row.ID, Name: row.Name, Type: row.Type, Settings: public, Enabled: row.Enabled, IsDefault: row.IsDefault, Managed: row.Managed, TemplateCount: row.TemplateCount,
 		CreatedBy: strp(row.CreatedBy), UpdatedBy: strp(row.UpdatedBy), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, Permissions: p}
 }
 
@@ -233,6 +239,9 @@ func (c *Channels) Update(ctx context.Context, s authz.Subjects, id string, in C
 	if err != nil {
 		return ChannelView{}, err
 	}
+	if row.Managed {
+		return ChannelView{}, ErrManagedChannel
+	}
 	if in.Type != "" && in.Type != row.Type {
 		return ChannelView{}, invalid("the channel type cannot change", map[string]any{"field": "type"})
 	}
@@ -286,6 +295,9 @@ func (c *Channels) Delete(ctx context.Context, s authz.Subjects, id string) erro
 	if err != nil {
 		return err
 	}
+	if row.Managed {
+		return ErrManagedChannel
+	}
 	if row.TemplateCount > 0 {
 		return &InUseError{What: "templates", Count: row.TemplateCount}
 	}
@@ -325,7 +337,7 @@ func (c *Channels) Resolve(ctx context.Context, tenantID, id string) (store.Chan
 	if err != nil {
 		return store.Channel{}, nil, nil, err
 	}
-	p, err := c.reg.Get(row.Type)
+	p, err := c.provider(row)
 	if err != nil {
 		return store.Channel{}, nil, nil, err
 	}

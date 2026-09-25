@@ -26,6 +26,8 @@ export interface Channel {
   settings: Settings
   enabled: boolean
   is_default: boolean
+  /** Created from the platform_email configuration: read-only, test sends allowed. */
+  managed?: boolean
   template_count?: number
   created_by?: string
   updated_by?: string

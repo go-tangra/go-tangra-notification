@@ -23,6 +23,7 @@ import (
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/channel/email"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/config"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/httpapi"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/inbox"
@@ -49,6 +50,10 @@ type Options struct {
 	GRPCAuth  kmiddleware.Middleware    // gRPC user middleware when Verifier is not an authclient.Verifier (tests)
 	Remote    fs.FS                     // nil = no federated remote
 	Providers *channel.Registry         // nil = the built-in providers
+	// PlatformProvider delivers through the managed platform channel; nil =
+	// the built-in email provider with the platform_email plaintext opt-out
+	// (or the registry's email provider when Providers is set).
+	PlatformProvider channel.Provider
 	Members   messages.Directory        // nil = the auth service over the Freya channel
 	Perms     httpapi.PermissionChecker // nil = the auth service's Authorization/Check
 	Freya     []freya.Option
@@ -72,6 +77,7 @@ type App struct {
 	HTTP      *httpapi.Server
 	Authz     *authz.Authz
 	Providers *channel.Registry
+	Platform  channel.Provider // managed channel provider (nil = registry)
 	Channels  *notify.Channels
 	Templates *notify.Templates
 	Sender    *notify.Sender
@@ -167,8 +173,14 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	}
 	a.closers = append(a.closers, a.Freya.Close)
 	a.Verifier, a.GRPCAuth, a.Providers, a.Members, a.Perms = o.Verifier, o.GRPCAuth, o.Providers, o.Members, o.Perms
+	a.Platform = o.PlatformProvider
 	if a.Providers == nil {
 		a.Providers = channel.Builtin(channel.Options{AllowPlaintext: cfg.SMTP.AllowPlaintext, DialTimeout: cfg.DialTimeout()})
+		if a.Platform == nil {
+			// The platform relay's plaintext opt-out is its own (platform_email.allow_plaintext);
+			// tenant channels keep smtp.allow_plaintext, which production refuses.
+			a.Platform = &email.Provider{AllowPlaintext: cfg.PlatformEmail != nil && cfg.PlatformEmail.AllowPlaintext, DialTimeout: cfg.DialTimeout()}
+		}
 	}
 	if a.Verifier == nil || a.Members == nil || a.Perms == nil {
 		// Platform tokens forwarded by the gateway are verified against the

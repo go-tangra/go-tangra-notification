@@ -33,6 +33,7 @@ var (
 	ErrChannelDisabled = &Error{http.StatusUnprocessableEntity, "channel_disabled"}
 	ErrNoProvider      = &Error{http.StatusUnprocessableEntity, "no_provider"}
 	ErrNotImplemented  = &Error{http.StatusNotImplemented, "not_implemented"}
+	ErrManagedChannel  = &Error{http.StatusConflict, "managed_channel"}
 )
 
 // MaxBodyBytes bounds JSON bodies of ordinary operations.

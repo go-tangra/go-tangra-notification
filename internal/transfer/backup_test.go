@@ -242,3 +242,22 @@ func TestImportModes(t *testing.T) {
 		t.Fatalf("audit %d", n)
 	}
 }
+
+// TestExportSkipsManaged: the configuration-managed platform channel (and
+// its relay password) never leaves through a backup, not even with
+// credentials; the configuration is its only source.
+func TestExportSkipsManaged(t *testing.T) {
+	f := newFx(t)
+	ctx := context.Background()
+	if _, err := f.ch.EnsurePlatformChannel(ctx, tA, &notify.PlatformEmail{Host: "relay", Port: 587, Username: "u", Password: "NOTIF-MARKER-PW-platform", From: "a@b.c"}); err != nil {
+		t.Fatal(err)
+	}
+	doc, err := f.svc.Export(ctx, subj(tA), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(doc)
+	if len(doc.Channels) != 0 || strings.Contains(string(raw), "NOTIF-MARKER-PW-platform") || strings.Contains(string(raw), notify.PlatformChannelName) {
+		t.Fatalf("managed channel exported: %s", raw)
+	}
+}

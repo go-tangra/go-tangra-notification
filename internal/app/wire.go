@@ -30,6 +30,9 @@ func Wire(a *App) error {
 	a.closers = append(a.closers, a.Hub.Close)
 	limiter := stream.NewLimiter(a.KV)
 	a.Channels = notify.NewChannels(a.Repo, a.Envelope, a.Providers, a.Authz, a.Audit)
+	if a.Platform != nil {
+		a.Channels.SetPlatformProvider(a.Platform)
+	}
 	a.Templates = notify.NewTemplates(a.Repo, a.Authz, a.Audit)
 	a.Sender = notify.NewSender(a.Repo, a.Channels, a.Templates, a.Authz, a.Audit, limiter, notify.Limits{PerTenant: cfg.Limits.SendPerTenantPerMinute, PerSender: cfg.Limits.SendPerSenderPerMinute})
 	nd := httpapi.NotifyDeps{Channels: a.Channels, Templates: a.Templates, Sender: a.Sender, Authz: a.Authz, Perms: a.Perms}
@@ -45,6 +48,9 @@ func Wire(a *App) error {
 	a.workers = append(a.workers, a.Scheduler.Run)
 	a.workers = append(a.workers, func(ctx context.Context) { a.Sender.RunExpiry(ctx, time.Minute) })
 	a.Transfer = transfer.New(a.Repo, a.Channels, a.Templates, a.Messages, a.Audit)
+	sctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	a.SeedSystemEmail(sctx)
+	cancel()
 	a.HTTP.RegisterOps(httpapi.OpsDeps{Transfer: a.Transfer, MaxBytes: cfg.Limits.BackupMaxBytes, Stats: stats.New(a.Repo, a.Hub), Audit: a.Repo, Version: Version,
 		Health: func(ctx context.Context) any { return a.Health(ctx) }})
 	if v, ok := a.Verifier.(*authclient.Verifier); ok {
