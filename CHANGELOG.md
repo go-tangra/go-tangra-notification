@@ -1,6 +1,6 @@
 # Changelog — services/notification
 
-## 4.3.0 — unreleased
+## 4.3.0 — 2026-09-26
 
 - **Visual editor for email template bodies**: in *Templates*, the body of an
   email template (system templates included, with *Restore built-in*) is
