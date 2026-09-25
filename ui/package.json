@@ -15,7 +15,7 @@
   "dependencies": {
     "@casl/ability": "^7.0.1",
     "@casl/vue": "^3.0.1",
-    "@go-tangra/ui": "^4.0.0",
+    "@go-tangra/ui": "^4.1.1",
     "@tiptap/core": "^3.31.3",
     "@tiptap/pm": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
