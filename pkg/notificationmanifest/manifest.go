@@ -22,7 +22,7 @@ import (
 const (
 	Module      = "notification"
 	DisplayName = "Notifications"
-	Version     = "1.0.0"
+	Version     = "1.1.0"
 	// RemotePrefix is where the module serves its federated remote assets.
 	RemotePrefix = "/ui"
 )

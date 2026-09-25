@@ -1,6 +1,16 @@
 # Changelog — services/notification
 
-## 4.2.0 — unreleased (feature 017, central email delivery)
+## 4.2.1 — manifest version
+
+- **Fix**: the gateway manifest version is raised to `1.1.0`. 4.2.0 added the
+  template restore route but kept manifest version `1.0.0`, so the gateway
+  refused its registration (`manifest_drift`) while a 4.1 instance was still
+  registered (visible for one lease period on upgrade; a rolling update with
+  two instances would keep failing).
+- A contract test pins the manifest content to its version: changing routes,
+  permissions or navigation without raising the version now fails CI.
+
+## 4.2.0 — 2026-09-26 (feature 017, central email delivery)
 
 notification becomes the single outbound-email path of the platform: auth
 (invitations, recovery) and warden (share links) send through it instead of
