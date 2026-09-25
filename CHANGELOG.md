@@ -1,5 +1,27 @@
 # Changelog — services/notification
 
+## 4.3.0 — unreleased
+
+- **Visual editor for email template bodies**: in *Templates*, the body of an
+  email template (system templates included, with *Restore built-in*) is
+  edited in a rich-text editor (bold, italic, underline, strike, headings,
+  lists, quote, links, undo/redo) with an *HTML source* toggle. sms, slack
+  and sse templates keep the plain text area.
+- Go template actions (`{{.link}}`, `{{ .tenant }}`, `{{if .x}}…{{end}}`,
+  pipes, trim markers, comments) are stored exactly as written, in text and
+  in attribute values such as `href="{{.link}}"`; they appear as chips in the
+  editor. *Insert variable* adds `{{.name}}` for the template's declared
+  variables (system templates: including the required ones).
+- A body the editor cannot keep exactly (inline styles, `div`/`img`/tables,
+  an action between blocks such as the built-in `warden.share` conditional,
+  an unterminated action) opens in the source view with a warning and is not
+  rewritten; switching it to the visual editor asks first. Opening and saving
+  without edits never changes a body.
+- New UI dependencies `@tiptap/core`, `@tiptap/starter-kit`, `@tiptap/pm`
+  (MIT, justified in `docs/dependencies.md`), loaded as a separate chunk only
+  when an email template is opened. No server change: bodies are still
+  validated and rendered with `html/template`.
+
 ## 4.2.1 — manifest version
 
 - **Fix**: the gateway manifest version is raised to `1.1.0`. 4.2.0 added the
