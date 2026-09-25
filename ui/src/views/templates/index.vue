@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiIcon, UiInput, UiDrawer, UiForm, UiSelect, UiTextarea, UiSwitch, UiBadge, UiSection, useConfirm, type Column, type SelectOption } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
 import { useTemplates } from '@/stores/templates'
@@ -7,6 +7,10 @@ import { useChannels } from '@/stores/channels'
 import { ApiError, describe } from '@/api/client'
 import { templateSchema, systemTemplateSchema } from '@/schemas'
 import type { Template } from '@/api/types'
+
+// The rich-text editor (TipTap/ProseMirror) is a separate chunk, fetched the
+// first time an email template is opened.
+const TemplateBodyEditor = defineAsyncComponent(() => import('@/components/TemplateBodyEditor.vue'))
 
 const store = useTemplates()
 const channels = useChannels()
@@ -71,6 +75,10 @@ watch(variablesText, (t) => (form.values.variables = t.split(',').map((s) => s.t
 const variables = computed(() => (isSystem.value ? (selected.value?.variables ?? []) : ((form.values.variables ?? []) as string[])))
 const previewValues = ref<Record<string, string>>({})
 const preview = ref<{ subject: string; body: string } | null>(null)
+// Offered by "Insert variable": the declared ones, plus the required ones of a system template.
+const insertable = computed(() => [...new Set([...variables.value, ...(selected.value?.required_variables ?? [])])])
+// Remounts the body editor for every template opened (fresh mode and history).
+const opened = ref(0)
 const channelType = computed(() => (isSystem.value ? (selected.value?.channel_type ?? 'email') : (channels.items.find((c) => c.id === form.values.channel_id)?.type ?? 'email')))
 
 function open(t: Template | null): void {
@@ -81,6 +89,7 @@ function open(t: Template | null): void {
   form.reset({ name: t?.name ?? '', channel_id: t?.channel_id ?? channels.items[0]?.id ?? '', subject: t?.subject ?? '', body: t?.body ?? '', variables: [...(t?.variables ?? [])], is_default: t?.is_default ?? false })
   sysForm.reset({ subject: t?.subject ?? '', body: t?.body ?? '' })
   variablesText.value = (t?.variables ?? []).join(', ')
+  opened.value++
   drawer.value = true
 }
 async function remove(): Promise<void> {
@@ -138,7 +147,8 @@ const columns: Column<Template>[] = [
         <UiForm :form="sysForm">
           <div class="flex flex-col gap-3">
             <UiInput v-bind="sysForm.field('subject')" label="Subject" required data-test="template-subject" />
-            <UiTextarea v-bind="sysForm.field('body')" label="Body (Go template, HTML)" :rows="10" required data-test="template-body" />
+            <TemplateBodyEditor v-if="channelType === 'email'" :key="opened" v-bind="sysForm.field('body')" label="Body (Go template, HTML)" required :variables="insertable" data-test="template-body" />
+            <UiTextarea v-else v-bind="sysForm.field('body')" label="Body (Go template)" :rows="10" required data-test="template-body" />
             <div class="flex flex-wrap items-center gap-1" data-test="template-required">
               <span class="text-xs text-base-content/70">Variables (required ones must stay):</span>
               <UiBadge v-for="v in selected?.variables ?? []" :key="v" :color="selected?.required_variables?.includes(v) ? 'primary' : 'neutral'" soft>{{ v }}{{ selected?.required_variables?.includes(v) ? ' (required)' : '' }}</UiBadge>
@@ -154,7 +164,8 @@ const columns: Column<Template>[] = [
           <UiInput v-bind="form.field('name')" label="Name" required data-test="template-name" />
           <UiSelect v-bind="form.field('channel_id')" label="Channel" :options="channelOptions" :clearable="false" required data-test="template-channel" />
           <UiInput v-bind="form.field('subject')" label="Subject" required data-test="template-subject" />
-          <UiTextarea v-bind="form.field('body')" label="Body (Go template)" :rows="6" required data-test="template-body" />
+          <TemplateBodyEditor v-if="channelType === 'email'" :key="opened" v-bind="form.field('body')" label="Body (Go template, HTML)" required :variables="insertable" data-test="template-body" />
+          <UiTextarea v-else v-bind="form.field('body')" label="Body (Go template)" :rows="6" required data-test="template-body" />
           <UiInput id="template-variables" v-model="variablesText" label="Declared variables (comma-separated)" :error="form.errors.value.variables ?? form.errors.value['variables.0']" data-test="template-variables" />
           <div v-if="variables.length" class="flex flex-wrap gap-1"><UiBadge v-for="v in variables" :key="v" color="primary">{{ v }}</UiBadge></div>
           <UiSwitch v-bind="form.field('is_default')" label="Default for this channel" data-test="template-default" />

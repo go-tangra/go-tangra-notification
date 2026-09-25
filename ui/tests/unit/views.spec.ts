@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useConfirm } from '@go-tangra/ui'
-import { plugins, stubFetch } from './helpers'
+import { perms, plugins, stubFetch } from './helpers'
 import Channels from '@/views/channels/index.vue'
 import Templates from '@/views/templates/index.vue'
+// Loaded ahead so the view's lazy body editor resolves within flushPromises.
+import '@/components/TemplateBodyEditor.vue'
 import Messages from '@/views/messages/index.vue'
 import Inbox from '@/views/inbox/index.vue'
 import Permissions from '@/views/permissions/index.vue'
@@ -199,6 +201,76 @@ describe('templates and messages', () => {
     ;(drawer().querySelector('[data-test="template-save"]') as HTMLButtonElement).click()
     await flushPromises()
     expect(drawer().querySelector('[data-test="template-error"]')?.textContent).toContain('link')
+    w.unmount()
+  })
+  it('template body: email channels get the visual editor, other channel types the plain textarea', async () => {
+    const email = { id: 'c1', name: 'relay', type: 'email', settings: {}, enabled: true, is_default: true }
+    const sms = { id: 'c2', name: 'texts', type: 'sms', settings: {}, enabled: true, is_default: false }
+    const tpl = (id: string, channel: string) => ({ id, name: id, channel_id: channel, subject: 's', body: '<p>Hi {{.name}}</p>', variables: ['name'], permissions: perms })
+    const puts: Array<Record<string, unknown>> = []
+    stubFetch((url, init) => {
+      if (init?.method === 'PUT') {
+        puts.push(JSON.parse(String(init.body)))
+        return { status: 200, body: tpl('t1', 'c1') }
+      }
+      if (url.includes('/channels')) return { status: 200, body: { items: [email, sms] } }
+      if (url.includes('/templates')) return { status: 200, body: { items: [tpl('t1', 'c1'), tpl('t2', 'c2')] } }
+      return { status: 404, body: { reason: 'not_found' } }
+    })
+    const w = mountView(Templates)
+    await flushPromises()
+    await w.find('[data-test="template-row-t2"]').trigger('click')
+    await flushPromises()
+    expect(drawer().querySelector<HTMLTextAreaElement>('[data-test="template-body"] textarea')?.value).toBe('<p>Hi {{.name}}</p>')
+    expect(drawer().querySelector('[data-test="template-body-visual"]')).toBeNull()
+    expect(drawer().querySelector('[data-test="body-mode"]')).toBeNull()
+    await w.find('[data-test="template-row-t1"]').trigger('click')
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="template-body-visual"] [data-go-action]')?.textContent).toBe('{{.name}}')
+    // Switching the channel to sms turns the body into the plain textarea, content unchanged.
+    set(drawer(), '[data-test="template-channel"] select', 'c2')
+    await flushPromises()
+    expect(drawer().querySelector<HTMLTextAreaElement>('[data-test="template-body"] textarea')?.value).toBe('<p>Hi {{.name}}</p>')
+    ;(drawer().querySelector('[data-test="template-save"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(puts[0]).toMatchObject({ channel_id: 'c2', body: '<p>Hi {{.name}}</p>' })
+    w.unmount()
+  })
+  it('system template: the visual editor shows the body and restore-to-built-in replaces it', async () => {
+    const sys = { id: 's1', name: 'auth.invite', system_key: 'auth.invite', channel_id: null, channel_type: 'email', subject: 'S', body: '<p>Edited <a href="{{.link}}">go</a> {{.valid_for}}</p>', variables: ['link', 'valid_for', 'tenant'], required_variables: ['link', 'valid_for'], secret_variables: ['link'], edited: true, permissions: { read: true, write: true } }
+    const builtin = { ...sys, body: '<p>Built-in <a href="{{.link}}">accept</a>, valid for {{.valid_for}}</p>', edited: false }
+    const puts: Array<Record<string, unknown>> = []
+    stubFetch((url, init) => {
+      if (init?.method === 'PUT') {
+        puts.push(JSON.parse(String(init.body)))
+        return { status: 200, body: builtin }
+      }
+      if (init?.method === 'POST' && url.endsWith('/restore')) return { status: 200, body: builtin }
+      if (url.includes('/channels')) return { status: 200, body: { items: [] } }
+      if (url.includes('/templates')) return { status: 200, body: { items: [sys] } }
+      return { status: 404, body: { reason: 'not_found' } }
+    })
+    const w = mountView(Templates)
+    await flushPromises()
+    await w.find('[data-test="template-row-s1"]').trigger('click')
+    await flushPromises()
+    const pm = () => drawer().querySelector('[data-test="template-body-visual"]')!
+    expect(pm().textContent).toContain('Edited')
+    const menu = drawer().querySelector('[data-test="body-insert-variable"]')!
+    ;(menu.querySelector('button') as HTMLButtonElement).click()
+    await flushPromises()
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((e) => e.textContent?.trim())).toEqual(['{{.link}}', '{{.valid_for}}', '{{.tenant}}'])
+    ;(document.querySelector('[role="menuitem"]') as HTMLElement).click()
+    await flushPromises()
+    ;(drawer().querySelector('[data-test="template-restore"]') as HTMLButtonElement).click()
+    await flushPromises()
+    useConfirm().answer(true)
+    await flushPromises()
+    expect(pm().textContent).toContain('Built-in')
+    expect(pm().querySelector('a')?.getAttribute('href')).toBe('{{.link}}')
+    ;(drawer().querySelector('[data-test="template-save"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(puts[0]?.body).toBe(builtin.body)
     w.unmount()
   })
   it('message drawer requires recipients unless everyone; send transitions after save', async () => {

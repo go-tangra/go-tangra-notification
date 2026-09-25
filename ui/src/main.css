@@ -8,3 +8,50 @@
   exclude: rootcolor, rootscrollgutter, scrollbar, svg, properties;
 }
 @plugin "@iconify/tailwind4";
+
+/* Template body editor (TemplateBodyEditor.vue). ProseMirror's base rules live
+ * here because TipTap's injected <style> tag is off (the CSP has no inline
+ * styles); the content rules give the editable body a readable email look in
+ * both themes. */
+.tpl-editor .ProseMirror {
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+}
+.tpl-editor .ProseMirror [contenteditable="false"] { white-space: normal; }
+.tpl-editor .ProseMirror pre { white-space: pre-wrap; }
+.tpl-editor img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.tpl-editor .ProseMirror-gapcursor { display: none; pointer-events: none; position: absolute; margin: 0; }
+.tpl-editor .ProseMirror-focused .ProseMirror-gapcursor { display: block; }
+.tpl-editor .ProseMirror-gapcursor::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid currentColor;
+}
+.tpl-editor .ProseMirror-hideselection *::selection { background: transparent; }
+.tpl-editor .ProseMirror-hideselection * { caret-color: transparent; }
+.tpl-editor .ProseMirror > * + * { @apply mt-3; }
+.tpl-editor .ProseMirror h1 { @apply text-2xl font-semibold; }
+.tpl-editor .ProseMirror h2 { @apply text-xl font-semibold; }
+.tpl-editor .ProseMirror h3 { @apply text-lg font-semibold; }
+.tpl-editor .ProseMirror ul { @apply list-disc ps-6; }
+.tpl-editor .ProseMirror ol { @apply list-decimal ps-6; }
+.tpl-editor .ProseMirror blockquote { @apply border-s-4 border-base-content/20 ps-3 text-base-content/80; }
+.tpl-editor .ProseMirror a { @apply text-primary underline; }
+.tpl-editor .ProseMirror code { @apply rounded bg-base-200 px-1 font-mono text-sm; }
+.tpl-editor .ProseMirror pre { @apply rounded bg-base-200 p-2 font-mono text-sm; }
+.tpl-editor .ProseMirror hr { @apply border-base-content/20; }
+/* A Go template action: an atomic chip holding the action's exact text. */
+.tpl-editor .tpl-action { @apply rounded bg-primary/10 px-1 font-mono text-sm text-primary; }
+.tpl-editor .tpl-action.ProseMirror-selectednode { @apply outline-2 outline-primary; }
