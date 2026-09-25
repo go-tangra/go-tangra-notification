@@ -13,10 +13,18 @@ never returned in full; access to channels and templates is Zanzibar-style
 expiry). Every operation is audited; credentials and message bodies never
 reach logs, the audit trail or a credential-free backup.
 
+It is also the platform's **central outbound email path**: the relay is
+configured once (`platform_email`), and auth and warden send their
+invitation, recovery and share-link mail through `notification.v1.Notifier/Send`
+by system template key (`auth.invite`, `warden.share`, ...), with the links
+redacted in the delivery log (feature 017). Services depend on the small
+`github.com/go-tangra/go-tangra-notification/sdk/v4` module (proto +
+`pkg/notifyclient`), not on this service module.
+
 Security model: [`docs/security-model.md`](docs/security-model.md).
 Operations: [`docs/operations.md`](docs/operations.md).
 Dependencies: [`docs/dependencies.md`](docs/dependencies.md).
-Design history: `specs/006-notification-service`.
+Design history: `specs/006-notification-service`, `specs/017-central-email-delivery`.
 
 ## Place in the platform
 
@@ -135,7 +143,8 @@ sending requires). Built-in role grants are seeded by the module
 
 ## Limits (defaults)
 
-600 sends/min per tenant, 60/min per sender; 5 live streams per person, 2000
+600 sends/min per tenant, 60/min per sender, 300 system template sends/min per
+calling service; 5 live streams per person, 2000
 per tenant; a 5-minute replay window; a 16 MiB backup upload; the scheduler
 runs every 15 s with a 60 s lease.
 

@@ -1,5 +1,53 @@
 # Changelog — services/notification
 
+## 4.2.0 — unreleased (feature 017, central email delivery)
+
+notification becomes the single outbound-email path of the platform: auth
+(invitations, recovery) and warden (share links) send through it instead of
+their own relay settings.
+
+- **Platform relay**: new `platform_email` block (host, port, `tls`
+  implicit|starttls|none, username, `password_file`, from, reply_to,
+  `allow_plaintext`). At start the module creates or updates the managed
+  "Platform email" channel of the platform tenant (`platform_tenant_id`,
+  default `00000000-0000-0000-0000-000000000001`): enabled, default email
+  channel, usable tenant-wide, password sealed. Without the block an existing
+  managed channel is disabled. The channel is read-only in the API and UI
+  (`409 managed_channel`), test sends work, backups never export it.
+- **Refusals at start**: a literal `platform_email.password` (use
+  `password_file`), `tls: none` without `platform_email.allow_plaintext`, a
+  username with `tls: none`, a missing/empty/unreadable password file or one
+  more open than 0640. `platform_email.allow_plaintext` is warned at every
+  start; tenant channels keep `smtp.allow_plaintext` and its production
+  refusal.
+- **System templates**: `auth.invite`, `auth.account_reset`, `auth.recovery`,
+  `auth.message` (messages queued by auth 4.1) and `warden.share`, seeded in
+  the platform tenant with built-in English wording; edits survive restarts
+  and upgrades. Only subject and body change (`422 system_template_field`);
+  dropping a required variable is refused (`422 missing_required_variable`);
+  deletion is refused (`409 system_template`); `POST
+  /templates/{id}/restore` returns to the built-in wording.
+- **Send by key**: `notification.v1.SendRequest.template_key` (exactly one of
+  `template_id` / `template_key`). The key must belong to the caller's
+  namespace (`svc/<name>` may send `<name>.*`; refusals audited as
+  `access_refused`); no per-tenant grants; the tenant's enabled default email
+  channel, else the platform channel, else `FailedPrecondition
+  email_not_configured`; `limits_notification.system_send_per_minute`
+  (default 300) per calling service, throttled as `ResourceExhausted`.
+- **Redaction**: secret variables (the links) are stored as `[redacted]` in
+  the log entry (subject and body, every escaping context) and scrubbed from
+  failure reasons; audit rows carry no variables. Log entries carry
+  `template_key`.
+- **Retryable outcome**: `SendResponse.retryable` tells callers whether a
+  failed delivery may succeed later (network errors and SMTP 4xx) or never
+  will (no STARTTLS, certificate not valid for the host, invalid recipient,
+  SMTP 5xx).
+- **SDK module**: `github.com/go-tangra/go-tangra-notification/sdk/v4` holds
+  the `notification.v1` proto and `pkg/notifyclient` (`SendKey` with
+  `Result{Sent, Retryable, Reason}`), so callers no longer depend on the
+  service module.
+- Migration `0005_system_email.sql` (forward-only).
+
 ## Unreleased — feature 006 (notification service)
 
 Added the notification module: a tenant-scoped, multi-channel notification and

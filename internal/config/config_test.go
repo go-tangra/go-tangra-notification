@@ -252,3 +252,13 @@ func TestLoadPlatformEmail(t *testing.T) {
 		t.Fatalf("%v %+v", err, c)
 	}
 }
+
+func TestDevConfigPlatformEmail(t *testing.T) {
+	c, err := Load("../../deploy/dev.yaml")
+	if err != nil || c.PlatformEmail == nil || c.PlatformEmail.Mode() != "none" || !c.PlatformEmail.AllowPlaintext || c.Limits.SystemSendPerMinute != 300 {
+		t.Fatalf("%v %+v", err, c.PlatformEmail)
+	}
+	if err := c.PlatformEmail.validate(); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -18,10 +18,63 @@ services on the Freya channel, and a 32-byte key-encryption key.
 - **Gateway allow-list**: `gatewaysvc bootstrap -allow
   "spiffe://<td>/svc/notification=/api/notification,/ui;notification"`.
 
+## Platform email (central delivery)
+
+The platform's outbound mail (auth invitations and recovery, warden share
+links) goes through this module. The relay is configured once, here:
+
+```yaml
+platform_email:
+  host: mx01.example.net        # the name on the relay's certificate, not its IP
+  port: 587
+  tls: starttls                 # implicit (465) | starttls (default) | none
+  username: tangra@example.net  # optional; refused with tls: none
+  password_file: /run/secrets/smtp.password   # mode 0640 or stricter
+  from: tangra@example.net
+  reply_to: ""
+  allow_plaintext: false        # must be true for tls: none (development)
+platform_tenant_id: 00000000-0000-0000-0000-000000000001
+limits_notification:
+  system_send_per_minute: 300   # per calling service
+```
+
+- **Password**: only through `password_file` (a mounted secret file, one
+  trailing newline ignored). A literal `password:` is refused at start. The
+  password is sealed like every channel credential and never returned,
+  logged or audited.
+- **TLS**: `starttls` never falls back to plaintext (a relay without STARTTLS
+  fails with `relay offers no STARTTLS`); the relay certificate is verified
+  against `host`, so a bare IP fails with a certificate error naming the
+  mismatch. `tls: none` needs `allow_plaintext: true` and is warned at every
+  start; a username with `tls: none` is refused.
+- **Start-up**: after the migrations the module seeds the system templates
+  and creates or updates the managed **Platform email** channel in the
+  platform tenant ("platform email channel ready" in the log). Without the
+  block it logs "platform email disabled" and disables an existing managed
+  channel; sends by key then fail with `email_not_configured` unless the
+  tenant has its own default email channel. Changing the relay = edit the
+  block and restart this module only.
+- **Managed channel**: shown with a *Managed* badge; update and removal answer
+  `409 managed_channel`; *Send test* works. It is never part of a backup.
+- **Channel choice for system mail**: the tenant's enabled default email
+  channel, otherwise the platform channel.
+- **System templates** (`auth.invite`, `auth.account_reset`, `auth.recovery`,
+  `auth.message`, `warden.share`) live in the platform tenant. Operators edit
+  subject and body in *Templates* (badge *System*); required variables (the
+  link) must stay; *Restore built-in* returns to the original. Upgrades
+  refresh only the built-in copy, never the edited wording.
+- **Verifying delivery**: *Log* shows every system send with its
+  `template_key`, status and `sent_at`; links appear as `[redacted]`. A
+  failed entry carries the relay's reason (scrubbed); callers retry the
+  retryable ones (auth keeps its queue).
+- **Policy**: only `svc/auth` and `svc/warden` may call `Notifier/Send`; each
+  may send only keys of its own namespace (`auth.*`, `warden.*`), refusals are
+  audited as `access_refused` with reason `key_namespace`.
+
 ## Limits and rates
 
-Configured under `limits_notification` (send rates, stream counts, replay
-window, backup size). Rate limits fail **closed**: if Valkey is unavailable a
+Configured under `limits_notification` (send rates, system template sends per
+calling service, stream counts, replay window, backup size). Rate limits fail **closed**: if Valkey is unavailable a
 send is refused rather than allowed to bypass the limit. Health reports Valkey
 as `unreachable` and the status as `degraded` while it is down; the gateway
 lease lapses and the module re-registers on recovery.

@@ -64,7 +64,7 @@ func TestSystemTemplateGuards(t *testing.T) {
 	}
 	// Dropping the link is refused and names it; so are syntax errors and undeclared variables.
 	var mr *MissingRequiredError
-	if _, err := f.tp.Update(ctx, platformAdmin(), v.ID, TemplateInput{Subject: "s", Body: "<p>no link, {{.valid_for}}</p>"}); !errors.As(err, &mr) || mr.Variable != "link" {
+	if _, err := f.tp.Update(ctx, platformAdmin(), v.ID, TemplateInput{Subject: "s", Body: "<p>no link, {{.valid_for}}</p>"}); !errors.As(err, &mr) || mr.Variable != "link" || !strings.Contains(mr.Error(), "link") {
 		t.Fatalf("missing link: %v", err)
 	}
 	var ve *ValidationError
