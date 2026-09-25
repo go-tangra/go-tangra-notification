@@ -21,7 +21,7 @@ func TestManifestMatchesContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.Module != "notification" || m.Version != "1.0.0" || len(m.Prefixes) != 1 || len(m.Permissions) != 13 || len(m.Abilities) != 9 || len(m.Nav) != 7 || len(m.Methods) != 0 || len(m.Exposes) != 3 {
+	if m.Module != "notification" || m.Version != "1.1.0" || len(m.Prefixes) != 1 || len(m.Permissions) != 13 || len(m.Abilities) != 9 || len(m.Nav) != 7 || len(m.Methods) != 0 || len(m.Exposes) != 3 {
 		t.Fatalf("%+v", m)
 	}
 	byKey := map[string]int{}
