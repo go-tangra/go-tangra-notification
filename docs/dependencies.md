@@ -33,3 +33,36 @@ No third-party SMTP, template, or crypto library is used.
 | `vitest`, `@vue/test-utils`, `jsdom` | unit tests |
 | `@playwright/test`, `@axe-core/playwright` | end-to-end tests with accessibility checks |
 | `openapi-typescript` | generate request/response types from the OpenAPI contract |
+| `@tiptap/core`, `@tiptap/starter-kit`, `@tiptap/pm` | rich-text (WYSIWYG) editor for email template bodies (see below) |
+
+### Template body editor (`@tiptap/*`, MIT)
+
+- **Purpose**: the visual editor for email template bodies (bold, italic,
+  underline, strike, headings, lists, quote, links, undo/redo) next to an HTML
+  source view. Go template actions are cut out before the HTML reaches the
+  editor and put back byte for byte afterwards (`ui/src/editor/`), so the
+  library never escapes, reorders or splits them; bodies it cannot represent
+  exactly stay in the source view.
+- **Packages**: `@tiptap/core` (editor), `@tiptap/starter-kit` (the marks,
+  nodes, link and history extensions, `trailingNode` off), `@tiptap/pm`
+  (ProseMirror, which the kit is built on; pulls `linkifyjs` for the link
+  extension). `@tiptap/vue-3` is **not** used: its only additions are menu
+  components (and a `@floating-ui/dom` peer); the component mounts the core
+  editor itself. `@tiptap/extension-text-align` was left out: alignment needs
+  inline `style` attributes, which the console CSP (`style-src` without
+  `unsafe-inline`) blocks in the editor, so it would not display.
+- **Bundling**: bundled into the remote (not shared with the shell, no CDN;
+  the CSP forbids external scripts) as a lazily loaded chunk fetched the first
+  time an email template is opened (about 386 kB, 121 kB gzip). TipTap's
+  injected `<style>` tag is disabled (`injectCSS: false`, CSP); the base
+  ProseMirror rules are in `ui/src/main.css`.
+- **Alternatives rejected**: Quill 2 (its Delta model normalizes HTML and has
+  no stable way to keep `{{…}}` inside attributes; Vue wrappers are
+  unmaintained), CKEditor 5 (GPL-2.0-or-later or a commercial licence, much
+  larger), TinyMCE (GPL/commercial since v7, iframe-based, CDN-oriented),
+  Lexical (no official Vue binding), a hand-written `contenteditable` +
+  `document.execCommand` (deprecated API, inconsistent markup across browsers,
+  no history or schema).
+- **Maintenance**: TipTap (Tiptap GmbH) and ProseMirror (Marijn Haverbeke)
+  are actively maintained, MIT-licensed, frequent releases (v3.31 in
+  2026-09); versions pinned by `package-lock.json` and reviewed on every bump.

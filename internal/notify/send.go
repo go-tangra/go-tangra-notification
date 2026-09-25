@@ -226,8 +226,8 @@ func secretValues(names []string, values map[string]string) []string {
 
 // testSubject / testBody are the built-in test message.
 const (
-	testSubject = "Freya notification test"
-	testBody    = "<p>This is a test message from the Freya notification service. If you can read it, the channel works.</p>"
+	testSubject = "Tangra notification test"
+	testBody    = "<p>This is a test message from the Tangra notification service. If you can read it, the channel works.</p>"
 )
 
 // SendTest delivers the built-in test message through a channel the caller

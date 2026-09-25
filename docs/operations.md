@@ -63,6 +63,17 @@ limits_notification:
   subject and body in *Templates* (badge *System*); required variables (the
   link) must stay; *Restore built-in* returns to the original. Upgrades
   refresh only the built-in copy, never the edited wording.
+- **Email body editor**: bodies of email templates open in a visual
+  (WYSIWYG) editor with an *HTML source* toggle; sms, slack and sse keep the
+  plain text area. Template actions show as chips and are stored exactly as
+  written (also inside link addresses, e.g. `href="{{.link}}"`); *Insert
+  variable* adds `{{.name}}` for the declared (system: required) variables.
+  A body the editor cannot keep exactly (inline styles, other elements such
+  as `div`/`img`/tables, an action between blocks like the built-in
+  `warden.share` `{{if .message}}`, an action inside a tag, an unterminated
+  action) opens in source mode with a warning and is not rewritten; switching
+  such a body to the visual editor asks first. The server still validates and
+  renders every body with `html/template`.
 - **Verifying delivery**: *Log* shows every system send with its
   `template_key`, status and `sent_at`; links appear as `[redacted]`. A
   failed entry carries the relay's reason (scrubbed); callers retry the
