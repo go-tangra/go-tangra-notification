@@ -7,13 +7,19 @@ import (
 )
 
 // SeedSystemEmail prepares central email delivery at start (feature 017),
-// after the migrations and before anything is served: the managed platform
-// channel from platform_email. Failures are logged, never fatal: the
+// after the migrations and before anything is served: the system templates
+// and the managed platform channel from platform_email, both in the
+// platform tenant. Failures are logged, never fatal: the
 // module keeps serving its other functions and system sends report
 // email_not_configured until the next start fixes it. The relay password
 // never reaches a log line.
 func (a *App) SeedSystemEmail(ctx context.Context) {
 	tenant := a.Cfg.PlatformTenantID
+	if res, err := a.Templates.EnsureSystemTemplates(ctx, tenant); err != nil {
+		a.Log.Error("system templates", "tenant", tenant, "created", res.Created, "refreshed", res.Refreshed, "err", err)
+	} else {
+		a.Log.Info("system templates ready", "tenant", tenant, "created", res.Created, "refreshed", res.Refreshed)
+	}
 	var pe *notify.PlatformEmail
 	if p := a.Cfg.PlatformEmail; p != nil {
 		pw, err := p.ReadPassword()

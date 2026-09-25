@@ -38,7 +38,7 @@ go-tangra-docker (branch v4).
 
 ### Tests first
 
-- [ ] T004 [P] Contract test for the new proto fields (`template_key`, `retryable`) and the exactly-one-template-ref rule in `notification/tests/contract/notifier_key_test.go`
+- [X] T004 [P] Contract test for the new proto fields (`template_key`, `retryable`) and the exactly-one-template-ref rule in `notification/tests/contract/notifier_key_test.go`
 - [X] T005 [P] Config tests in `notification/internal/config/config_test.go`: `platform_email` defaults (tls starttls), refusals (literal `password`, `tls: none` without `allow_plaintext`, username with `none`, missing host/from, bad port, empty/unreadable/world-readable `password_file`), warning for `allow_plaintext`, `platform_tenant_id` default, `system_send_per_minute` bounds
 - [X] T006 [P] Fuzz test for the template key parser (`^[a-z][a-z0-9]*\.[a-z][a-z0-9_]{0,62}$`, service prefix extraction) in `notification/tests/fuzz/systemkey_fuzz_test.go`
 - [X] T007 [P] Store tests for managed channel, system template columns, `template_key` on log entries, `channels_one_managed` and `templates_system_key` uniqueness in `notification/internal/store/store_integration_test.go`
@@ -87,22 +87,22 @@ go-tangra-docker (branch v4).
 
 ### Tests for User Story 2 — notification
 
-- [ ] T021 [P] [US2] Unit tests for `EnsureSystemTemplates` (all five keys seeded, existing edited template untouched, builtin_* refreshed, required/secret sets) in `notification/internal/notify/systemtemplates_test.go`
-- [ ] T022 [P] [US2] Send-by-key tests in `notification/internal/notify/send_key_test.go`: tenant default channel preferred, platform fallback, disabled tenant channel falls back, none → `email_not_configured` (permanent), missing required variable, unknown key, no grant needed, `system:<service>` rate limit → throttled (retryable)
-- [ ] T023 [P] [US2] Negative security tests: auth sending `warden.share` and warden sending `auth.invite` refused + `access_refused` audit; `channel_id` override with key refused; both id and key refused, in `notification/internal/grpcapi/notifier_test.go`
-- [ ] T024 [P] [US2] Redaction tests (100 % of `RenderRedacted`): link with `&`, `=`, `<`, quotes in html and text bodies and subjects never appears in stored subject/body/error; audit rows carry no variables, in `notification/internal/render/redact_test.go` and `notification/internal/notify/send_redaction_test.go`
-- [ ] T025 [P] [US2] Classification tests (4xx/5xx `textproto.Error`, dial/greeting timeouts, `ErrPlaintext`, x509 errors, throttled) in `notification/internal/channel/email/classify_test.go`
+- [X] T021 [P] [US2] Unit tests for `EnsureSystemTemplates` (all five keys seeded, existing edited template untouched, builtin_* refreshed, required/secret sets) in `notification/internal/notify/systemtemplates_test.go`
+- [X] T022 [P] [US2] Send-by-key tests in `notification/internal/notify/send_key_test.go`: tenant default channel preferred, platform fallback, disabled tenant channel falls back, none → `email_not_configured` (permanent), missing required variable, unknown key, no grant needed, `system:<service>` rate limit → throttled (retryable)
+- [X] T023 [P] [US2] Negative security tests: auth sending `warden.share` and warden sending `auth.invite` refused + `access_refused` audit; `channel_id` override with key refused; both id and key refused, in `notification/internal/grpcapi/notifier_test.go`
+- [X] T024 [P] [US2] Redaction tests (100 % of `RenderRedacted`): link with `&`, `=`, `<`, quotes in html and text bodies and subjects never appears in stored subject/body/error; audit rows carry no variables, in `notification/internal/render/redact_test.go` and `notification/internal/notify/send_redaction_test.go`
+- [X] T025 [P] [US2] Classification tests (4xx/5xx `textproto.Error`, dial/greeting timeouts, `ErrPlaintext`, x509 errors, throttled) in `notification/internal/channel/email/classify_test.go`
 - [X] T026 [P] [US2] Client tests for `SendKey` status mapping (Unavailable/DeadlineExceeded/ResourceExhausted/Aborted → retryable; others → error) in `notification/sdk/pkg/notifyclient/client_test.go`
 
 ### Implementation for User Story 2 — notification
 
-- [ ] T027 [US2] Built-in wording and variable sets for `auth.invite`, `auth.account_reset`, `auth.recovery`, `auth.message`, `warden.share` + `EnsureSystemTemplates` in `notification/internal/notify/systemtemplates.go`; call from `notification/internal/app/wire.go`
-- [ ] T028 [US2] `RenderRedacted` (second render with secret variables replaced by `[redacted]`) in `notification/internal/render/redact.go`
-- [ ] T029 [US2] Retryable classification in `notification/internal/channel/email/classify.go` (wrap provider errors, keep scrubbing)
-- [ ] T030 [US2] Key send path in `notification/internal/notify/send.go`: resolve template by key in platform tenant, channel resolution (D5), skip grants, `system:<service>` limiter, store redacted render + `template_key`, scrub secret values from error, set retryable
-- [ ] T031 [US2] gRPC handler: exactly-one ref, key regex, namespace check from verified SPIFFE id, `retryable` in response, error mapping in `notification/internal/grpcapi/notifier.go`
+- [X] T027 [US2] Built-in wording and variable sets for `auth.invite`, `auth.account_reset`, `auth.recovery`, `auth.message`, `warden.share` + `EnsureSystemTemplates` in `notification/internal/notify/systemtemplates.go`; call from `notification/internal/app/wire.go`
+- [X] T028 [US2] `RenderRedacted` (second render with secret variables replaced by `[redacted]`) in `notification/internal/render/redact.go`
+- [X] T029 [US2] Retryable classification in `notification/internal/channel/email/classify.go` (wrap provider errors, keep scrubbing)
+- [X] T030 [US2] Key send path in `notification/internal/notify/send.go`: resolve template by key in platform tenant, channel resolution (D5), skip grants, `system:<service>` limiter, store redacted render + `template_key`, scrub secret values from error, set retryable
+- [X] T031 [US2] gRPC handler: exactly-one ref, key regex, namespace check from verified SPIFFE id, `retryable` in response, error mapping in `notification/internal/grpcapi/notifier.go`
 - [X] T032 [US2] `SendKey` + `Result` in `notification/sdk/pkg/notifyclient/client.go`
-- [ ] T033 [US2] Integration test: auth-like caller identity sends `auth.invite` through the in-process SMTP server; stored log row, audit rows and captured logs contain no token (redaction scan) in `notification/tests/integration/system_send_test.go`
+- [X] T033 [US2] Integration test: auth-like caller identity sends `auth.invite` through the in-process SMTP server; stored log row, audit rows and captured logs contain no token (redaction scan) in `notification/tests/integration/system_send_test.go`
 
 ### Tests for User Story 2 — auth
 

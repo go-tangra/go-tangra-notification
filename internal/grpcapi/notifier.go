@@ -80,6 +80,7 @@ func toResponse(v notify.LogView) *notificationv1.SendResponse {
 		out.Status = notificationv1.DeliveryStatus_DELIVERY_STATUS_SENT
 	case "failed":
 		out.Status = notificationv1.DeliveryStatus_DELIVERY_STATUS_FAILED
+		out.Retryable = v.Retryable
 	default:
 		out.Status = notificationv1.DeliveryStatus_DELIVERY_STATUS_PENDING
 	}
@@ -89,8 +90,16 @@ func toResponse(v notify.LogView) *notificationv1.SendResponse {
 	return out
 }
 
-// Send renders and delivers for the tenant (tenant-wide use required).
+// Send renders and delivers for the tenant: by template_id (tenant-wide use
+// required) or by template_key (a system template of the caller's own
+// namespace, feature 017). Exactly one of the two is accepted.
 func (s *NotifierServer) Send(ctx context.Context, req *notificationv1.SendRequest) (*notificationv1.SendResponse, error) {
+	if (req.GetTemplateId() == "") == (req.GetTemplateKey() == "") {
+		return nil, status.Error(codes.InvalidArgument, "template_ref")
+	}
+	if req.GetTemplateKey() != "" {
+		return s.sendKey(ctx, req)
+	}
 	subj, err := caller(ctx, req.GetTenantId())
 	if err != nil {
 		return nil, err
@@ -104,6 +113,41 @@ func (s *NotifierServer) Send(ctx context.Context, req *notificationv1.SendReque
 	}
 	if v.Status == "failed" && v.Error == "no_provider" {
 		return nil, status.Error(codes.InvalidArgument, "no_provider")
+	}
+	return toResponse(v), nil
+}
+
+// sendKey sends a system template (contracts notification-grpc.md): no
+// channel override, the key namespace is the service name of the verified
+// caller identity (spiffe://<td>/svc/<name>); refusals are permanent except
+// throttling.
+func (s *NotifierServer) sendKey(ctx context.Context, req *notificationv1.SendRequest) (*notificationv1.SendResponse, error) {
+	if req.GetChannelId() != "" {
+		return nil, status.Error(codes.InvalidArgument, "channel_override")
+	}
+	if !notify.ValidKey(req.GetTemplateKey()) {
+		return nil, status.Error(codes.InvalidArgument, "template_key")
+	}
+	subj, err := caller(ctx, req.GetTenantId())
+	if err != nil {
+		return nil, err
+	}
+	if req.GetRecipient() == "" || len(req.GetRecipient()) > 512 {
+		return nil, status.Error(codes.InvalidArgument, "malformed request")
+	}
+	service, _ := notify.ServiceFromSPIFFE(subj.Service) // "" refuses every key
+	v, err := s.Sender.SendKey(ctx, subj, service, notify.KeyInput{Key: req.GetTemplateKey(), Recipient: req.GetRecipient(), Variables: req.GetVariables(), CorrelationID: req.GetCorrelationId()})
+	switch {
+	case errors.Is(err, notify.ErrKeyNamespace):
+		return nil, status.Error(codes.PermissionDenied, "key_namespace")
+	case errors.Is(err, notify.ErrUnknownKey):
+		return nil, status.Error(codes.NotFound, "template_key")
+	case errors.Is(err, notify.ErrEmailNotConfigured):
+		return nil, status.Error(codes.FailedPrecondition, "email_not_configured")
+	case errors.Is(err, notify.ErrRateLimited):
+		return nil, status.Error(codes.ResourceExhausted, "throttled")
+	case err != nil:
+		return nil, grpcError(err)
 	}
 	return toResponse(v), nil
 }

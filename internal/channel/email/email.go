@@ -175,7 +175,7 @@ func (p *Provider) Send(ctx context.Context, settings sealed.Settings, msg Messa
 	}
 	to, err := mail.ParseAddress(msg.To)
 	if err != nil {
-		return fmt.Errorf("email: recipient: %w", err)
+		return fmt.Errorf("%w: %w", ErrRecipient, err)
 	}
 	body, _ := Build(cfg.From, msg.To, cfg.ReplyTo, msg.Subject, msg.TextBody, msg.HTMLBody, time.Now()) // inputs validated above
 	timeout := p.DialTimeout

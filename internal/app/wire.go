@@ -34,7 +34,9 @@ func Wire(a *App) error {
 		a.Channels.SetPlatformProvider(a.Platform)
 	}
 	a.Templates = notify.NewTemplates(a.Repo, a.Authz, a.Audit)
-	a.Sender = notify.NewSender(a.Repo, a.Channels, a.Templates, a.Authz, a.Audit, limiter, notify.Limits{PerTenant: cfg.Limits.SendPerTenantPerMinute, PerSender: cfg.Limits.SendPerSenderPerMinute})
+	a.Sender = notify.NewSender(a.Repo, a.Channels, a.Templates, a.Authz, a.Audit, limiter, notify.Limits{PerTenant: cfg.Limits.SendPerTenantPerMinute, PerSender: cfg.Limits.SendPerSenderPerMinute,
+		System: cfg.Limits.SystemSendPerMinute})
+	a.Sender.SetPlatformTenant(cfg.PlatformTenantID)
 	nd := httpapi.NotifyDeps{Channels: a.Channels, Templates: a.Templates, Sender: a.Sender, Authz: a.Authz, Perms: a.Perms}
 	a.HTTP.RegisterChannels(nd)
 	a.HTTP.RegisterTemplates(nd)

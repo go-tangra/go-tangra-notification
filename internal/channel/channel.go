@@ -127,3 +127,13 @@ func (n Nop) Secret() []string { return []string{"api_key", "token", "password"}
 func (n Nop) Send(context.Context, sealed.Settings, Message) error {
 	return fmt.Errorf("%w: %s", ErrNoProvider, n.Kind)
 }
+
+// Retryable reports whether a delivery failure may succeed later: a type
+// without a provider never will; email failures are classified by the
+// email provider (email.Retryable).
+func Retryable(err error) bool {
+	if errors.Is(err, ErrNoProvider) {
+		return false
+	}
+	return email.Retryable(err)
+}
