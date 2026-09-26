@@ -19,7 +19,7 @@ import (
 func TestEveryMutationAudited(t *testing.T) {
 	e := StartPlatform(t)
 	owner, tid := e.CreateTenant("acme", "owner@acme.test")
-	if code, out := owner.JSON(http.MethodPost, "/api/v1/admin/roles", map[string]any{"slug": "tpl-mgr", "display_name": "TplMgr", "permissions": []string{"templates:manage", "backup:manage"}}); code != 201 {
+	if code, out := owner.JSON(http.MethodPost, "/api/v1/admin/roles", map[string]any{"slug": "tpl-mgr", "display_name": "TplMgr", "permissions": []string{"notification:templates:manage", "notification:backup:manage"}}); code != 201 {
 		t.Fatalf("role → %d %v", code, out)
 	}
 	alice := e.Invite(owner, "alice@acme.test", "member", "tpl-mgr")
