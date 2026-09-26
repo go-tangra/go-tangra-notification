@@ -138,8 +138,24 @@ key-encryption key (the platform stack mounts it at `/app/deploy/kek.dev`).
 `messages:read/manage`, `inbox:read`, `events:publish`, `permissions:manage`,
 `backup:manage`, `stats:read`. The gateway enforces the per-route permission
 from the manifest; the module then enforces the Zanzibar grant (`use` is what
-sending requires). Built-in role grants are seeded by the module
-(`pkg/notificationmanifest.Grants`).
+sending requires).
+
+The module registers with auth as `notification` (auth SDK
+`authclient.Registration`, feature 019) at start, retrying every 5 s until
+auth accepts, then every five minutes: the permissions, the module roles
+(`pkg/notificationmanifest.Roles`) and the built-in role grants
+(`pkg/notificationmanifest.Grants`, unchanged). Module roles are locked in
+auth; administrators assign them or clone them into custom roles:
+
+| Role | Display name | Permissions |
+|---|---|---|
+| `administrator` | Notifications administrator | every permission except `events:publish` |
+| `sender` | Notifications sender | channels:read, templates:read, notifications:send, notifications:read, messages:read, messages:manage, inbox:read |
+| `viewer` | Notifications viewer | channels:read, templates:read, notifications:read, messages:read, inbox:read |
+
+`events:publish` is for modules pushing live events; no module role carries
+it (owner and admin keep it through the built-in grants). Channel and
+template grants still apply on top of any role.
 
 ## Limits (defaults)
 

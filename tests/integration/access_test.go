@@ -15,8 +15,9 @@ import (
 func TestAccess(t *testing.T) {
 	e := StartPlatform(t)
 	owner, tid := e.CreateTenant("acme", "owner@acme.test")
-	// The grants API needs permissions:manage (gateway); a member gets it through a custom role.
-	if code, out := owner.JSON(http.MethodPost, "/api/v1/admin/roles", map[string]any{"slug": "sharing", "display_name": "Sharing", "permissions": []string{"permissions:manage"}}); code != 201 {
+	// The grants API needs permissions:manage (gateway); a member gets it through a
+	// custom role. Custom roles name module-qualified permissions (auth feature 019).
+	if code, out := owner.JSON(http.MethodPost, "/api/v1/admin/roles", map[string]any{"slug": "sharing", "display_name": "Sharing", "permissions": []string{"notification:permissions:manage"}}); code != 201 {
 		t.Fatalf("role → %d %v", code, out)
 	}
 	viewerU := e.Invite(owner, "viewer@acme.test", "member")
@@ -108,7 +109,7 @@ func TestAccess(t *testing.T) {
 		t.Fatal("private channel visible")
 	}
 	// A role grant held through an auth group: ops group → role "ops"; "grouped" joins the group.
-	code, role := owner.JSON(http.MethodPost, "/api/v1/admin/roles", map[string]any{"slug": "ops", "display_name": "Ops", "permissions": []string{"templates:read", "notifications:send"}})
+	code, role := owner.JSON(http.MethodPost, "/api/v1/admin/roles", map[string]any{"slug": "ops", "display_name": "Ops", "permissions": []string{"notification:templates:read", "notification:notifications:send"}})
 	if code != 201 {
 		t.Fatalf("role → %d %v", code, role)
 	}
