@@ -14,6 +14,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
 	"github.com/go-tangra/go-tangra-notification/v4/api/openapi"
 	"github.com/go-tangra/go-tangra-portal/sdk/v4/pkg/gatewayclient"
 )
@@ -61,6 +62,37 @@ var Grants = map[string][]string{
 	"member":   {"channels:read", "templates:read", "notifications:send", "notifications:read", "messages:read", "inbox:read"},
 	"auditor":  {"stats:read", "notifications:read"},
 	"operator": {"stats:read"},
+}
+
+// Roles are the module roles auth provides in every tenant (feature 019,
+// research D9); administrators assign them or clone them into custom roles.
+// Channel and template grants inside the module still apply on top of them.
+var Roles = []authclient.ModuleRole{
+	{Slug: "administrator", DisplayName: DisplayName + " administrator", Description: "Every notification permission except publishing live events (a module capability)", Permissions: adminRefs()},
+	{Slug: "sender", DisplayName: DisplayName + " sender", Description: "Send notifications and internal messages through granted channels and templates", Permissions: []string{"channels:read", "templates:read", "notifications:send", "notifications:read", "messages:read", "messages:manage", "inbox:read"}},
+	{Slug: "viewer", DisplayName: DisplayName + " viewer", Description: "Read granted channels and templates, the notification log, messages and the own inbox", Permissions: []string{"channels:read", "templates:read", "notifications:read", "messages:read", "inbox:read"}},
+}
+
+// adminRefs is every permission but events:publish, which modules use to
+// push live events and people do not need (user decision, research D9).
+func adminRefs() []string {
+	var out []string
+	for _, ref := range PermissionRefs() {
+		if ref != "events:publish" {
+			out = append(out, ref)
+		}
+	}
+	return out
+}
+
+// Registration is what notification registers with auth at start and every
+// five minutes: its permissions, module roles and built-in role grants.
+func Registration() authclient.Registration {
+	perms := make([]authclient.Permission, 0, len(Permissions))
+	for _, p := range Permissions {
+		perms = append(perms, authclient.Permission{Resource: p.Resource, Action: p.Action, Description: p.Description})
+	}
+	return authclient.Registration{Module: Module, DisplayName: DisplayName, Permissions: perms, Roles: Roles, BuiltinGrants: Grants}
 }
 
 // Methods proxied by the gateway: none (notification.v1 is called service to service).
