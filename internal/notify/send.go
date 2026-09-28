@@ -5,8 +5,10 @@ import (
 	"errors"
 	"html"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
@@ -251,6 +253,95 @@ func (s *Sender) SendTest(ctx context.Context, subj authz.Subjects, channelID, r
 			out := render.Output{Subject: testSubject, Body: testBody}
 			return out, out, nil
 		}})
+}
+
+// Bounds (in characters) and defaults of a custom (template-less) send.
+const (
+	DefaultCustomSubject = "[GoTangra] Scheduled test email"
+	MaxCustomSubject     = 200
+	MaxCustomBody        = 10000
+)
+
+var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// CustomInput is a template-less email (the scheduled test email of
+// feature 026). Body is plain text.
+type CustomInput struct {
+	ChannelID     string // optional: the tenant's default email channel when empty
+	Recipient     string
+	Subject       string // optional: DefaultCustomSubject
+	Body          string // optional: a short text naming CorrelationID and the time
+	CorrelationID string
+}
+
+// SendCustom delivers a plain-text email for the tenant on behalf of an
+// internal caller (the scheduler's executor inside this module, authorised
+// by the mesh policy): no grant is checked, but the tenant scope is
+// mandatory. The channel is the chosen one inside the tenant or the
+// tenant's default email channel — never the platform channel — and must
+// be an enabled email channel. The body is HTML-escaped and kept
+// preformatted. Delivery failures are reported in the returned entry with
+// Retryable set, not as an error.
+func (s *Sender) SendCustom(ctx context.Context, subj authz.Subjects, in CustomInput) (LogView, error) {
+	if !uuidRE.MatchString(subj.TenantID) {
+		return LogView{}, invalid("tenant_id must be a uuid", map[string]any{"field": "tenant_id"})
+	}
+	subject := in.Subject
+	if subject == "" {
+		subject = DefaultCustomSubject
+	}
+	if utf8.RuneCountInString(subject) > MaxCustomSubject || strings.ContainsAny(subject, "\r\n") {
+		return LogView{}, invalid("subject must be one line of at most 200 characters", map[string]any{"field": "subject"})
+	}
+	if utf8.RuneCountInString(in.Body) > MaxCustomBody {
+		return LogView{}, invalid("body exceeds 10000 characters", map[string]any{"field": "body"})
+	}
+	if err := channel.ValidateRecipient(channel.TypeEmail, in.Recipient); err != nil {
+		return LogView{}, invalid("recipient is not valid for the channel type", map[string]any{"field": "recipient"})
+	}
+	ch, settings, provider, err := s.customChannel(ctx, subj.TenantID, in.ChannelID)
+	if err != nil {
+		return LogView{}, err
+	}
+	if ch.Type != channel.TypeEmail {
+		return LogView{}, ErrTypeMismatch
+	}
+	if !ch.Enabled {
+		return LogView{}, ErrChannelDisabled
+	}
+	if err := s.limit(ctx, subj); err != nil {
+		return LogView{}, err
+	}
+	text := in.Body
+	if text == "" {
+		text = "This is a scheduled test email from the GoTangra notification service.\n\n" +
+			"Execution ID: " + in.CorrelationID + "\n" +
+			"Sent at:      " + s.now().UTC().Format(time.RFC3339) + "\n\n" +
+			"If you received this message, your email channel is configured correctly."
+	}
+	out := render.Output{Subject: subject, Body: `<div style="white-space: pre-wrap">` + html.EscapeString(text) + `</div>`}
+	return s.deliver(ctx, subj, delivery{ch: ch, settings: settings, provider: provider, recipient: in.Recipient, correlationID: in.CorrelationID,
+		render: func(context.Context) (render.Output, render.Output, error) { return out, out, nil }})
+}
+
+// customChannel resolves the channel of a custom send inside the tenant:
+// the chosen one (not a uuid or foreign → store.ErrNotFound) or the
+// tenant's default email channel (none → ErrEmailNotConfigured).
+func (s *Sender) customChannel(ctx context.Context, tenantID, channelID string) (store.Channel, sealed.Settings, channel.Provider, error) {
+	if channelID == "" {
+		def, err := s.st.DefaultEmailChannel(ctx, tenantID)
+		if errors.Is(err, store.ErrNotFound) {
+			return store.Channel{}, nil, nil, ErrEmailNotConfigured
+		}
+		if err != nil {
+			return store.Channel{}, nil, nil, err
+		}
+		channelID = def.ID
+	}
+	if !uuidRE.MatchString(channelID) {
+		return store.Channel{}, nil, nil, store.ErrNotFound
+	}
+	return s.channels.Resolve(ctx, tenantID, channelID)
 }
 
 func checkVariables(vars map[string]string) error {

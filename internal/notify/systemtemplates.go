@@ -90,6 +90,18 @@ var SystemTemplates = []SystemTemplate{
 		Required:  []string{"link", "secret_name", "expires", "openings"},
 		Secret:    []string{"link"},
 	},
+	{
+		// lcm's scheduled digest (feature 026): certificates is a plain-text
+		// list pre-rendered by lcm; it is escaped and kept preformatted.
+		Key:     "lcm.certificates_expiring",
+		Subject: `{{.count}} certificate(s) expire within {{.days}} days`,
+		Body: `<p>Hello,</p>
+<p>{{.count}} certificate(s){{if .tenant}} of <strong>{{.tenant}}</strong>{{end}} expire within the next {{.days}} days. Renew or replace them before they expire:</p>
+<div style="white-space: pre-wrap">{{.certificates}}</div>
+<p>This digest is sent by a scheduled task of the certificate lifecycle module.</p>`,
+		Variables: []string{"days", "count", "certificates", "tenant"},
+		Required:  []string{"days", "count", "certificates"},
+	},
 }
 
 // SeedResult counts what EnsureSystemTemplates did.
