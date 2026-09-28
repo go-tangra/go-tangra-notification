@@ -49,9 +49,15 @@ platform_email:
   allow_plaintext: true # Mailpit speaks plain SMTP (development only; warned at start)
   from: Tangra <tangra@example.org>
 platform_tenant_id: 00000000-0000-0000-0000-000000000001
-scheduler:
+scheduler: # delayed publishing of internal messages
   interval_seconds: 15
   lease_seconds: 60
+# The scheduler module (feature 026). The task executor is always served (only
+# svc/scheduler may call it); enabled: true registers notification:send-test-email
+# with the scheduler found under discovery.static.<service>.
+task_scheduler:
+  enabled: false
+  service: scheduler
 gateway:
   service: gateway
   issuer: https://localhost:8443

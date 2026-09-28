@@ -7,6 +7,7 @@ Every direct dependency is justified here (Constitution VI). Versions are pinned
 | `github.com/go-tangra/go-tangra/v4` (`replace ../..`) | mTLS transports, identity, service policy, audit, observability | — | this repository |
 | `github.com/go-tangra/go-tangra-auth/v4` (`pkg/authclient`) | verify the platform token forwarded by the gateway; resolve members (`Profiles.ListMembers`) and decisions (`Authorization.Check`) | re-implementing JWT/revocation checks | this repository |
 | `github.com/go-tangra/go-tangra-portal/v4` (`pkg/gatewayclient`, `api/schema`) | gateway registration, manifest types and schema | — | this repository |
+| `github.com/go-tangra/go-tangra-scheduler/sdk/v4` (`pkg/taskexec`, `pkg/schedulerclient`) | the `scheduler.v1.TaskExecutor` server (caller/tenant/payload checks) and task-type registration with the scheduler module (feature 026) | re-implementing the executor contract | go-tangra |
 | `github.com/jackc/pgx/v5` | TimescaleDB driver and pool (per-call tenant transactions, RLS) | database/sql + lib/pq | Active |
 | `github.com/pressly/goose/v3` | embedded SQL migrations | golang-migrate | Active |
 | `github.com/valkey-io/valkey-go` | live-event streams (`XADD`/`XREAD`) and rate-limit counters (research R4) | go-redis | Active |

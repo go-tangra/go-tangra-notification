@@ -14,10 +14,13 @@ expiry). Every operation is audited; credentials and message bodies never
 reach logs, the audit trail or a credential-free backup.
 
 It is also the platform's **central outbound email path**: the relay is
-configured once (`platform_email`), and auth and warden send their
-invitation, recovery and share-link mail through `notification.v1.Notifier/Send`
-by system template key (`auth.invite`, `warden.share`, ...), with the links
-redacted in the delivery log (feature 017). Services depend on the small
+configured once (`platform_email`), and auth, warden and lcm send their
+invitation, recovery, share-link and certificate-expiry mail through
+`notification.v1.Notifier/Send` by system template key (`auth.invite`,
+`warden.share`, `lcm.certificates_expiring`, ...), with the links redacted in
+the delivery log (feature 017). For the scheduler module it executes the
+scheduled task `notification:send-test-email` (feature 026, config
+`task_scheduler`). Services depend on the small
 `github.com/go-tangra/go-tangra-notification/sdk/v4` module (proto +
 `pkg/notifyclient`), not on this service module.
 
