@@ -19,7 +19,8 @@ type policyRule struct {
 }
 
 // TestPolicyShape proves the development policy admits the gateway on every
-// operation and named services on the notification.v1 methods only.
+// operation, named services on the notification.v1 methods only (lcm among
+// the senders of system templates), and the scheduler on ExecuteTask only.
 func TestPolicyShape(t *testing.T) {
 	raw, err := os.ReadFile("../../deploy/policy.yaml")
 	if err != nil {
@@ -35,7 +36,7 @@ func TestPolicyShape(t *testing.T) {
 	if doc.Version == "" || len(doc.Rules) < 2 {
 		t.Fatalf("policy %+v", doc)
 	}
-	gateway, services := false, false
+	gateway, services, scheduler, lcm := false, false, false, false
 	for _, r := range doc.Rules {
 		if r.Effect != "allow" {
 			t.Errorf("%s: effect %q", r.ID, r.Effect)
@@ -44,6 +45,16 @@ func TestPolicyShape(t *testing.T) {
 			if from == "spiffe://example.org/svc/gateway" {
 				gateway = true
 				continue
+			}
+			if from == "spiffe://example.org/svc/scheduler" {
+				if len(r.Operations) != 1 || r.Operations[0] != "/scheduler.v1.TaskExecutor/ExecuteTask" {
+					t.Errorf("%s: scheduler may call %v", r.ID, r.Operations)
+				}
+				scheduler = true
+				continue
+			}
+			if from == "spiffe://example.org/svc/lcm" && r.ID == "modules-send" {
+				lcm = true
 			}
 			for _, op := range r.Operations {
 				switch op {
@@ -55,8 +66,8 @@ func TestPolicyShape(t *testing.T) {
 			}
 		}
 	}
-	if !gateway || !services {
-		t.Fatalf("gateway=%v services=%v", gateway, services)
+	if !gateway || !services || !scheduler || !lcm {
+		t.Fatalf("gateway=%v services=%v scheduler=%v lcm=%v", gateway, services, scheduler, lcm)
 	}
 }
 

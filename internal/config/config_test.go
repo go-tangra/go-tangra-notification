@@ -86,6 +86,8 @@ func TestValidateRejects(t *testing.T) {
 		{"scheduler interval", func(c *Config) { c.Scheduler.IntervalSeconds = 61 }, "interval_seconds"},
 		{"scheduler lease", func(c *Config) { c.Scheduler.LeaseSeconds = 5 }, "lease_seconds"},
 		{"gateway service", func(c *Config) { c.Gateway.Service = "" }, "gateway.service"},
+		{"task scheduler service empty", func(c *Config) { c.TaskScheduler.Service = "" }, "task_scheduler.service"},
+		{"task scheduler service invalid", func(c *Config) { c.TaskScheduler = TaskScheduler{Enabled: true, Service: "Sched uler"} }, "task_scheduler.service"},
 		{"gateway issuer", func(c *Config) { c.Gateway.Issuer = "http://x" }, "gateway.issuer"},
 		{"backup limit", func(c *Config) { c.Limits.BackupMaxBytes = 1 << 20 }, "backup_max_bytes"},
 		{"request limit below backup", func(c *Config) { c.Config.Limits.MaxRequestBytes = 8 << 20 }, "max_request_bytes"},
@@ -121,6 +123,32 @@ func TestLoad(t *testing.T) {
 	}
 	if _, err := Load("../../deploy/dev.yaml"); err != nil {
 		t.Fatalf("dev.yaml: %v", err)
+	}
+}
+
+// TestTaskScheduler (feature 026): registration with the scheduler module is
+// opt-in; the executor is always served; the section keeps its own key next
+// to the message scheduler.
+func TestTaskScheduler(t *testing.T) {
+	c := Default()
+	if c.TaskScheduler.Enabled || c.TaskScheduler.Service != "scheduler" {
+		t.Fatalf("defaults %+v", c.TaskScheduler)
+	}
+	dir := t.TempDir()
+	p := filepath.Join(dir, "c.yaml")
+	_ = os.WriteFile(p, []byte("task_scheduler:\n  enabled: true\n  service: scheduler-2\nscheduler:\n  interval_seconds: 10\n"), 0o600)
+	c, err := Load(p)
+	if err != nil || !c.TaskScheduler.Enabled || c.TaskScheduler.Service != "scheduler-2" || c.Scheduler.IntervalSeconds != 10 {
+		t.Fatalf("%v %+v", err, c)
+	}
+	_ = os.WriteFile(p, []byte("task_scheduler:\n  enabled: true\n  url: x\n"), 0o600)
+	if _, err := Load(p); err == nil {
+		t.Fatal("unknown task_scheduler field accepted")
+	}
+	v := valid()
+	v.TaskScheduler = TaskScheduler{Enabled: true, Service: "scheduler"}
+	if err := v.Validate(); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -11,16 +11,18 @@ import (
 	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
-// TestBuiltinTemplates: the five system templates (research D3) parse as
-// email templates, declare what they reference, reference every required
-// variable, and mark the links (and the legacy text) secret.
+// TestBuiltinTemplates: the system templates (research D3; lcm's expiry
+// digest from feature 026) parse as email templates, declare what they
+// reference, reference every required variable, and mark the links (and
+// the legacy text) secret.
 func TestBuiltinTemplates(t *testing.T) {
 	want := map[string]struct{ vars, required, secret string }{
-		"auth.invite":        {"link,tenant,valid_for", "link,valid_for", "link"},
-		"auth.account_reset": {"link,valid_for", "link,valid_for", "link"},
-		"auth.recovery":      {"link,valid_for", "link,valid_for", "link"},
-		"auth.message":       {"subject,text", "subject,text", "text"},
-		"warden.share":       {"expires,link,message,openings,secret_name", "expires,link,openings,secret_name", "link"},
+		"auth.invite":               {"link,tenant,valid_for", "link,valid_for", "link"},
+		"auth.account_reset":        {"link,valid_for", "link,valid_for", "link"},
+		"auth.recovery":             {"link,valid_for", "link,valid_for", "link"},
+		"auth.message":              {"subject,text", "subject,text", "text"},
+		"warden.share":              {"expires,link,message,openings,secret_name", "expires,link,openings,secret_name", "link"},
+		"lcm.certificates_expiring": {"certificates,count,days,tenant", "certificates,count,days", ""},
 	}
 	if len(SystemTemplates) != len(want) {
 		t.Fatalf("%d system templates", len(SystemTemplates))
@@ -125,5 +127,28 @@ func TestEnsureSystemTemplatesFailures(t *testing.T) {
 		if _, err := f.tp.EnsureSystemTemplates(ctx, tP); err == nil {
 			t.Fatalf("%s error swallowed", op)
 		}
+	}
+}
+
+// TestCertificatesExpiringTemplate (feature 026): lcm's digest renders the
+// pre-rendered list preformatted and escaped, with the counts in the subject.
+func TestCertificatesExpiringTemplate(t *testing.T) {
+	var st SystemTemplate
+	for _, s := range SystemTemplates {
+		if s.Key == "lcm.certificates_expiring" {
+			st = s
+		}
+	}
+	c, err := render.Parse(st.Subject, st.Body, render.KindHTML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent, _, err := c.RenderRedacted(context.Background(), map[string]string{"days": "7", "count": "2", "certificates": "a.example.org — 2026-10-01\n<b>b</b>", "tenant": "Acme"}, st.Secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sent.Subject != "2 certificate(s) expire within 7 days" || !strings.Contains(sent.Body, `<div style="white-space: pre-wrap">`) ||
+		!strings.Contains(sent.Body, "&lt;b&gt;b&lt;/b&gt;") || !strings.Contains(sent.Body, "a.example.org") || !strings.Contains(sent.Body, "Acme") {
+		t.Fatalf("rendered %+v", sent)
 	}
 }

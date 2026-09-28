@@ -12,9 +12,22 @@ services on the Freya channel, and a 32-byte key-encryption key.
   in one transaction).
 - **Database roles**: migrations run as a role that owns the schema; the service
   runs as `notification_app` (no `BYPASSRLS`). The migration DSN is separate.
-- **Policy**: `deploy/policy.yaml` admits the gateway on every route and named
-  services (warden, auth) on `Notifier/Send`, `Notifier/SendTest` and
-  `Events/Publish`. Tighten `from:` per deployment.
+- **Policy**: `deploy/policy.yaml` admits the gateway on every route, named
+  services (warden, auth, lcm) on `Notifier/Send`, `Notifier/SendTest` and
+  `Events/Publish` (a service sends only system templates of its own key
+  namespace, e.g. lcm → `lcm.*`), and the scheduler module on
+  `/scheduler.v1.TaskExecutor/ExecuteTask` only (rule `scheduler-execute`).
+  Tighten `from:` per deployment.
+- **Scheduled tasks** (feature 026): the module executes
+  `notification:send-test-email` for the scheduler module — a plain-text test
+  email through the tenant's default (or chosen) email channel, never the
+  platform channel; a missing, disabled or non-email channel or an invalid
+  recipient fails permanently, delivery failures are retried per the task.
+  The executor is always served and re-checks that the caller is
+  `svc/<task_scheduler.service>` of the own trust domain. Registration is
+  opt-in: `task_scheduler: {enabled: true, service: scheduler}` plus
+  `discovery.static.scheduler`; the module re-registers every 5 minutes and
+  never unregisters on shutdown.
 - **Gateway allow-list**: `gatewaysvc bootstrap -allow
   "spiffe://<td>/svc/notification=/api/notification,/ui;notification"`.
 
@@ -59,7 +72,7 @@ limits_notification:
 - **Channel choice for system mail**: the tenant's enabled default email
   channel, otherwise the platform channel.
 - **System templates** (`auth.invite`, `auth.account_reset`, `auth.recovery`,
-  `auth.message`, `warden.share`) live in the platform tenant. Operators edit
+  `auth.message`, `warden.share`, `lcm.certificates_expiring`) live in the platform tenant. Operators edit
   subject and body in *Templates* (badge *System*); required variables (the
   link) must stay; *Restore built-in* returns to the original. Upgrades
   refresh only the built-in copy, never the edited wording.

@@ -1,5 +1,29 @@
 # Changelog — services/notification
 
+## Unreleased
+
+- **Scheduled tasks for the scheduler module (feature 026)**: the module
+  serves `scheduler.v1.TaskExecutor/ExecuteTask` (scheduler-v4 SDK) and
+  executes `notification:send-test-email` (payload `recipient`, optional
+  `subject` ≤ 200, `body` ≤ 10,000 plain text, `channelId`): a test email
+  through the tenant's default or chosen email channel — never the platform
+  channel — logged and audited with the scheduler as the actor. Invalid
+  payloads, a missing/disabled/non-email channel and permanent delivery
+  refusals fail permanently; transient delivery failures and rate limits are
+  retried by the scheduler. Only `svc/scheduler` of the own trust domain may
+  call the executor (policy rule `scheduler-execute` plus an in-process
+  check).
+- New config section `task_scheduler: {enabled: false, service: scheduler}`
+  (separate from the message `scheduler` section): `enabled: true` registers
+  the task types with the scheduler (`discovery.static.<service>`), retried
+  until accepted and refreshed every 5 minutes.
+- New system template `lcm.certificates_expiring` (variables `days`, `count`,
+  `certificates`, optional `tenant`) for lcm's expiring-certificates digest;
+  `deploy/policy.yaml` admits `svc/lcm` in `modules-send` (lcm may send only
+  `lcm.*` keys).
+- Dependency: `github.com/go-tangra/go-tangra-scheduler/sdk/v4`
+  (`golang.org/x/net` 0.59.0 follows from it).
+
 ## 4.3.0 — 2026-09-26
 
 - **Visual editor for email template bodies**: in *Templates*, the body of an

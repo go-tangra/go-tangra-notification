@@ -30,7 +30,12 @@ func TestSystemSendRedaction(t *testing.T) {
 			}
 		}
 	}
+	withSecrets := 0
 	for _, st := range SystemTemplates {
+		if len(st.Secret) == 0 { // nothing to redact (lcm.certificates_expiring)
+			continue
+		}
+		withSecrets++
 		service := KeyService(st.Key)
 		vars := map[string]string{}
 		for _, v := range st.Variables {
@@ -68,7 +73,7 @@ func TestSystemSendRedaction(t *testing.T) {
 	for _, e := range f.ms.Audit {
 		check("audit "+e.EventType, string(e.Details)+e.Reason)
 	}
-	if n := len(f.ms.AuditEvents(tA, string(audit.NotificationSent))); n != len(SystemTemplates) {
+	if n := len(f.ms.AuditEvents(tA, string(audit.NotificationSent))); n != withSecrets {
 		t.Fatalf("sent events %d", n)
 	}
 	for _, e := range f.ms.AuditEvents(tA, string(audit.NotificationSent)) {

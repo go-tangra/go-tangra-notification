@@ -15,6 +15,7 @@ import (
 	"time"
 
 	fconfig "github.com/go-tangra/go-tangra/v4/config"
+	"github.com/go-tangra/go-tangra/v4/identity"
 	"gopkg.in/yaml.v3"
 )
 
@@ -27,9 +28,12 @@ type Config struct {
 	KEK       KEK       `yaml:"kek"`
 	SMTP      SMTP      `yaml:"smtp"`
 	Scheduler Scheduler `yaml:"scheduler"`
-	Gateway   Gateway   `yaml:"gateway"`
-	Enroll    Enroll    `yaml:"enroll"`
-	Limits    Limits    `yaml:"limits_notification"`
+	// TaskScheduler is the scheduler module (feature 026), distinct from
+	// the message scheduler above.
+	TaskScheduler TaskScheduler `yaml:"task_scheduler"`
+	Gateway       Gateway       `yaml:"gateway"`
+	Enroll        Enroll        `yaml:"enroll"`
+	Limits        Limits        `yaml:"limits_notification"`
 
 	// PlatformEmail is the platform-wide mail relay (feature 017); nil =
 	// no platform channel, platform email disabled.
@@ -169,6 +173,15 @@ type Scheduler struct {
 	LeaseSeconds    int `yaml:"lease_seconds"`
 }
 
+// TaskScheduler connects the module to the scheduler module (feature 026).
+// The task executor (scheduler.v1.TaskExecutor) is always served and admits
+// only the scheduler's identity; Enabled makes the module register its task
+// types with the scheduler reached under Service (discovery name).
+type TaskScheduler struct {
+	Enabled bool   `yaml:"enabled"`
+	Service string `yaml:"service"`
+}
+
 // Gateway names the application gateway and the platform token issuer.
 type Gateway struct {
 	Service string `yaml:"service"`
@@ -201,12 +214,13 @@ type Limits struct {
 // Default returns secure defaults on top of the Freya defaults.
 func Default() Config {
 	return Config{
-		Config:    fconfig.Default(),
-		DB:        DB{MaxConns: 16},
-		KEK:       KEK{Source: "file"},
-		SMTP:      SMTP{DialTimeoutSeconds: 30},
-		Scheduler: Scheduler{IntervalSeconds: 15, LeaseSeconds: 60},
-		Gateway:   Gateway{Service: "gateway"},
+		Config:        fconfig.Default(),
+		DB:            DB{MaxConns: 16},
+		KEK:           KEK{Source: "file"},
+		SMTP:          SMTP{DialTimeoutSeconds: 30},
+		Scheduler:     Scheduler{IntervalSeconds: 15, LeaseSeconds: 60},
+		TaskScheduler: TaskScheduler{Service: "scheduler"},
+		Gateway:       Gateway{Service: "gateway"},
 		Limits: Limits{BackupMaxBytes: 16 << 20, SendPerTenantPerMinute: 600, SendPerSenderPerMinute: 60,
 			StreamsPerUser: 5, StreamsPerTenant: 2000, ReplayWindowSeconds: 300, SystemSendPerMinute: 300},
 		PlatformTenantID: DefaultPlatformTenantID,
@@ -272,6 +286,9 @@ func (c Config) Validate() error {
 	}
 	if c.Gateway.Service == "" {
 		return errors.New("config: gateway.service is required")
+	}
+	if !identity.ValidServiceName(c.TaskScheduler.Service) {
+		return errors.New("config: task_scheduler.service must be a service name (the scheduler's discovery name)")
 	}
 	if iu, err := url.Parse(c.Gateway.Issuer); err != nil || iu.Scheme != "https" || iu.Host == "" {
 		return errors.New("config: gateway.issuer must be an https origin")
