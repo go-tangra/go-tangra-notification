@@ -14,7 +14,9 @@ import (
 	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/stats"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/stream"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/taskexec"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/transfer"
+	schedulerv1 "github.com/go-tangra/go-tangra-scheduler/sdk/v4/api/proto/scheduler/v1"
 )
 
 // Version is reported by the health route.
@@ -62,5 +64,16 @@ func Wire(a *App) error {
 	}
 	notificationv1.RegisterNotifierServer(a.Freya.GRPC(), &grpcapi.NotifierServer{Sender: a.Sender, Audit: a.Audit})
 	notificationv1.RegisterEventsServer(a.Freya.GRPC(), &grpcapi.EventsServer{Hub: a.Hub, Audit: a.Audit})
+	// Scheduled task types (feature 026): the executor is always served (the
+	// mesh policy and the SDK server admit only the scheduler); registration
+	// with the scheduler module is opt-in (task_scheduler.enabled).
+	exec, err := schedulerExecutor(cfg, a.Sender)
+	if err != nil {
+		return err
+	}
+	schedulerv1.RegisterTaskExecutorServer(a.Freya.GRPC(), exec.Server(taskexec.Caller(cfg.TrustDomain), a.Log))
+	if r := schedulerRegistrar(cfg, a.Freya.Client, a.Log); r != nil {
+		a.workers = append(a.workers, r.Run)
+	}
 	return a.CheckRoutes()
 }
