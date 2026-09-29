@@ -102,6 +102,107 @@ var SystemTemplates = []SystemTemplate{
 		Variables: []string{"days", "count", "certificates", "tenant"},
 		Required:  []string{"days", "count", "certificates"},
 	},
+	{
+		// signing (feature 027): variables are names, links and reasons only —
+		// never field values. Links open the portal (sign-in required).
+		Key:     "signing.invitation",
+		Subject: `Please sign: {{.document}}`,
+		Body: `<p>Hello {{.signer}},</p>
+<p>{{if .sender}}{{.sender}} asks you{{else}}You are asked{{end}} to sign <strong>{{.document}}</strong>.</p>
+<p><a href="{{.link}}">Open the document</a></p>
+` + linkHint + `
+<p lang="bg">Моля, подпишете документа „{{.document}}“.</p>`,
+		Variables: []string{"document", "sender", "signer", "link"},
+		Required:  []string{"document", "signer", "link"},
+	},
+	{
+		Key:     "signing.next_signer",
+		Subject: `Your turn to sign: {{.document}}`,
+		Body: `<p>Hello {{.signer}},</p>
+<p>The previous signers have signed <strong>{{.document}}</strong>{{if .sender}} (sent by {{.sender}}){{end}}. It is your turn now.</p>
+<p><a href="{{.link}}">Open the document</a></p>
+` + linkHint + `
+<p lang="bg">Ваш ред е да подпишете „{{.document}}“.</p>`,
+		Variables: []string{"document", "sender", "signer", "link"},
+		Required:  []string{"document", "signer", "link"},
+	},
+	{
+		Key:     "signing.certificate_setup",
+		Subject: `Set up your signing certificate`,
+		Body: `<p>Hello {{.signer}},</p>
+<p>To sign documents you need a personal signing certificate protected by a PIN that only you know. Setting it up takes a minute.</p>
+<p><a href="{{.link}}">Set up my certificate</a></p>
+` + linkHint,
+		Variables: []string{"signer", "link"},
+		Required:  []string{"signer", "link"},
+	},
+	{
+		Key:     "signing.reminder",
+		Subject: `Reminder: please sign {{.document}}`,
+		Body: `<p>Hello {{.signer}},</p>
+<p>This is reminder {{.reminder_no}}: <strong>{{.document}}</strong>{{if .sender}} from {{.sender}}{{end}} still waits for your signature.</p>
+<p><a href="{{.link}}">Open the document</a></p>
+` + linkHint + `
+<p lang="bg">Напомняне: документът „{{.document}}“ очаква вашия подпис.</p>`,
+		Variables: []string{"document", "sender", "signer", "link", "reminder_no"},
+		Required:  []string{"document", "signer", "link", "reminder_no"},
+	},
+	{
+		Key:     "signing.completed",
+		Subject: `Signed by everyone: {{.document}}`,
+		Body: `<p>Hello{{if .recipient}} {{.recipient}}{{end}},</p>
+<p>Everyone has signed <strong>{{.document}}</strong>. The signed document and its audit trail are available.</p>
+<p><a href="{{.link}}">Open the document</a></p>
+` + linkHint + `
+<p lang="bg">Документът „{{.document}}“ е подписан от всички страни.</p>`,
+		Variables: []string{"document", "recipient", "link"},
+		Required:  []string{"document", "link"},
+	},
+	{
+		Key:     "signing.declined",
+		Subject: `Declined: {{.document}}`,
+		Body: `<p>Hello{{if .recipient}} {{.recipient}}{{end}},</p>
+<p>{{.signer}} declined to sign <strong>{{.document}}</strong>, so the signing was cancelled.</p>
+<p>Reason given:</p>
+<blockquote>{{.reason}}</blockquote>
+<p><a href="{{.link}}">Open the submission</a></p>
+` + linkHint,
+		Variables: []string{"document", "signer", "reason", "recipient", "link"},
+		Required:  []string{"document", "signer", "reason", "link"},
+	},
+	{
+		Key:     "signing.cancelled",
+		Subject: `Cancelled: {{.document}}`,
+		Body: `<p>Hello{{if .recipient}} {{.recipient}}{{end}},</p>
+<p>The signing of <strong>{{.document}}</strong> was cancelled. You no longer need to sign it.</p>
+<p>Reason given:</p>
+<blockquote>{{.reason}}</blockquote>
+<p><a href="{{.link}}">Open the submission</a></p>
+` + linkHint,
+		Variables: []string{"document", "reason", "recipient", "link"},
+		Required:  []string{"document", "reason", "link"},
+	},
+	{
+		Key:     "signing.expired",
+		Subject: `Expired: {{.document}}`,
+		Body: `<p>Hello{{if .recipient}} {{.recipient}}{{end}},</p>
+<p>The signing of <strong>{{.document}}</strong> expired before everyone signed. It can no longer be signed.</p>
+<p><a href="{{.link}}">Open the submission</a></p>
+` + linkHint,
+		Variables: []string{"document", "recipient", "link"},
+		Required:  []string{"document", "link"},
+	},
+	{
+		Key:     "signing.certificate_locked",
+		Subject: `Your signing certificate is locked`,
+		Body: `<p>Hello {{.signer}},</p>
+<p>Your signing certificate was locked after too many wrong PINs. You can sign again after {{.locked_until}}.</p>
+<p>If you did not try to sign, tell your administrator.</p>
+<p><a href="{{.link}}">My signing certificate</a></p>
+` + linkHint,
+		Variables: []string{"signer", "locked_until", "link"},
+		Required:  []string{"signer", "locked_until", "link"},
+	},
 }
 
 // SeedResult counts what EnsureSystemTemplates did.

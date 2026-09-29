@@ -17,12 +17,21 @@ import (
 // the legacy text) secret.
 func TestBuiltinTemplates(t *testing.T) {
 	want := map[string]struct{ vars, required, secret string }{
-		"auth.invite":               {"link,tenant,valid_for", "link,valid_for", "link"},
-		"auth.account_reset":        {"link,valid_for", "link,valid_for", "link"},
-		"auth.recovery":             {"link,valid_for", "link,valid_for", "link"},
-		"auth.message":              {"subject,text", "subject,text", "text"},
-		"warden.share":              {"expires,link,message,openings,secret_name", "expires,link,openings,secret_name", "link"},
-		"lcm.certificates_expiring": {"certificates,count,days,tenant", "certificates,count,days", ""},
+		"auth.invite":                {"link,tenant,valid_for", "link,valid_for", "link"},
+		"auth.account_reset":         {"link,valid_for", "link,valid_for", "link"},
+		"auth.recovery":              {"link,valid_for", "link,valid_for", "link"},
+		"auth.message":               {"subject,text", "subject,text", "text"},
+		"warden.share":               {"expires,link,message,openings,secret_name", "expires,link,openings,secret_name", "link"},
+		"lcm.certificates_expiring":  {"certificates,count,days,tenant", "certificates,count,days", ""},
+		"signing.invitation":         {"document,link,sender,signer", "document,link,signer", ""},
+		"signing.next_signer":        {"document,link,sender,signer", "document,link,signer", ""},
+		"signing.certificate_setup":  {"link,signer", "link,signer", ""},
+		"signing.reminder":           {"document,link,reminder_no,sender,signer", "document,link,reminder_no,signer", ""},
+		"signing.completed":          {"document,link,recipient", "document,link", ""},
+		"signing.declined":           {"document,link,reason,recipient,signer", "document,link,reason,signer", ""},
+		"signing.cancelled":          {"document,link,reason,recipient", "document,link,reason", ""},
+		"signing.expired":            {"document,link,recipient", "document,link", ""},
+		"signing.certificate_locked": {"link,locked_until,signer", "link,locked_until,signer", ""},
 	}
 	if len(SystemTemplates) != len(want) {
 		t.Fatalf("%d system templates", len(SystemTemplates))
