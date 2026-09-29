@@ -32,6 +32,12 @@ func TestBuiltinTemplates(t *testing.T) {
 		"signing.cancelled":          {"document,link,reason,recipient", "document,link,reason", ""},
 		"signing.expired":            {"document,link,recipient", "document,link", ""},
 		"signing.certificate_locked": {"link,locked_until,signer", "link,locked_until,signer", ""},
+		"hr.request_submitted":       {"AbsenceType,ApproverName,Days,EmployeeName,EndDate,Reason,ReviewURL,StartDate", "AbsenceType,Days,EmployeeName,EndDate,ReviewURL,StartDate", ""},
+		"hr.request_approved":        {"AbsenceType,Days,EmployeeName,EndDate,RequestURL,ReviewerName,StartDate", "AbsenceType,Days,EndDate,RequestURL,StartDate", ""},
+		"hr.request_rejected":        {"AbsenceType,Days,EmployeeName,EndDate,RequestURL,ReviewNotes,ReviewerName,StartDate", "AbsenceType,Days,EndDate,RequestURL,StartDate", ""},
+		"hr.request_revoked":         {"AbsenceType,Days,EmployeeName,EndDate,Reason,RequestURL,ReviewerName,StartDate", "AbsenceType,Days,EndDate,RequestURL,StartDate", ""},
+		"hr.signing_failed":          {"AbsenceType,EmployeeName,EndDate,Outcome,RecipientName,RequestURL,StartDate", "AbsenceType,EmployeeName,EndDate,Outcome,RequestURL,StartDate", ""},
+		"hr.allowance_overdrawn":     {"AbsenceType,EmployeeName,Remaining,RequestURL,Year", "AbsenceType,EmployeeName,Remaining,RequestURL,Year", ""},
 	}
 	if len(SystemTemplates) != len(want) {
 		t.Fatalf("%d system templates", len(SystemTemplates))
@@ -159,5 +165,52 @@ func TestCertificatesExpiringTemplate(t *testing.T) {
 	if sent.Subject != "2 certificate(s) expire within 7 days" || !strings.Contains(sent.Body, `<div style="white-space: pre-wrap">`) ||
 		!strings.Contains(sent.Body, "&lt;b&gt;b&lt;/b&gt;") || !strings.Contains(sent.Body, "a.example.org") || !strings.Contains(sent.Body, "Acme") {
 		t.Fatalf("rendered %+v", sent)
+	}
+}
+
+// TestHRTemplates (feature 028): the leave e-mails render with the variables
+// hr sends, escape what people typed, keep reasons and notes out of the
+// subjects and render optional parts only when given.
+func TestHRTemplates(t *testing.T) {
+	base := map[string]string{"EmployeeName": "Maria <i>", "AbsenceType": "Paid leave", "StartDate": "06.07.2026", "EndDate": "10.07.2026",
+		"Days": "5", "RequestURL": "https://portal.example.org/hr/requests/r1", "ReviewURL": "https://portal.example.org/hr/review",
+		"ApproverName": "Petar", "ReviewerName": "Petar", "Reason": "<script>x</script>", "ReviewNotes": "team offsite", "RecipientName": "Petar",
+		"Outcome": "declined", "Year": "2026", "Remaining": "-2"}
+	for _, st := range SystemTemplates {
+		if !strings.HasPrefix(st.Key, "hr.") {
+			continue
+		}
+		for _, v := range []string{".Reason", ".ReviewNotes", "URL"} {
+			if strings.Contains(st.Subject, v) {
+				t.Errorf("%s: %s in the subject", st.Key, v)
+			}
+		}
+		c, err := render.Parse(st.Subject, st.Body, render.KindHTML)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sent, _, err := c.RenderRedacted(context.Background(), base, st.Secret)
+		if err != nil {
+			t.Fatalf("%s: %v", st.Key, err)
+		}
+		if strings.Contains(sent.Body, "<script>") || strings.Contains(sent.Body, "<i>") || !strings.Contains(sent.Body, "Paid leave") || !strings.Contains(sent.Body, `lang="bg"`) {
+			t.Errorf("%s rendered %q", st.Key, sent.Body)
+		}
+	}
+	var sub SystemTemplate
+	for _, st := range SystemTemplates {
+		if st.Key == "hr.request_submitted" {
+			sub = st
+		}
+	}
+	c, _ := render.Parse(sub.Subject, sub.Body, render.KindHTML)
+	vars := map[string]string{}
+	for _, v := range sub.Variables {
+		vars[v] = base[v]
+	}
+	vars["Reason"] = ""
+	sent, _, err := c.RenderRedacted(context.Background(), vars, nil)
+	if err != nil || strings.Contains(sent.Body, "Reason given") || !strings.HasPrefix(sent.Subject, "Leave request: Maria") {
+		t.Fatalf("no reason: %v %+v", err, sent)
 	}
 }

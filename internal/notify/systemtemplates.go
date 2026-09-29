@@ -203,6 +203,81 @@ var SystemTemplates = []SystemTemplate{
 		Variables: []string{"signer", "locked_until", "link"},
 		Required:  []string{"signer", "locked_until", "link"},
 	},
+	{
+		// hr (feature 028): names, dates, day counts and the review notes the
+		// people involved wrote; links open the portal (sign-in required).
+		// Reasons and notes never appear in subjects.
+		Key:     "hr.request_submitted",
+		Subject: `Leave request: {{.EmployeeName}}, {{.StartDate}} – {{.EndDate}}`,
+		Body: `<p>Hello{{if .ApproverName}} {{.ApproverName}}{{end}},</p>
+<p>{{.EmployeeName}} asks for <strong>{{.AbsenceType}}</strong> from {{.StartDate}} to {{.EndDate}} ({{.Days}} days).</p>
+{{if .Reason}}<p>Reason given:</p>
+<blockquote>{{.Reason}}</blockquote>
+{{end}}<p><a href="{{.ReviewURL}}">Review leave requests</a></p>
+<p>If the link does not open, copy this address into your browser:<br>{{.ReviewURL}}</p>
+<p lang="bg">{{.EmployeeName}} подаде заявка за отпуск от {{.StartDate}} до {{.EndDate}} ({{.Days}} дни).</p>`,
+		Variables: []string{"ApproverName", "EmployeeName", "AbsenceType", "StartDate", "EndDate", "Days", "Reason", "ReviewURL"},
+		Required:  []string{"EmployeeName", "AbsenceType", "StartDate", "EndDate", "Days", "ReviewURL"},
+	},
+	{
+		Key:     "hr.request_approved",
+		Subject: `Leave approved: {{.StartDate}} – {{.EndDate}}`,
+		Body: `<p>Hello{{if .EmployeeName}} {{.EmployeeName}}{{end}},</p>
+<p>Your <strong>{{.AbsenceType}}</strong> from {{.StartDate}} to {{.EndDate}} ({{.Days}} days) was approved{{if .ReviewerName}} by {{.ReviewerName}}{{end}}.</p>
+<p><a href="{{.RequestURL}}">Open the request</a></p>
+<p>If the link does not open, copy this address into your browser:<br>{{.RequestURL}}</p>
+<p lang="bg">Вашият отпуск от {{.StartDate}} до {{.EndDate}} е одобрен.</p>`,
+		Variables: []string{"EmployeeName", "AbsenceType", "StartDate", "EndDate", "Days", "ReviewerName", "RequestURL"},
+		Required:  []string{"AbsenceType", "StartDate", "EndDate", "Days", "RequestURL"},
+	},
+	{
+		Key:     "hr.request_rejected",
+		Subject: `Leave rejected: {{.StartDate}} – {{.EndDate}}`,
+		Body: `<p>Hello{{if .EmployeeName}} {{.EmployeeName}}{{end}},</p>
+<p>Your <strong>{{.AbsenceType}}</strong> from {{.StartDate}} to {{.EndDate}} ({{.Days}} days) was rejected{{if .ReviewerName}} by {{.ReviewerName}}{{end}}.</p>
+{{if .ReviewNotes}}<p>Notes:</p>
+<blockquote>{{.ReviewNotes}}</blockquote>
+{{end}}<p><a href="{{.RequestURL}}">Open the request</a></p>
+<p>If the link does not open, copy this address into your browser:<br>{{.RequestURL}}</p>
+<p lang="bg">Вашата заявка за отпуск от {{.StartDate}} до {{.EndDate}} е отхвърлена.</p>`,
+		Variables: []string{"EmployeeName", "AbsenceType", "StartDate", "EndDate", "Days", "ReviewerName", "ReviewNotes", "RequestURL"},
+		Required:  []string{"AbsenceType", "StartDate", "EndDate", "Days", "RequestURL"},
+	},
+	{
+		Key:     "hr.request_revoked",
+		Subject: `Leave revoked: {{.StartDate}} – {{.EndDate}}`,
+		Body: `<p>Hello{{if .EmployeeName}} {{.EmployeeName}}{{end}},</p>
+<p>Your approved <strong>{{.AbsenceType}}</strong> from {{.StartDate}} to {{.EndDate}} ({{.Days}} days) was revoked{{if .ReviewerName}} by {{.ReviewerName}}{{end}}. The days are back in your allowance.</p>
+{{if .Reason}}<p>Reason given:</p>
+<blockquote>{{.Reason}}</blockquote>
+{{end}}<p><a href="{{.RequestURL}}">Open the request</a></p>
+<p>If the link does not open, copy this address into your browser:<br>{{.RequestURL}}</p>
+<p lang="bg">Одобреният ви отпуск от {{.StartDate}} до {{.EndDate}} е отменен.</p>`,
+		Variables: []string{"EmployeeName", "AbsenceType", "StartDate", "EndDate", "Days", "ReviewerName", "Reason", "RequestURL"},
+		Required:  []string{"AbsenceType", "StartDate", "EndDate", "Days", "RequestURL"},
+	},
+	{
+		Key:     "hr.signing_failed",
+		Subject: `Leave form not signed: {{.EmployeeName}}, {{.StartDate}} – {{.EndDate}}`,
+		Body: `<p>Hello{{if .RecipientName}} {{.RecipientName}}{{end}},</p>
+<p>The leave form for {{.EmployeeName}}'s <strong>{{.AbsenceType}}</strong> from {{.StartDate}} to {{.EndDate}} was not signed ({{.Outcome}}). The request is pending again and needs a new review.</p>
+<p><a href="{{.RequestURL}}">Open the request</a></p>
+<p>If the link does not open, copy this address into your browser:<br>{{.RequestURL}}</p>
+<p lang="bg">Формулярът за отпуск не е подписан; заявката отново очаква преглед.</p>`,
+		Variables: []string{"RecipientName", "EmployeeName", "AbsenceType", "StartDate", "EndDate", "Outcome", "RequestURL"},
+		Required:  []string{"EmployeeName", "AbsenceType", "StartDate", "EndDate", "Outcome", "RequestURL"},
+	},
+	{
+		Key:     "hr.allowance_overdrawn",
+		Subject: `Allowance overdrawn: {{.EmployeeName}}, {{.Year}}`,
+		Body: `<p>Hello,</p>
+<p>An approved <strong>{{.AbsenceType}}</strong> left {{.EmployeeName}} with {{.Remaining}} days in {{.Year}}. Check the allowance.</p>
+<p><a href="{{.RequestURL}}">Open the request</a></p>
+<p>If the link does not open, copy this address into your browser:<br>{{.RequestURL}}</p>
+<p lang="bg">Полагаемият отпуск на {{.EmployeeName}} за {{.Year}} е надвишен.</p>`,
+		Variables: []string{"EmployeeName", "AbsenceType", "Year", "Remaining", "RequestURL"},
+		Required:  []string{"EmployeeName", "AbsenceType", "Year", "Remaining", "RequestURL"},
+	},
 }
 
 // SeedResult counts what EnsureSystemTemplates did.
