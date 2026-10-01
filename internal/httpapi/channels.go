@@ -3,8 +3,11 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 type channelBody struct {
@@ -28,12 +31,13 @@ func (s *Server) RegisterChannels(d NotifyDeps) {
 			return
 		}
 		q := r.URL.Query()
-		items, next, err := d.Channels.List(r.Context(), subj, q.Get("type"), q.Get("cursor"), limitParam(r))
-		if err != nil {
-			s.fail(w, r, domainError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "next_cursor": next})
+		serveList(s, w, r, store.ChannelList, domainError,
+			func() ([]notify.ChannelView, string, error) {
+				return d.Channels.List(r.Context(), subj, q.Get("type"), q.Get("cursor"), limitParam(r))
+			},
+			func(req listquery.Request) (listquery.Page[notify.ChannelView], error) {
+				return d.Channels.Page(r.Context(), subj, q.Get("type"), req)
+			})
 	})
 	s.MustHandle("POST", Prefix+"/channels", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)

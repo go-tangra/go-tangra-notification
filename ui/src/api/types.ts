@@ -12,9 +12,20 @@ export interface Permissions {
   use?: boolean
 }
 
+/** A legacy cursor page (inbox, message recipients). */
 export interface Page<T> {
   items: T[]
   next_cursor?: string
+}
+
+/** A list-contract page (go-tangra specs/032-server-side-tables). */
+export interface ListPage<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  sort: string
+  order: 'asc' | 'desc'
 }
 
 export type Settings = Record<string, unknown>

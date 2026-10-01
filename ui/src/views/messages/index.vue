@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiStatusChip, UiDrawer, UiForm, UiInput, UiSelect, UiTextarea, UiSwitch, UiCombobox, UiBadge, useConfirm, type Column, type SelectOption } from '@go-tangra/ui'
+import { computed, onMounted, ref, watch } from 'vue'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiStatusChip, UiDrawer, UiForm, UiInput, UiSelect, UiTextarea, UiSwitch, UiCombobox, UiBadge, useConfirm, useListQuery, type Column, type SelectOption } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
-import { useMessages } from '@/stores/messages'
+import { MESSAGE_LIST, useMessages } from '@/stores/messages'
 import { useCategories } from '@/stores/categories'
 import { useDirectory } from '@/stores/directory'
 import { describe } from '@/api/client'
@@ -16,14 +16,29 @@ const confirm = useConfirm()
 const drawer = ref(false)
 const selected = ref<Message | null>(null)
 const error = ref('')
-const filter = useZodForm(messageFilterSchema, { onSubmit: (f) => store.list({ status: f.status }) })
-const reload = () => void filter.submit()
+// --- server paging and sorting (page / size / sort in the URL: ?messages.page=…) ---
+const lq = useListQuery('messages', MESSAGE_LIST.opts)
+const status = ref<string | undefined>()
+async function load(): Promise<void> {
+  const res = await store.list({ status: status.value }, lq.query.value)
+  if (res?.page) lq.clampTo(res.page) // a page beyond the end answers the last page
+}
+watch(lq.query, () => void load())
+// A new filter starts at page 1 (which reloads), or reloads in place.
+const filter = useZodForm(messageFilterSchema, {
+  onSubmit: (f) => {
+    status.value = f.status || undefined
+    if (lq.page.value !== 1) lq.resetPage()
+    else return load()
+  },
+})
+const reload = () => void load()
 onMounted(async () => {
-  await Promise.all([reload(), categories.list()])
+  await Promise.all([load(), categories.loadOptions()])
 })
 const statusOptions: SelectOption[] = MESSAGE_STATUSES.map((s) => ({ title: s, value: s }))
 const typeOptions: SelectOption[] = MESSAGE_TYPES.map((t) => ({ title: t, value: t }))
-const categoryOptions = computed<SelectOption[]>(() => categories.items.map((c) => ({ title: c.name, value: c.id })))
+const categoryOptions = computed<SelectOption[]>(() => categories.options.map((c) => ({ title: c.name, value: c.id })))
 const statusColors = { draft: 'neutral', scheduled: 'info', published: 'success', revoked: 'warning', archived: 'neutral' } as const
 
 const editable = computed(() => !selected.value || selected.value.status === 'draft' || selected.value.status === 'scheduled')
@@ -77,11 +92,12 @@ async function act(m: Message, action: 'cancel' | 'revoke' | 'archive' | 'remove
   }
 }
 const columns: Column<Message>[] = [
-  { key: 'title', label: 'Title', sortable: true },
-  { key: 'status', label: 'Status', width: 'sm' },
+  { key: 'subject', label: 'Title', format: (m) => m.title, sortable: true },
+  { key: 'status', label: 'Status', width: 'sm', sortable: true },
   { key: 'category_name', label: 'Category', hideOnStack: true },
   { key: 'recipients', label: 'Recipients', format: (m) => (m.recipients.all ? 'everyone' : String(m.recipient_count ?? m.recipients.users?.length ?? 0)) },
   { key: 'read_count', label: 'Read', align: 'end', format: (m) => String(m.read_count ?? 0), hideOnStack: true },
+  { key: 'created_at', label: 'Created', format: (m) => (m.created_at ? new Date(m.created_at).toLocaleString() : ''), sortable: true, defaultDir: 'desc', hideOnStack: true },
 ]
 </script>
 
@@ -89,11 +105,11 @@ const columns: Column<Message>[] = [
   <UiPage title="Messages">
     <template #actions><UiButton icon="mdi-plus" data-test="message-new" @click="open(null)">New message</UiButton></template>
     <template #filters>
-      <UiForm :form="filter" class="w-full md:max-w-xs"><UiSelect v-bind="filter.field('status')" label="Status" :options="statusOptions" size="sm" data-test="message-status-filter" @update:model-value="reload" /></UiForm>
+      <UiForm :form="filter" class="w-full md:max-w-xs"><UiSelect v-bind="filter.field('status')" label="Status" :options="statusOptions" size="sm" data-test="message-status-filter" @update:model-value="filter.submit()" /></UiForm>
     </template>
     <UiAlert v-if="error || store.error" kind="error" class="mb-3" data-test="message-list-error">{{ error || store.error }}</UiAlert>
     <UiCard :padded="false">
-      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" caption="Messages" empty-title="No messages" clickable :row-attrs="(m) => ({ 'data-test': 'message-row-' + m.id })" data-test="messages-table" @row-click="open">
+      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" :total="store.total" :page="lq.page.value" :page-size="lq.pageSize.value" :sort="lq.sort.value" caption="Messages" empty-title="No messages" clickable :row-attrs="(m) => ({ 'data-test': 'message-row-' + m.id })" data-test="messages-table" @row-click="open" @update:page="lq.setPage" @update:page-size="lq.setPageSize" @update:sort="lq.setSort">
         <template #cell-status="{ row }"><UiStatusChip :status="row.status" :colors="statusColors" /></template>
         <template #actions="{ row }">
           <UiButton v-if="row.status === 'scheduled'" size="xs" variant="text" :data-test="'message-cancel-' + row.id" @click="act(row, 'cancel')">Cancel</UiButton>

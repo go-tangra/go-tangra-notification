@@ -1,25 +1,28 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/api/client'
-import type { Channel, ChannelInput, ChannelType, LogEntry, Page } from '@/api/types'
+import type { Channel, ChannelInput, ChannelType, LogEntry } from '@/api/types'
+import { listSpec, loadOptions, pagedList } from './paged'
+
+/** Sort fields of GET /channels (contracts/sortable-fields.md). */
+export const CHANNEL_LIST = listSpec(['name', 'type', 'created_at'], 'name')
+
+export interface ChannelFilter {
+  type?: ChannelType | undefined
+}
 
 export const useChannels = defineStore('notification-channels', () => {
-  const items = ref<Channel[]>([])
-  const next = ref<string | undefined>()
-  const loading = ref(false)
-  const error = ref('')
+  // One server page of the channels the caller may read (the server applies
+  // the grants to the page and the total).
+  const page = pagedList<Channel, ChannelFilter>('channels', CHANNEL_LIST.first)
+  /** Up to 200 channels by name, for selects. */
+  const options = ref<Channel[]>([])
 
-  async function list(type?: ChannelType, cursor?: string): Promise<void> {
-    loading.value = true
-    error.value = ''
+  async function loadOptions_(): Promise<void> {
     try {
-      const page = await api<Page<Channel>>('GET', 'channels', undefined, { query: { type, cursor, limit: 50 } })
-      items.value = cursor ? [...items.value, ...page.items] : page.items
-      next.value = page.next_cursor
+      options.value = await loadOptions<Channel>('channels', 'name')
     } catch (e) {
-      error.value = (e as Error).message
-    } finally {
-      loading.value = false
+      page.error.value = (e as Error).message
     }
   }
 
@@ -28,26 +31,23 @@ export const useChannels = defineStore('notification-channels', () => {
   }
 
   async function create(input: ChannelInput): Promise<Channel> {
-    const c = await api<Channel>('POST', 'channels', input)
-    items.value = [c, ...items.value]
-    return c
+    return api<Channel>('POST', 'channels', input)
   }
 
   async function update(id: string, input: ChannelInput): Promise<Channel> {
     const c = await api<Channel>('PUT', 'channels/' + id, input)
-    items.value = items.value.map((x) => (x.id === id ? c : x))
-    if (c.is_default) items.value = items.value.map((x) => (x.id !== id && x.type === c.type ? { ...x, is_default: false } : x))
+    page.items.value = page.items.value.map((x) => (x.id === id ? c : c.is_default && x.type === c.type ? { ...x, is_default: false } : x))
     return c
   }
 
   async function remove(id: string): Promise<void> {
     await api('POST', 'channels/' + id + '/remove')
-    items.value = items.value.filter((x) => x.id !== id)
+    page.items.value = page.items.value.filter((x) => x.id !== id)
   }
 
   async function test(id: string, recipient: string): Promise<LogEntry> {
     return api<LogEntry>('POST', 'channels/' + id + '/test', { recipient })
   }
 
-  return { items, next, loading, error, list, get, create, update, remove, test }
+  return { ...page, options, loadOptions: loadOptions_, get, create, update, remove, test }
 })

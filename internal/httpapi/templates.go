@@ -3,7 +3,10 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 type templateBody struct {
@@ -35,12 +38,13 @@ func (s *Server) RegisterTemplates(d NotifyDeps) {
 		if c := q.Get("channel_id"); c != "" {
 			channelID = &c
 		}
-		items, next, err := d.Templates.List(r.Context(), subj, channelID, q.Get("q"), q.Get("cursor"), limitParam(r))
-		if err != nil {
-			s.fail(w, r, domainError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "next_cursor": next})
+		serveList(s, w, r, store.TemplateList, domainError,
+			func() ([]notify.TemplateView, string, error) {
+				return d.Templates.List(r.Context(), subj, channelID, q.Get("q"), q.Get("cursor"), limitParam(r))
+			},
+			func(req listquery.Request) (listquery.Page[notify.TemplateView], error) {
+				return d.Templates.Page(r.Context(), subj, channelID, q.Get("q"), req)
+			})
 	})
 	s.MustHandle("POST", Prefix+"/templates", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)

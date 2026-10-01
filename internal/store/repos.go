@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -739,15 +740,19 @@ func InsertAuditRows(ctx context.Context, tx pgx.Tx, rows []AuditRow) error {
 	return nil
 }
 
+// auditSubjectName resolves a live subject's name (channels and templates by
+// name, messages by title); ids are only cast when they look like UUIDs.
+const auditSubjectName = `COALESCE(CASE WHEN a.subject_id !~ '` + uuidRE + `' THEN NULL
+	WHEN a.subject_kind = 'channel' THEN (SELECT c.name FROM channels c WHERE c.tenant_id = a.tenant_id AND c.id = a.subject_id::uuid)
+	WHEN a.subject_kind = 'template' THEN (SELECT t.name FROM templates t WHERE t.tenant_id = a.tenant_id AND t.id = a.subject_id::uuid)
+	WHEN a.subject_kind = 'message' THEN (SELECT m.title FROM messages m WHERE m.tenant_id = a.tenant_id AND m.id = a.subject_id::uuid) END, '')`
+
 // QueryAudit pages events newest first; cursor = ts of the last row seen.
 // Live subjects resolve to a name: channels and templates by name, messages
 // by title. Ids are only cast when they look like UUIDs.
 func QueryAudit(ctx context.Context, tx pgx.Tx, tenantID, eventType, actorID string, from, to, cursor time.Time, limit int) ([]AuditRow, error) {
 	rows, err := tx.Query(ctx, `SELECT a.ts, a.tenant_id, a.event_type, a.actor_kind, a.actor_id, a.subject_kind, a.subject_id, a.outcome, a.reason, a.correlation_id, a.details,
-		COALESCE(CASE WHEN a.subject_id !~ '`+uuidRE+`' THEN NULL
-			WHEN a.subject_kind = 'channel' THEN (SELECT c.name FROM channels c WHERE c.tenant_id = a.tenant_id AND c.id = a.subject_id::uuid)
-			WHEN a.subject_kind = 'template' THEN (SELECT t.name FROM templates t WHERE t.tenant_id = a.tenant_id AND t.id = a.subject_id::uuid)
-			WHEN a.subject_kind = 'message' THEN (SELECT m.title FROM messages m WHERE m.tenant_id = a.tenant_id AND m.id = a.subject_id::uuid) END, '')
+		`+auditSubjectName+`
 		FROM notification_audit_events a WHERE a.tenant_id = $1 AND ($2 = '' OR a.event_type = $2) AND ($3 = '' OR a.actor_id = $3)
 		AND a.ts >= $4 AND a.ts <= $5 AND ($6::timestamptz IS NULL OR a.ts < $6) ORDER BY a.ts DESC LIMIT $7`,
 		tenantID, eventType, actorID, from, to, nullTime(cursor), limit)
@@ -812,4 +817,162 @@ func TenantStats(ctx context.Context, tx pgx.Tx, tenantID string, now time.Time)
 		st.Messages[k] = n
 	}
 	return st, rows.Err()
+}
+
+// ---------------------------------------------------------------- pages (032)
+//
+// Each Page* function counts the records matching the filter (and, for
+// channels and templates, the caller's visibility), clamps the request to the
+// last page and reads that page in the request's order, in the caller's
+// transaction. Count and page share one WHERE clause, so the total never
+// counts a record the page could not return. ORDER BY is built from the list
+// Specs' constants only (listquery).
+
+func countRows(ctx context.Context, tx pgx.Tx, from string, args []any) (int, error) {
+	var n int
+	err := tx.QueryRow(ctx, "SELECT count(*) "+from, args...).Scan(&n)
+	return n, err
+}
+
+// orderPage is the ORDER BY / LIMIT / OFFSET tail of a page query whose
+// filter used n arguments.
+func orderPage(req listquery.Request, s listquery.Spec, n int) string {
+	return fmt.Sprintf(" ORDER BY %s LIMIT $%d OFFSET $%d", req.OrderBy(s), n+1, n+2)
+}
+
+// PageChannels pages the visible channels with an optional type.
+func PageChannels(ctx context.Context, tx pgx.Tx, tenantID, typ string, vis Visible, req listquery.Request) ([]Channel, int, listquery.Request, error) {
+	const where = " FROM channels c WHERE c.tenant_id = $1 AND ($2 = '' OR c.type = $2) AND ($3 OR c.id = ANY($4::uuid[]))"
+	args := []any{tenantID, typ, vis.All, nonNil(vis.IDs)}
+	total, err := countRows(ctx, tx, where, args)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	req = req.Clamp(total)
+	rows, err := tx.Query(ctx, "SELECT "+channelCols+where+orderPage(req, ChannelList, len(args)), append(args, req.Limit(), req.Offset())...)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	out, err := scanChannels(rows)
+	return out, total, req, err
+}
+
+// PageTemplates pages the visible templates with optional channel and name filters.
+func PageTemplates(ctx context.Context, tx pgx.Tx, tenantID string, channelID *string, q string, vis Visible, req listquery.Request) ([]Template, int, listquery.Request, error) {
+	const where = `WHERE t.tenant_id = $1 AND ($2::uuid IS NULL OR t.channel_id = $2) AND ($3 = '' OR t.name ILIKE '%' || $3 || '%')
+		AND ($4 OR t.id = ANY($5::uuid[]))`
+	args := []any{tenantID, channelID, escapeLike(q), vis.All, nonNil(vis.IDs)}
+	total, err := countRows(ctx, tx, "FROM templates t "+where, args)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	req = req.Clamp(total)
+	rows, err := tx.Query(ctx, "SELECT "+templateCols+templateFrom+where+orderPage(req, TemplateList, len(args)), append(args, req.Limit(), req.Offset())...)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	out, err := scanTemplates(rows)
+	return out, total, req, err
+}
+
+// PageMessages pages messages under the filter (SenderID restricts to one
+// sender's messages; the cursor fields are ignored).
+func PageMessages(ctx context.Context, tx pgx.Tx, tenantID string, f MessageFilter, req listquery.Request) ([]Message, int, listquery.Request, error) {
+	const where = `WHERE m.tenant_id = $1 AND ($2 = '' OR m.status = $2) AND ($3 = '' OR m.category_id::text = $3)
+		AND ($4 = '' OR m.title ILIKE '%' || $4 || '%') AND ($5 = '' OR m.sender_id::text = $5)`
+	args := []any{tenantID, f.Status, f.CategoryID, escapeLike(f.Q), f.SenderID}
+	total, err := countRows(ctx, tx, "FROM messages m "+where, args)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	req = req.Clamp(total)
+	rows, err := tx.Query(ctx, "SELECT "+messageCols+messageFrom+where+orderPage(req, MessageList, len(args)), append(args, req.Limit(), req.Offset())...)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	out, err := scanMessages(rows)
+	return out, total, req, err
+}
+
+// PageLog pages log entries under the filter within [f.From, f.To] (the
+// caller sets both, see Window; the cursor fields are ignored). Bodies are
+// not loaded.
+func PageLog(ctx context.Context, tx pgx.Tx, tenantID string, f LogFilter, req listquery.Request) ([]LogRow, int, listquery.Request, error) {
+	const where = ` FROM notification_log WHERE tenant_id = $1
+		AND ($2 = '' OR channel_id::text = $2) AND ($3 = '' OR template_id::text = $3) AND ($4 = '' OR recipient ILIKE '%' || $4 || '%')
+		AND ($5 = '' OR status = $5) AND ($6 = '' OR sender_id = $6) AND created_at >= $7 AND created_at <= $8`
+	args := []any{tenantID, f.ChannelID, f.TemplateID, escapeLike(f.Recipient), f.Status, f.SenderID, f.From, f.To}
+	total, err := countRows(ctx, tx, where, args)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	req = req.Clamp(total)
+	rows, err := tx.Query(ctx, `SELECT id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, '', status, error, sender_kind, sender_id, test, sent_at, template_key`+
+		where+orderPage(req, LogList, len(args)), append(args, req.Limit(), req.Offset())...)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	defer rows.Close()
+	var out []LogRow
+	for rows.Next() {
+		l, err := scanLog(rows)
+		if err != nil {
+			return nil, 0, req, err
+		}
+		out = append(out, l)
+	}
+	return out, total, req, rows.Err()
+}
+
+// PageCategories pages the tenant's categories.
+func PageCategories(ctx context.Context, tx pgx.Tx, tenantID string, req listquery.Request) ([]Category, int, listquery.Request, error) {
+	const where = " FROM message_categories k WHERE k.tenant_id = $1"
+	args := []any{tenantID}
+	total, err := countRows(ctx, tx, where, args)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	req = req.Clamp(total)
+	rows, err := tx.Query(ctx, "SELECT "+categoryCols+where+orderPage(req, CategoryList, len(args)), append(args, req.Limit(), req.Offset())...)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	defer rows.Close()
+	var out []Category
+	for rows.Next() {
+		c, err := scanCategory(rows)
+		if err != nil {
+			return nil, 0, req, err
+		}
+		out = append(out, c)
+	}
+	return out, total, req, rows.Err()
+}
+
+// PageAudit pages a tenant's audit events within [from, to] (the caller
+// sets both, see Window), resolving live subject names like QueryAudit.
+func PageAudit(ctx context.Context, tx pgx.Tx, tenantID, eventType, actorID string, from, to time.Time, req listquery.Request) ([]AuditRow, int, listquery.Request, error) {
+	const where = ` FROM notification_audit_events a WHERE a.tenant_id = $1 AND ($2 = '' OR a.event_type = $2) AND ($3 = '' OR a.actor_id = $3)
+		AND a.ts >= $4 AND a.ts <= $5`
+	args := []any{tenantID, eventType, actorID, from, to}
+	total, err := countRows(ctx, tx, where, args)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	req = req.Clamp(total)
+	rows, err := tx.Query(ctx, `SELECT a.ts, a.tenant_id, a.event_type, a.actor_kind, a.actor_id, a.subject_kind, a.subject_id, a.outcome, a.reason, a.correlation_id, a.details,
+		`+auditSubjectName+where+orderPage(req, AuditList, len(args)), append(args, req.Limit(), req.Offset())...)
+	if err != nil {
+		return nil, 0, req, err
+	}
+	defer rows.Close()
+	var out []AuditRow
+	for rows.Next() {
+		var r AuditRow
+		if err := rows.Scan(&r.TS, &r.TenantID, &r.EventType, &r.ActorKind, &r.ActorID, &r.SubjectKind, &r.SubjectID, &r.Outcome, &r.Reason, &r.CorrelationID, &r.Details, &r.SubjectName); err != nil {
+			return nil, 0, req, err
+		}
+		out = append(out, r)
+	}
+	return out, total, req, rows.Err()
 }

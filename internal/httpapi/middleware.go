@@ -115,9 +115,15 @@ func (s *Server) validate(next http.Handler) http.Handler {
 		if err != nil {
 			var mbe *http.MaxBytesError
 			var pe *openapi3filter.ParseError
+			var re *openapi3filter.RequestError
 			switch {
 			case errors.As(err, &mbe) || strings.Contains(err.Error(), "request body too large"):
 				WriteError(w, ErrBodyTooLarge.Status, ErrBodyTooLarge.Reason)
+			case errors.As(err, &re) && re.Parameter != nil && re.Parameter.In == "query":
+				// A malformed or out-of-range query parameter (list paging,
+				// sort, filters) names the parameter only, never its value
+				// (feature 032 list contract).
+				WriteDetail(w, ErrValidation, map[string]any{"param": re.Parameter.Name})
 			case errors.As(err, &pe):
 				WriteError(w, ErrMalformed.Status, ErrMalformed.Reason)
 			default:

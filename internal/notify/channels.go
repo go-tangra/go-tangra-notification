@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
@@ -227,6 +229,32 @@ func (c *Channels) List(ctx context.Context, s authz.Subjects, typ, cursor strin
 		next = out[len(out)-1].Name
 	}
 	return out, next, nil
+}
+
+// Page returns one page of the channels the caller may read (list
+// contract, store.ChannelList): visibility is applied in SQL to the count and
+// the page alike, so the total never includes a hidden channel.
+func (c *Channels) Page(ctx context.Context, s authz.Subjects, typ string, req listquery.Request) (listquery.Page[ChannelView], error) {
+	if typ != "" && !channel.ValidType(typ) {
+		return listquery.Page[ChannelView]{}, invalid("unknown channel type", map[string]any{"field": "type"})
+	}
+	vis, err := c.az.Visible(ctx, s, authz.Channel)
+	if err != nil {
+		return listquery.Page[ChannelView]{}, err
+	}
+	rows, total, applied, err := c.st.PageChannels(ctx, s.TenantID, typ, vis, store.ListRequest(req, store.ChannelList))
+	if err != nil {
+		return listquery.Page[ChannelView]{}, err
+	}
+	out := make([]ChannelView, 0, len(rows))
+	for _, row := range rows {
+		p, err := c.az.PermissionsOn(ctx, s, authz.Channel, row.ID)
+		if err != nil {
+			return listquery.Page[ChannelView]{}, err
+		}
+		out = append(out, c.view(row, c.redacted(row), p))
+	}
+	return listquery.NewPage(out, total, applied), nil
 }
 
 // Update rewrites a channel the caller may write; credential fields sent

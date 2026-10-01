@@ -8,6 +8,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
@@ -16,6 +18,7 @@ type Channels interface {
 	InsertChannel(ctx context.Context, c store.Channel) error
 	GetChannel(ctx context.Context, tenantID, id string) (store.Channel, error)
 	ListChannels(ctx context.Context, tenantID, typ, afterName string, limit int) ([]store.Channel, error)
+	PageChannels(ctx context.Context, tenantID, typ string, vis store.Visible, req listquery.Request) ([]store.Channel, int, listquery.Request, error)
 	UpdateChannel(ctx context.Context, c store.Channel) error
 	ClearDefaultChannel(ctx context.Context, tenantID, typ, exceptID string) error
 	DeleteChannel(ctx context.Context, tenantID, id string) error
@@ -28,6 +31,7 @@ type Templates interface {
 	InsertTemplate(ctx context.Context, t store.Template) error
 	GetTemplate(ctx context.Context, tenantID, id string) (store.Template, error)
 	ListTemplates(ctx context.Context, tenantID string, channelID *string, q, afterName string, limit int) ([]store.Template, error)
+	PageTemplates(ctx context.Context, tenantID string, channelID *string, q string, vis store.Visible, req listquery.Request) ([]store.Template, int, listquery.Request, error)
 	TemplatesByIDs(ctx context.Context, tenantID string, ids []string) ([]store.Template, error)
 	AllTemplates(ctx context.Context, tenantID string, limit int) ([]store.Template, error)
 	UpdateTemplate(ctx context.Context, t store.Template) error
@@ -43,6 +47,7 @@ type Log interface {
 	SetLogOutcome(ctx context.Context, tenantID, id, status, errText, subject, body string, sentAt *time.Time) error
 	GetLog(ctx context.Context, tenantID, id string) (store.LogRow, error)
 	LogPage(ctx context.Context, tenantID string, f store.LogFilter) ([]store.LogRow, error)
+	PageLog(ctx context.Context, tenantID string, f store.LogFilter, req listquery.Request) ([]store.LogRow, int, listquery.Request, error)
 	ExpirePendingLogs(ctx context.Context, olderThan time.Time) (int64, error) // system scope
 }
 
@@ -62,6 +67,7 @@ type Categories interface {
 	InsertCategory(ctx context.Context, c store.Category) error
 	GetCategory(ctx context.Context, tenantID, id string) (store.Category, error)
 	ListCategories(ctx context.Context, tenantID string) ([]store.Category, error)
+	PageCategories(ctx context.Context, tenantID string, req listquery.Request) ([]store.Category, int, listquery.Request, error)
 	UpdateCategory(ctx context.Context, c store.Category) error
 	DeleteCategory(ctx context.Context, tenantID, id string) error
 }
@@ -71,6 +77,7 @@ type Messages interface {
 	InsertMessage(ctx context.Context, m store.Message) error
 	GetMessage(ctx context.Context, tenantID, id string) (store.Message, error)
 	ListMessages(ctx context.Context, tenantID string, f store.MessageFilter) ([]store.Message, error)
+	PageMessages(ctx context.Context, tenantID string, f store.MessageFilter, req listquery.Request) ([]store.Message, int, listquery.Request, error)
 	UpdateMessage(ctx context.Context, m store.Message) error
 	SetMessageStatus(ctx context.Context, tenantID, id, status string, publishedAt *time.Time) error
 	DeleteMessage(ctx context.Context, tenantID, id string) error
@@ -92,6 +99,7 @@ type Inbox interface {
 type Audit interface {
 	InsertAuditRows(ctx context.Context, rows []store.AuditRow) error
 	QueryAudit(ctx context.Context, tenantID, eventType, actorID string, from, to, cursor time.Time, limit int) ([]store.AuditRow, error)
+	PageAudit(ctx context.Context, tenantID, eventType, actorID string, from, to time.Time, req listquery.Request) ([]store.AuditRow, int, listquery.Request, error)
 }
 
 // Stats reads the per-tenant counts.

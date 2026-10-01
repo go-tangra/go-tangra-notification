@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useAbility } from '@casl/vue'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiForm, UiInput, UiSelect, UiCheckbox, UiFilePicker, UiStatGrid, UiStatTile, useToast, UiDrawer, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiForm, UiInput, UiSelect, UiCheckbox, UiFilePicker, UiStatGrid, UiStatTile, useListQuery, useToast, UiDrawer, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
-import { useLog } from '@/stores/log'
+import { LOG_LIST, useLog, type LogFilter } from '@/stores/log'
 import { useDirectory } from '@/stores/directory'
-import { useOps } from '@/stores/ops'
+import { AUDIT_LIST, useOps } from '@/stores/ops'
 import { describe } from '@/api/client'
 import { backupImportSchema, logFilterSchema, BACKUP_MODES } from '@/schemas'
 import type { AuditItem, BackupReport, LogEntry } from '@/api/types'
@@ -25,20 +25,36 @@ const canStats = can('read', 'NotificationStats')
 const canBackup = can('manage', 'NotificationBackup')
 
 const statusOptions: SelectOption[] = ['pending', 'sent', 'failed'].map((s) => ({ title: s, value: s }))
+// --- server paging and sorting (page / size / sort in the URL: ?log.page=…, ?audit.page=…).
+// Without from/to both lists cover the last 7 days (the server's default window).
+const lq = useListQuery('log', LOG_LIST.opts)
+const logFilter = ref<LogFilter>({})
+async function load(): Promise<void> {
+  const res = await store.list(logFilter.value, lq.query.value)
+  if (res?.page) lq.clampTo(res.page) // a page beyond the end answers the last page
+  await dir.resolveUsers(store.items.map((i) => (i.sender_kind === 'user' ? i.sender_id : undefined)))
+}
+watch(lq.query, () => void load())
+// A new filter starts at page 1 (which reloads), or reloads in place.
 const filter = useZodForm(logFilterSchema, {
   initial: { recipient: '' },
   onSubmit: async (f) => {
-    await store.list({ status: f.status, recipient: f.recipient || undefined })
-    await dir.resolveUsers(store.items.map((i) => (i.sender_kind === 'user' ? i.sender_id : undefined)))
+    logFilter.value = { status: f.status, recipient: f.recipient || undefined }
+    if (lq.page.value !== 1) lq.resetPage()
+    else await load()
   },
 })
 const reload = () => void filter.submit()
+const aq = useListQuery('audit', AUDIT_LIST.opts)
+async function loadAudit(): Promise<void> {
+  const res = await ops.loadAudit({}, aq.query.value)
+  if (res?.page) aq.clampTo(res.page)
+  await dir.resolveUsers(ops.audit.map((i) => i.actor_id))
+}
+watch(aq.query, () => void loadAudit())
 onMounted(async () => {
-  reload()
-  if (canStats) {
-    await Promise.all([ops.loadStats(), ops.loadAudit()])
-    await dir.resolveUsers(ops.audit.map((i) => i.actor_id))
-  }
+  void load()
+  if (canStats) await Promise.all([ops.loadStats(), loadAudit()])
 })
 const tabs: TabItem[] = [{ key: 'log', label: 'Log' }, { key: 'audit', label: 'Audit' }]
 const sum = (m: Record<string, number>): number => Object.values(m).reduce((a, b) => a + b, 0)
@@ -47,15 +63,16 @@ async function show(e: LogEntry): Promise<void> {
   open.value = true
 }
 const logColumns: Column<LogEntry>[] = [
-  { key: 'created_at', label: 'When', format: (e) => new Date(e.created_at).toLocaleString(), sortable: true },
+  { key: 'created_at', label: 'When', format: (e) => new Date(e.created_at).toLocaleString(), sortable: true, defaultDir: 'desc' },
   { key: 'recipient', label: 'Recipient' },
   { key: 'rendered_subject', label: 'Subject', hideOnStack: true },
-  { key: 'status', label: 'Status', width: 'sm' },
+  { key: 'status', label: 'Status', width: 'sm', sortable: true },
+  { key: 'channel', label: 'Channel', width: 'sm', format: (e) => e.channel_type ?? '', sortable: true, hideOnStack: true },
   { key: 'sender_id', label: 'Sender', format: (e) => dir.userName(e.sender_id), hideOnStack: true },
 ]
 const auditRows = computed(() => ops.audit.map((i: AuditItem, n: number) => ({ ...i, id: i.ts + ':' + n })))
 const auditColumns: Column<(typeof auditRows.value)[number]>[] = [
-  { key: 'ts', label: 'When', format: (i) => new Date(i.ts).toLocaleString() },
+  { key: 'ts', label: 'When', format: (i) => new Date(i.ts).toLocaleString(), sortable: true, defaultDir: 'desc' },
   { key: 'event_type', label: 'Event' },
   { key: 'actor', label: 'Actor', format: (i) => (i.actor_kind === 'system' ? 'system' : dir.userName(i.actor_id)) },
   { key: 'subject', label: 'Subject', format: (i) => i.subject_name || i.subject_id || i.subject_kind || '', hideOnStack: true },
@@ -105,8 +122,9 @@ const reportColumns: Column<(typeof reportRows.value)[number]>[] = [{ key: 'kind
       <UiStatTile title="Operations (24h)" :value="ops.stats.operations_24h" icon="mdi-pulse" data-test="stat-ops" />
     </UiStatGrid>
     <UiTabs v-if="canStats" v-model="tab" :tabs="tabs" class="mb-3" data-test="ops-tabs" />
+    <UiAlert v-if="canStats && tab === 'audit' && ops.auditError" kind="error" class="mb-3">{{ ops.auditError }}</UiAlert>
     <UiCard v-if="canStats && tab === 'audit'" :padded="false">
-      <UiDataTable :items="auditRows" :columns="auditColumns" :loading="ops.loading" caption="Audit events" empty-title="No events" data-test="audit-table">
+      <UiDataTable :items="auditRows" :columns="auditColumns" :loading="ops.loading" :total="ops.auditTotal" :page="aq.page.value" :page-size="aq.pageSize.value" :sort="aq.sort.value" caption="Audit events (last 7 days)" empty-title="No events" data-test="audit-table" @update:page="aq.setPage" @update:page-size="aq.setPageSize" @update:sort="aq.setSort">
         <template #cell-outcome="{ row }"><UiStatusChip :status="row.outcome" :colors="{ ok: 'success', refused: 'warning', denied: 'error' }" /></template>
       </UiDataTable>
     </UiCard>
@@ -119,7 +137,7 @@ const reportColumns: Column<(typeof reportRows.value)[number]>[] = [{ key: 'kind
       </UiForm>
       <UiAlert v-if="store.error" kind="error" class="mb-3">{{ store.error }}</UiAlert>
       <UiCard :padded="false">
-        <UiDataTable :items="store.items" :columns="logColumns" :loading="store.loading" caption="Delivery log" empty-title="No entries" clickable :row-attrs="(e) => ({ 'data-test': 'log-row-' + e.id })" data-test="log-table" @row-click="show">
+        <UiDataTable :items="store.items" :columns="logColumns" :loading="store.loading" :total="store.total" :page="lq.page.value" :page-size="lq.pageSize.value" :sort="lq.sort.value" caption="Delivery log (last 7 days)" empty-title="No entries" clickable :row-attrs="(e) => ({ 'data-test': 'log-row-' + e.id })" data-test="log-table" @row-click="show" @update:page="lq.setPage" @update:page-size="lq.setPageSize" @update:sort="lq.setSort">
           <template #cell-status="{ row }"><UiStatusChip :status="row.status" :colors="{ pending: 'neutral' }" /> <UiBadge v-if="row.test" size="xs">test</UiBadge> <UiBadge v-if="row.template_key" size="xs" color="info" soft>{{ row.template_key }}</UiBadge></template>
         </UiDataTable>
       </UiCard>

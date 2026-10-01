@@ -3,12 +3,14 @@ import { ref } from 'vue'
 import { api, ApiError, BASE } from '@/api/client'
 import { downloadJSON, readFile } from '@/api/download'
 import type { AuditFilter, AuditItem, BackupReport, Stats } from '@/api/types'
+import { listSpec, pagedList } from './paged'
+
+/** GET /audit pages newest first (the last 7 days without from/to). */
+export const AUDIT_LIST = listSpec(['ts'], 'ts', 'desc', 50)
 
 export const useOps = defineStore('notification-ops', () => {
   const stats = ref<Stats | null>(null)
-  const audit = ref<AuditItem[]>([])
-  const auditNext = ref<string | undefined>()
-  const loading = ref(false)
+  const auditPage = pagedList<AuditItem, AuditFilter>('audit', AUDIT_LIST.first)
   const error = ref('')
 
   async function loadStats(): Promise<void> {
@@ -19,19 +21,8 @@ export const useOps = defineStore('notification-ops', () => {
     }
   }
 
-  async function loadAudit(filter: AuditFilter = {}, cursor?: string): Promise<void> {
-    loading.value = true
-    error.value = ''
-    try {
-      const page = await api<{ items: AuditItem[]; next_cursor?: string }>('GET', 'audit', undefined, { query: { ...filter, cursor } })
-      audit.value = cursor ? [...audit.value, ...page.items] : page.items
-      auditNext.value = page.next_cursor
-    } catch (e) {
-      error.value = (e as Error).message
-    } finally {
-      loading.value = false
-    }
-  }
+  /** Loads one page of the audit trail (server-paged and sorted). */
+  const loadAudit = auditPage.list
 
   async function exportBackup(includeCredentials: boolean): Promise<number> {
     if (includeCredentials) {
@@ -61,5 +52,16 @@ export const useOps = defineStore('notification-ops', () => {
     return api<BackupReport>('POST', 'backup/import', doc, { query: { mode } })
   }
 
-  return { stats, audit, auditNext, loading, error, loadStats, loadAudit, exportBackup, importBackup }
+  return {
+    stats,
+    audit: auditPage.items,
+    auditTotal: auditPage.total,
+    loading: auditPage.loading,
+    auditError: auditPage.error,
+    error,
+    loadStats,
+    loadAudit,
+    exportBackup,
+    importBackup,
+  }
 })

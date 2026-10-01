@@ -5,8 +5,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/inbox"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/messages"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
 // MessageDeps are the services behind the category, message and inbox routes.
@@ -44,12 +47,10 @@ func (s *Server) RegisterMessages(d MessageDeps) {
 			Fail(w, r, nil, err)
 			return
 		}
-		out, err := d.Messages.ListCategories(r.Context(), subj)
-		if err != nil {
-			s.fail(w, r, messageError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": out})
+		serveList(s, w, r, store.CategoryList, messageError, nil,
+			func(req listquery.Request) (listquery.Page[messages.CategoryView], error) {
+				return d.Messages.PageCategories(r.Context(), subj, req)
+			})
 	})
 	s.MustHandle("POST", Prefix+"/categories", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)
@@ -130,12 +131,17 @@ func (s *Server) RegisterMessages(d MessageDeps) {
 			return
 		}
 		q := r.URL.Query()
-		items, next, err := d.Messages.List(r.Context(), subj, messages.ListFilter{Status: q.Get("status"), CategoryID: q.Get("category_id"), Q: q.Get("q"), Cursor: q.Get("cursor"), Limit: limitParam(r)}, manage(r))
-		if err != nil {
-			s.fail(w, r, messageError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "next_cursor": next})
+		f := messages.ListFilter{Status: q.Get("status"), CategoryID: q.Get("category_id"), Q: q.Get("q")}
+		manageAll := manage(r)
+		serveList(s, w, r, store.MessageList, messageError,
+			func() ([]messages.MessageView, string, error) {
+				lf := f
+				lf.Cursor, lf.Limit = q.Get("cursor"), limitParam(r)
+				return d.Messages.List(r.Context(), subj, lf, manageAll)
+			},
+			func(req listquery.Request) (listquery.Page[messages.MessageView], error) {
+				return d.Messages.Page(r.Context(), subj, f, req, manageAll)
+			})
 	})
 	s.MustHandle("POST", Prefix+"/messages", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)
