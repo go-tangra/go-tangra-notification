@@ -2,41 +2,40 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/api/client'
 import type { Category, CategoryInput } from '@/api/types'
+import { listSpec, loadOptions, pagedList } from './paged'
+
+/** Sort fields of GET /categories (sort_order = the administrator's order). */
+export const CATEGORY_LIST = listSpec(['name', 'sort_order'], 'sort_order')
 
 export const useCategories = defineStore('notification-categories', () => {
-  const items = ref<Category[]>([])
-  const loading = ref(false)
-  const error = ref('')
+  const page = pagedList<Category>('categories', CATEGORY_LIST.first)
+  /** Up to 200 categories in their sort order, for selects. */
+  const options = ref<Category[]>([])
 
-  async function list(): Promise<void> {
-    loading.value = true
-    error.value = ''
+  async function loadOptions_(): Promise<void> {
     try {
-      const out = await api<{ items: Category[] }>('GET', 'categories')
-      items.value = out.items
+      options.value = await loadOptions<Category>('categories', 'sort_order')
     } catch (e) {
-      error.value = (e as Error).message
-    } finally {
-      loading.value = false
+      page.error.value = (e as Error).message
     }
   }
 
   async function create(input: CategoryInput): Promise<Category> {
     const c = await api<Category>('POST', 'categories', input)
-    await list()
+    await page.reload()
     return c
   }
 
   async function update(id: string, input: CategoryInput): Promise<Category> {
     const c = await api<Category>('PUT', 'categories/' + id, input)
-    await list()
+    await page.reload()
     return c
   }
 
   async function remove(id: string): Promise<void> {
     await api('POST', 'categories/' + id + '/remove')
-    items.value = items.value.filter((x) => x.id !== id)
+    await page.reload()
   }
 
-  return { items, loading, error, list, create, update, remove }
+  return { ...page, options, loadOptions: loadOptions_, create, update, remove }
 })

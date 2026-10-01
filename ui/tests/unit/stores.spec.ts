@@ -18,14 +18,17 @@ describe('channels store', () => {
 
   it('lists by type, never leaks credentials in the query, and moves the default on update', async () => {
     const fetch = stubFetch((url, init) => {
-      if (url.includes('/channels?') && (!init || init.method === 'GET')) return { status: 200, body: { items: [channel, { ...channel, id: 'c2', name: 'second', is_default: false }], next_cursor: undefined } }
+      if (url.includes('/channels?') && (!init || init.method === 'GET')) return { status: 200, body: { items: [channel, { ...channel, id: 'c2', name: 'second', is_default: false }], total: 2, page: 1, page_size: 25, sort: 'name', order: 'asc' } }
       if (url.endsWith('/channels/c2') && init?.method === 'PUT') return { status: 200, body: { ...channel, id: 'c2', name: 'second', is_default: true } }
       return { status: 404, body: { reason: 'not_found' } }
     })
     const s = useChannels()
-    await s.list('email')
+    await s.list({ type: 'email' })
     expect(s.items.length).toBe(2)
-    expect(String(fetch.mock.calls[0]?.[0])).toContain('type=email')
+    expect(s.total).toBe(2)
+    const url = String(fetch.mock.calls[0]?.[0])
+    for (const p of ['type=email', 'page=1', 'page_size=25', 'sort=name', 'order=asc']) expect(url).toContain(p)
+    expect(url).not.toContain('cursor')
     await s.update('c2', { name: 'second', type: 'email', settings: {}, is_default: true })
     expect(s.items.find((c) => c.id === 'c1')?.is_default).toBe(false)
     expect(s.items.find((c) => c.id === 'c2')?.is_default).toBe(true)
@@ -40,8 +43,9 @@ describe('channels store', () => {
       return { status: 404, body: { reason: 'not_found' } }
     })
     const s = useChannels()
-    await s.create({ name: 'relay', type: 'email', settings: {} })
-    expect(s.items[0]?.id).toBe('c1')
+    const created = await s.create({ name: 'relay', type: 'email', settings: {} })
+    expect(created.id).toBe('c1')
+    s.items = [created]
     const entry = await s.test('c1', 'ops@x.test')
     expect(entry.status).toBe('sent')
     await s.remove('c1')
@@ -53,12 +57,12 @@ describe('templates store', () => {
   beforeEach(() => setActivePinia(createPinia()))
   it('lists with search, previews without a log entry', async () => {
     const fetch = stubFetch((url) => {
-      if (url.includes('/templates?')) return { status: 200, body: { items: [{ id: 't1', name: 'welcome', channel_id: 'c1' }] } }
+      if (url.includes('/templates?')) return { status: 200, body: { items: [{ id: 't1', name: 'welcome', channel_id: 'c1' }], total: 1, page: 1, page_size: 25, sort: 'name', order: 'asc' } }
       if (url.endsWith('/templates/preview')) return { status: 200, body: { rendered_subject: 'Hi Ana', rendered_body: '<b>&lt;Ana&gt;</b>' } }
       return { status: 404, body: { reason: 'not_found' } }
     })
     const s = useTemplates()
-    await s.list(undefined, 'wel')
+    await s.list({ q: 'wel' })
     expect(String(fetch.mock.calls[0]?.[0])).toContain('q=wel')
     const p = await s.preview({ subject: 'Hi {{.Name}}', body: '<b>{{.Name}}</b>', variables: ['Name'], values: { Name: '<Ana>' } })
     expect(p.rendered_subject).toBe('Hi Ana')
@@ -91,6 +95,7 @@ describe('log store', () => {
     const s = useLog()
     await s.list({ status: 'failed', recipient: 'bo' })
     expect(String(fetch.mock.calls[0]?.[0])).toContain('status=failed')
+    expect(String(fetch.mock.calls[0]?.[0])).toContain('sort=created_at&order=desc')
     const one = await s.get('l1')
     expect(one.rendered_body).toBe('Hi Bo')
   })
@@ -131,13 +136,17 @@ describe('categories store', () => {
         created = true
         return { status: 201, body: { id: 'k1', name: 'Ops', sort: 1 } }
       }
-      if (url.endsWith('/categories') && (!init || init.method === 'GET')) return { status: 200, body: { items: created ? [{ id: 'k1', name: 'Ops', sort: 1 }] : [] } }
-      if (url.endsWith('/categories/k1/remove')) return { status: 204, body: null }
+      if (url.includes('/categories?') && (!init || init.method === 'GET')) return { status: 200, body: { items: created ? [{ id: 'k1', name: 'Ops', sort: 1 }] : [], total: created ? 1 : 0, page: 1, page_size: 25, sort: 'sort_order', order: 'asc' } }
+      if (url.endsWith('/categories/k1/remove')) {
+        created = false
+        return { status: 204, body: null }
+      }
       return { status: 404, body: { reason: 'not_found' } }
     })
     const s = useCategories()
     await s.create({ name: 'Ops', sort: 1 })
     expect(s.items.length).toBe(1)
+    expect(s.total).toBe(1)
     await s.remove('k1')
     expect(s.items.length).toBe(0)
   })
@@ -189,7 +198,7 @@ describe('ops store', () => {
   it('loads stats and audit, imports a backup', async () => {
     stubFetch((url, init) => {
       if (url.endsWith('/stats')) return { status: 200, body: { channels: 1, templates: 2, notifications: { sent: 3 }, messages: {}, open_streams: 0, operations_24h: 5 } }
-      if (url.includes('/audit')) return { status: 200, body: { items: [{ ts: 't', event_type: 'channel_created', actor_kind: 'user', outcome: 'ok', details: {} }] } }
+      if (url.includes('/audit')) return { status: 200, body: { items: [{ ts: 't', event_type: 'channel_created', actor_kind: 'user', outcome: 'ok', details: {} }], total: 1, page: 1, page_size: 50, sort: 'ts', order: 'desc' } }
       if (url.includes('/backup/import') && init?.method === 'POST') return { status: 200, body: { channels: { created: 1, skipped: 0, overwritten: 0, failed: 0 }, templates: { created: 0, skipped: 0, overwritten: 0, failed: 0 }, categories: { created: 0, skipped: 0, overwritten: 0, failed: 0 }, warnings: [] } }
       return { status: 404, body: { reason: 'not_found' } }
     })
@@ -198,6 +207,7 @@ describe('ops store', () => {
     expect(s.stats?.operations_24h).toBe(5)
     await s.loadAudit({ event_type: 'channel_created' })
     expect(s.audit.length).toBe(1)
+    expect(s.auditTotal).toBe(1)
     const file = new File([JSON.stringify({ version: 1 })], 'b.json', { type: 'application/json' })
     const rep = await s.importBackup(file, 'overwrite')
     expect(rep.channels.created).toBe(1)

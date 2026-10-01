@@ -915,8 +915,13 @@ export interface components {
     parameters: {
         csrf: string;
         id: string;
+        /** @description legacy cursor paging */
         cursor: string;
+        /** @description legacy page size (default 50) */
         limit: number;
+        page: number;
+        pageSize: number;
+        order: "asc" | "desc";
     };
     requestBodies: never;
     headers: never;
@@ -928,7 +933,13 @@ export interface operations {
         parameters: {
             query?: {
                 type?: components["schemas"]["ChannelType"];
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "name" | "type" | "created_at";
+                order?: components["parameters"]["order"];
+                /** @description legacy cursor paging */
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy page size (default 50) */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -937,8 +948,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description channels the caller may read, with permissions; settings redacted */
+            /** @description page of the channels the caller may read (total counts only those), with permissions; settings redacted */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed {param} */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1113,7 +1131,13 @@ export interface operations {
             query?: {
                 channel_id?: string;
                 q?: string;
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "name" | "channel" | "updated_at";
+                order?: components["parameters"]["order"];
+                /** @description legacy cursor paging */
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy page size (default 50) */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -1381,9 +1405,17 @@ export interface operations {
                 template_id?: string;
                 recipient?: string;
                 status?: "pending" | "sent" | "failed";
+                /** @description default: 7 days before to */
                 from?: string;
+                /** @description default: now */
                 to?: string;
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "created_at" | "status" | "channel";
+                order?: components["parameters"]["order"];
+                /** @description legacy cursor paging */
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy page size (default 50) */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -1549,15 +1581,27 @@ export interface operations {
     };
     listCategories: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "name" | "sort_order";
+                order?: components["parameters"]["order"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description ordered by sort, name */
+            /** @description page of categories (default order: sort_order) */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed {param} */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1657,7 +1701,13 @@ export interface operations {
                 status?: "draft" | "scheduled" | "publishing" | "published" | "revoked" | "archived";
                 category_id?: string;
                 q?: string;
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "created_at" | "subject" | "status";
+                order?: components["parameters"]["order"];
+                /** @description legacy cursor paging */
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy page size (default 50) */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -1880,7 +1930,9 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string;
+                /** @description legacy cursor paging */
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy page size (default 50) */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -1904,7 +1956,9 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "unread" | "read" | "all";
+                /** @description legacy cursor paging */
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy page size (default 50) */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -2129,9 +2183,18 @@ export interface operations {
             query?: {
                 event_type?: string;
                 actor_id?: string;
+                /** @description default: 7 days before to */
                 from?: string;
+                /** @description default: now */
                 to?: string;
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "ts";
+                order?: components["parameters"]["order"];
+                /** @description legacy cursor paging */
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy page size (default 50) */
+                limit?: number;
             };
             header?: never;
             path?: never;

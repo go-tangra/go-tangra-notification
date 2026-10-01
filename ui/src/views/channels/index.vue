@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiStatusChip, UiDrawer, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiSecretField, UiSection, useConfirm, useToast, type Column, type SelectOption } from '@go-tangra/ui'
+import { computed, onMounted, ref, watch } from 'vue'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiStatusChip, UiDrawer, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiSecretField, UiSection, useConfirm, useListQuery, useToast, type Column, type SelectOption } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
-import { useChannels } from '@/stores/channels'
+import { CHANNEL_LIST, useChannels } from '@/stores/channels'
 import { describe } from '@/api/client'
 import { channelSchema, testMessageSchema, CHANNEL_TYPES, TLS_MODES } from '@/schemas'
 import { SET_MARKER, type Channel, type Settings } from '@/api/types'
@@ -13,7 +13,14 @@ const toast = useToast()
 const drawer = ref(false)
 const selected = ref<Channel | null>(null)
 const error = ref('')
-onMounted(() => store.list())
+// --- server paging and sorting (page / size / sort in the URL: ?channels.page=…) ---
+const lq = useListQuery('channels', CHANNEL_LIST.opts)
+async function load(): Promise<void> {
+  const res = await store.list({}, lq.query.value)
+  if (res?.page) lq.clampTo(res.page) // a page beyond the end answers the last page
+}
+watch(lq.query, () => void load())
+onMounted(() => void load())
 const typeOptions: SelectOption[] = CHANNEL_TYPES.map((t) => ({ title: t, value: t }))
 const tlsOptions: SelectOption[] = TLS_MODES.map((t) => ({ title: t, value: t }))
 
@@ -27,7 +34,7 @@ const form = useZodForm(channelSchema, {
   },
   onSuccess: () => {
     drawer.value = false
-    void store.list()
+    void load()
   },
 })
 const isEmail = computed(() => form.values.type === 'email')
@@ -46,7 +53,7 @@ async function remove(): Promise<void> {
   try {
     await store.remove(selected.value.id)
     drawer.value = false
-    void store.list()
+    void load()
   } catch (e) {
     error.value = describe(e)
   }
@@ -62,10 +69,11 @@ const testForm = useZodForm(testMessageSchema, {
 })
 const columns: Column<Channel>[] = [
   { key: 'name', label: 'Name', sortable: true },
-  { key: 'type', label: 'Type', width: 'sm' },
+  { key: 'type', label: 'Type', width: 'sm', sortable: true },
   { key: 'enabled', label: 'Status', width: 'sm', format: (c) => (c.enabled ? 'enabled' : 'disabled') },
   { key: 'is_default', label: 'Default', width: 'sm', format: (c) => (c.is_default ? 'yes' : '') },
   { key: 'template_count', label: 'Templates', align: 'end', format: (c) => String(c.template_count ?? 0) },
+  { key: 'created_at', label: 'Created', format: (c) => (c.created_at ? new Date(c.created_at).toLocaleDateString() : ''), sortable: true, defaultDir: 'desc', hideOnStack: true },
 ]
 </script>
 
@@ -74,7 +82,7 @@ const columns: Column<Channel>[] = [
     <template #actions><UiButton icon="mdi-plus" data-test="channel-new" @click="open(null)">New channel</UiButton></template>
     <UiAlert v-if="store.error" kind="error" class="mb-3">{{ store.error }}</UiAlert>
     <UiCard :padded="false">
-      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" caption="Channels" empty-title="No channels yet" clickable :row-attrs="(c) => ({ 'data-test': 'channel-row-' + c.id })" data-test="channels-table" @row-click="open">
+      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" :total="store.total" :page="lq.page.value" :page-size="lq.pageSize.value" :sort="lq.sort.value" caption="Channels" empty-title="No channels yet" clickable :row-attrs="(c) => ({ 'data-test': 'channel-row-' + c.id })" data-test="channels-table" @row-click="open" @update:page="lq.setPage" @update:page-size="lq.setPageSize" @update:sort="lq.setSort">
         <template #cell-name="{ row }">
           <span>{{ row.name }}</span>
           <UiBadge v-if="row.managed" class="ms-2" color="info" :data-test="'channel-managed-' + row.id">Managed</UiBadge>

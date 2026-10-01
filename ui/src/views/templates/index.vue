@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiIcon, UiInput, UiDrawer, UiForm, UiSelect, UiTextarea, UiSwitch, UiBadge, UiSection, useConfirm, type Column, type SelectOption } from '@go-tangra/ui'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiIcon, UiInput, UiDrawer, UiForm, UiSelect, UiTextarea, UiSwitch, UiBadge, UiSection, useConfirm, useListQuery, type Column, type SelectOption } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
-import { useTemplates } from '@/stores/templates'
+import { TEMPLATE_LIST, useTemplates } from '@/stores/templates'
 import { useChannels } from '@/stores/channels'
 import { ApiError, describe } from '@/api/client'
 import { templateSchema, systemTemplateSchema } from '@/schemas'
@@ -19,15 +19,26 @@ const drawer = ref(false)
 const selected = ref<Template | null>(null)
 const error = ref('')
 const query = ref('')
+// --- server paging and sorting (page / size / sort in the URL: ?templates.page=…) ---
+const lq = useListQuery('templates', TEMPLATE_LIST.opts)
+async function load(): Promise<void> {
+  const res = await store.list({ q: query.value.trim() || undefined }, lq.query.value)
+  if (res?.page) lq.clampTo(res.page) // a page beyond the end answers the last page
+}
+watch(lq.query, () => void load())
 onMounted(async () => {
-  await Promise.all([store.list(), channels.list()])
+  await Promise.all([load(), channels.loadOptions()])
 })
+// Search changed: back to page 1 (which reloads), or reload in place.
 let timer: ReturnType<typeof setTimeout> | undefined
-watch(query, (q) => {
+watch(query, () => {
   clearTimeout(timer)
-  timer = setTimeout(() => store.list(undefined, q || undefined), 200)
+  timer = setTimeout(() => {
+    if (lq.page.value !== 1) lq.resetPage()
+    else void load()
+  }, 200)
 })
-const channelOptions = computed<SelectOption[]>(() => channels.items.map((c) => ({ title: c.name + ' (' + c.type + ')', value: c.id })))
+const channelOptions = computed<SelectOption[]>(() => channels.options.map((c) => ({ title: c.name + ' (' + c.type + ')', value: c.id })))
 
 const form = useZodForm(templateSchema, {
   onSubmit: async (v) => {
@@ -36,7 +47,7 @@ const form = useZodForm(templateSchema, {
   },
   onSuccess: () => {
     drawer.value = false
-    void store.list()
+    void load()
   },
 })
 // System templates (sent by key by auth or warden): only subject and body change.
@@ -53,7 +64,7 @@ const sysForm = useZodForm(systemTemplateSchema, {
   },
   onSuccess: () => {
     drawer.value = false
-    void store.list()
+    void load()
   },
 })
 const activeForm = computed(() => (isSystem.value ? sysForm : form))
@@ -79,14 +90,14 @@ const preview = ref<{ subject: string; body: string } | null>(null)
 const insertable = computed(() => [...new Set([...variables.value, ...(selected.value?.required_variables ?? [])])])
 // Remounts the body editor for every template opened (fresh mode and history).
 const opened = ref(0)
-const channelType = computed(() => (isSystem.value ? (selected.value?.channel_type ?? 'email') : (channels.items.find((c) => c.id === form.values.channel_id)?.type ?? 'email')))
+const channelType = computed(() => (isSystem.value ? (selected.value?.channel_type ?? 'email') : (channels.options.find((c) => c.id === form.values.channel_id)?.type ?? 'email')))
 
 function open(t: Template | null): void {
   selected.value = t
   error.value = ''
   preview.value = null
   previewValues.value = {}
-  form.reset({ name: t?.name ?? '', channel_id: t?.channel_id ?? channels.items[0]?.id ?? '', subject: t?.subject ?? '', body: t?.body ?? '', variables: [...(t?.variables ?? [])], is_default: t?.is_default ?? false })
+  form.reset({ name: t?.name ?? '', channel_id: t?.channel_id ?? channels.options[0]?.id ?? '', subject: t?.subject ?? '', body: t?.body ?? '', variables: [...(t?.variables ?? [])], is_default: t?.is_default ?? false })
   sysForm.reset({ subject: t?.subject ?? '', body: t?.body ?? '' })
   variablesText.value = (t?.variables ?? []).join(', ')
   opened.value++
@@ -97,7 +108,7 @@ async function remove(): Promise<void> {
   try {
     await store.remove(selected.value.id)
     drawer.value = false
-    void store.list()
+    void load()
   } catch (e) {
     error.value = describe(e)
   }
@@ -115,21 +126,22 @@ async function doPreview(): Promise<void> {
 }
 const columns: Column<Template>[] = [
   { key: 'name', label: 'Name', sortable: true },
-  { key: 'channel_name', label: 'Channel', format: (t) => (t.channel_name ?? '') + (t.channel_type ? ' (' + t.channel_type + ')' : '') },
+  { key: 'channel', label: 'Channel', format: (t) => (t.channel_name ?? '') + (t.channel_type ? ' (' + t.channel_type + ')' : ''), sortable: true },
   { key: 'subject', label: 'Subject', hideOnStack: true },
   { key: 'is_default', label: 'Default', width: 'sm', format: (t) => (t.is_default ? 'yes' : '') },
+  { key: 'updated_at', label: 'Updated', format: (t) => (t.updated_at ? new Date(t.updated_at).toLocaleString() : ''), sortable: true, defaultDir: 'desc', hideOnStack: true },
 ]
 </script>
 
 <template>
   <UiPage title="Templates">
     <template #actions>
-      <UiButton icon="mdi-plus" :disabled="!channels.items.length" data-test="template-new" @click="open(null)">New template</UiButton>
+      <UiButton icon="mdi-plus" :disabled="!channels.options.length" data-test="template-new" @click="open(null)">New template</UiButton>
     </template>
     <template #filters><UiInput id="template-search" v-model="query" label="Search" sr-only-label placeholder="Search templates" type="search" class="w-full md:max-w-sm" data-test="template-search" /></template>
     <UiAlert v-if="store.error" kind="error" class="mb-3">{{ store.error }}</UiAlert>
     <UiCard :padded="false">
-      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" caption="Templates" empty-title="No templates" clickable :row-attrs="(t) => ({ 'data-test': 'template-row-' + t.id })" data-test="templates-table" @row-click="open">
+      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" :total="store.total" :page="lq.page.value" :page-size="lq.pageSize.value" :sort="lq.sort.value" caption="Templates" empty-title="No templates" clickable :row-attrs="(t) => ({ 'data-test': 'template-row-' + t.id })" data-test="templates-table" @row-click="open" @update:page="lq.setPage" @update:page-size="lq.setPageSize" @update:sort="lq.setSort">
         <template #cell-name="{ row }">
           <span>{{ row.name }}</span>
           <UiBadge v-if="row.system_key" class="ms-2" color="info" :data-test="'template-system-' + row.id">System</UiBadge>
