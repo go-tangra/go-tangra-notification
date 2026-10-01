@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
@@ -580,6 +582,15 @@ func TestSendPipeline(t *testing.T) {
 	mine, _, _ := f.snd.ListLog(ctx, member(), store.LogFilter{}, false)
 	if len(mine) != 1 || mine[0].SenderID != uB {
 		t.Fatalf("member list %v", mine)
+	}
+	// A subject without an actor id has no own sends: the scope must not
+	// degrade into "no sender filter" (fail closed).
+	anon := authz.Subjects{TenantID: tA}
+	if none, _, err := f.snd.ListLog(ctx, anon, store.LogFilter{}, false); err != nil || len(none) != 0 {
+		t.Fatalf("anonymous list %d %v", len(none), err)
+	}
+	if pg, err := f.snd.PageLog(ctx, anon, store.LogFilter{}, false, listquery.Request{}); err != nil || len(pg.Items) != 0 || pg.Total != 0 {
+		t.Fatalf("anonymous page %+v %v", pg, err)
 	}
 	failed, _, _ := f.snd.ListLog(ctx, admin(), store.LogFilter{Status: "failed"}, true)
 	if len(failed) != 2 {

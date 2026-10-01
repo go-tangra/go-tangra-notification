@@ -129,7 +129,10 @@ func DeleteChannel(ctx context.Context, tx pgx.Tx, tenantID, id string) error {
 
 const templateCols = "t.id, t.tenant_id, t.name, t.channel_id, t.channel_type, t.subject, t.body, t.variables, t.is_default, t.created_by, t.updated_by, t.created_at, t.updated_at, COALESCE(c.name, ''), " +
 	"t.system_key, COALESCE(t.builtin_subject, ''), COALESCE(t.builtin_body, ''), t.required_variables, t.secret_variables"
-const templateFrom = " FROM templates t LEFT JOIN channels c ON c.id = t.channel_id "
+
+// The join repeats the tenant so a template can never pick up (or sort by) another
+// tenant's channel name, whatever RLS does (032 security review F-7).
+const templateFrom = " FROM templates t LEFT JOIN channels c ON c.tenant_id = t.tenant_id AND c.id = t.channel_id "
 
 func scanTemplate(r pgx.Row) (Template, error) {
 	var t Template
@@ -299,12 +302,13 @@ func LogPage(ctx context.Context, tx pgx.Tx, tenantID string, f LogFilter) ([]Lo
 	if !f.CursorTS.IsZero() {
 		cursorTS = &f.CursorTS
 	}
-	rows, err := tx.Query(ctx, `SELECT id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, '', status, error, sender_kind, sender_id, test, sent_at, template_key
-		FROM notification_log WHERE tenant_id = $1
-		AND ($2 = '' OR channel_id::text = $2) AND ($3 = '' OR template_id::text = $3) AND ($4 = '' OR recipient ILIKE '%' || $4 || '%')
-		AND ($5 = '' OR status = $5) AND ($6 = '' OR sender_id = $6) AND created_at >= $7 AND created_at <= $8
-		AND ($9::timestamptz IS NULL OR (created_at, id) < ($9, $10::uuid))
-		ORDER BY created_at DESC, id DESC LIMIT $11`, tenantID, f.ChannelID, f.TemplateID, escapeLike(f.Recipient), f.Status, f.SenderID, f.From, to, cursorTS, nullIfEmpty(f.CursorID), f.Limit)
+	where, args := logWhere(tenantID, f, f.From, to)
+	if cursorTS != nil {
+		args = append(args, *cursorTS, nullIfEmpty(f.CursorID))
+		where += fmt.Sprintf(" AND (created_at, id) < ($%d, $%d::uuid)", len(args)-1, len(args))
+	}
+	args = append(args, f.Limit)
+	rows, err := tx.Query(ctx, logListSelect+where+fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT $%d", len(args)), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -483,7 +487,7 @@ func DeleteCategory(ctx context.Context, tx pgx.Tx, tenantID, id string) error {
 const messageCols = `m.id, m.tenant_id, m.title, m.content, m.type, m.status, m.category_id, m.sender_id, m.sender_service, m.recipients, m.scheduled_at, m.lease_until, m.published_at,
 	m.created_by, m.updated_by, m.created_at, m.updated_at, COALESCE(k.name, ''),
 	(SELECT count(*) FROM inbox i WHERE i.message_id = m.id), (SELECT count(*) FROM inbox i WHERE i.message_id = m.id AND i.read_at IS NOT NULL)`
-const messageFrom = " FROM messages m LEFT JOIN message_categories k ON k.id = m.category_id "
+const messageFrom = " FROM messages m LEFT JOIN message_categories k ON k.tenant_id = m.tenant_id AND k.id = m.category_id "
 
 func scanMessage(r pgx.Row) (Message, error) {
 	var m Message
@@ -619,7 +623,7 @@ func InboxPage(ctx context.Context, tx pgx.Tx, tenantID, recipientID, status str
 	if !cursorTS.IsZero() {
 		cts = &cursorTS
 	}
-	rows, err := tx.Query(ctx, "SELECT "+inboxCols+", "+messageCols+" FROM inbox i JOIN messages m ON m.id = i.message_id LEFT JOIN message_categories k ON k.id = m.category_id"+`
+	rows, err := tx.Query(ctx, "SELECT "+inboxCols+", "+messageCols+" FROM inbox i JOIN messages m ON m.tenant_id = i.tenant_id AND m.id = i.message_id LEFT JOIN message_categories k ON k.tenant_id = m.tenant_id AND k.id = m.category_id"+`
 		WHERE i.tenant_id = $1 AND i.recipient_id = $2 AND i.status <> 'deleted' AND (i.status <> 'revoked' OR i.read_at IS NOT NULL)
 		AND ($3 = '' OR ($3 = 'unread' AND i.status IN ('sent','received')) OR ($3 = 'read' AND i.status = 'read'))
 		AND ($4::timestamptz IS NULL OR (i.created_at, i.id) < ($4, $5::uuid))
@@ -645,7 +649,7 @@ func InboxPage(ctx context.Context, tx pgx.Tx, tenantID, recipientID, status str
 
 // GetInboxEntry loads one visible entry of the recipient with its message.
 func GetInboxEntry(ctx context.Context, tx pgx.Tx, tenantID, recipientID, id string) (InboxRow, error) {
-	row := tx.QueryRow(ctx, "SELECT "+inboxCols+", "+messageCols+" FROM inbox i JOIN messages m ON m.id = i.message_id LEFT JOIN message_categories k ON k.id = m.category_id"+
+	row := tx.QueryRow(ctx, "SELECT "+inboxCols+", "+messageCols+" FROM inbox i JOIN messages m ON m.tenant_id = i.tenant_id AND m.id = i.message_id LEFT JOIN message_categories k ON k.tenant_id = m.tenant_id AND k.id = m.category_id"+
 		" WHERE i.tenant_id = $1 AND i.recipient_id = $2 AND i.id = $3 AND i.status <> 'deleted' AND (i.status <> 'revoked' OR i.read_at IS NOT NULL)", tenantID, recipientID, id)
 	var r InboxRow
 	var m Message
@@ -894,21 +898,50 @@ func PageMessages(ctx context.Context, tx pgx.Tx, tenantID string, f MessageFilt
 	return out, total, req, err
 }
 
+// logListSelect is the projection of the log lists; bodies are not loaded.
+const logListSelect = `SELECT id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, '', status, error, sender_kind, sender_id, test, sent_at, template_key`
+
+// logWhere is the FROM/WHERE of the log lists within [from, to]. Only the
+// filters the caller set become predicates: a "($n = ” OR col = $n)" guard
+// cannot be folded once pgx's cached statement switches to a generic plan,
+// which then loses the status and sender indexes (032 perf.md). The SQL is
+// still built from constant fragments; values travel only as arguments.
+func logWhere(tenantID string, f LogFilter, from, to time.Time) (string, []any) {
+	args := []any{tenantID, from, to}
+	where := " FROM notification_log WHERE tenant_id = $1 AND created_at >= $2 AND created_at <= $3"
+	add := func(cond string, v any) {
+		args = append(args, v)
+		where += fmt.Sprintf(" AND "+cond, len(args))
+	}
+	if f.ChannelID != "" {
+		add("channel_id::text = $%d", f.ChannelID)
+	}
+	if f.TemplateID != "" {
+		add("template_id::text = $%d", f.TemplateID)
+	}
+	if f.Recipient != "" {
+		add("recipient ILIKE '%%' || $%d || '%%'", escapeLike(f.Recipient))
+	}
+	if f.Status != "" {
+		add("status = $%d", f.Status)
+	}
+	if f.SenderID != "" {
+		add("sender_id = $%d", f.SenderID)
+	}
+	return where, args
+}
+
 // PageLog pages log entries under the filter within [f.From, f.To] (the
 // caller sets both, see Window; the cursor fields are ignored). Bodies are
 // not loaded.
 func PageLog(ctx context.Context, tx pgx.Tx, tenantID string, f LogFilter, req listquery.Request) ([]LogRow, int, listquery.Request, error) {
-	const where = ` FROM notification_log WHERE tenant_id = $1
-		AND ($2 = '' OR channel_id::text = $2) AND ($3 = '' OR template_id::text = $3) AND ($4 = '' OR recipient ILIKE '%' || $4 || '%')
-		AND ($5 = '' OR status = $5) AND ($6 = '' OR sender_id = $6) AND created_at >= $7 AND created_at <= $8`
-	args := []any{tenantID, f.ChannelID, f.TemplateID, escapeLike(f.Recipient), f.Status, f.SenderID, f.From, f.To}
+	where, args := logWhere(tenantID, f, f.From, f.To)
 	total, err := countRows(ctx, tx, where, args)
 	if err != nil {
 		return nil, 0, req, err
 	}
 	req = req.Clamp(total)
-	rows, err := tx.Query(ctx, `SELECT id, tenant_id, created_at, channel_id, channel_type, template_id, recipient, rendered_subject, '', status, error, sender_kind, sender_id, test, sent_at, template_key`+
-		where+orderPage(req, LogList, len(args)), append(args, req.Limit(), req.Offset())...)
+	rows, err := tx.Query(ctx, logListSelect+where+orderPage(req, LogList, len(args)), append(args, req.Limit(), req.Offset())...)
 	if err != nil {
 		return nil, 0, req, err
 	}

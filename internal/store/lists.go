@@ -10,15 +10,18 @@ import (
 // specs/032-server-side-tables, contracts/sortable-fields.md "notification").
 // Sort fields map to constant SQL expressions only (the page queries alias
 // channels as c, templates as t, messages as m, categories as k and the audit
-// hypertable as a); the memstore sorts the same public names in Go. The
-// backup walks and the default-channel bookkeeping keep their name keysets.
+// hypertable as a); the memstore sorts the same public names in Go. Fields
+// over NOT NULL columns are NotNull (no NULLS LAST), so the (tenant_id, col)
+// indexes serve both directions; the template channel name comes from a LEFT
+// JOIN and stays nullable. The backup walks and the default-channel
+// bookkeeping keep their name keysets.
 var (
 	// ChannelList pages GET /channels: name order by default.
 	ChannelList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"name":       {Expr: "c.name", Text: true},
-			"type":       {Expr: "c.type"},
-			"created_at": {Expr: "c.created_at", DefaultDir: listquery.Desc},
+			"name":       {Expr: "c.name", Text: true, NotNull: true},
+			"type":       {Expr: "c.type", NotNull: true},
+			"created_at": {Expr: "c.created_at", DefaultDir: listquery.Desc, NotNull: true},
 		},
 		Default: "name", TieBreak: "c.id",
 	}
@@ -26,9 +29,9 @@ var (
 	// channel's name (system templates without a channel come last).
 	TemplateList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"name":       {Expr: "t.name", Text: true},
+			"name":       {Expr: "t.name", Text: true, NotNull: true},
 			"channel":    {Expr: "c.name", Text: true},
-			"updated_at": {Expr: "t.updated_at", DefaultDir: listquery.Desc},
+			"updated_at": {Expr: "t.updated_at", DefaultDir: listquery.Desc, NotNull: true},
 		},
 		Default: "name", TieBreak: "t.id",
 	}
@@ -36,9 +39,9 @@ var (
 	// the message title.
 	MessageList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"created_at": {Expr: "m.created_at", DefaultDir: listquery.Desc},
-			"subject":    {Expr: "m.title", Text: true},
-			"status":     {Expr: "m.status"},
+			"created_at": {Expr: "m.created_at", DefaultDir: listquery.Desc, NotNull: true},
+			"subject":    {Expr: "m.title", Text: true, NotNull: true},
+			"status":     {Expr: "m.status", NotNull: true},
 		},
 		Default: "created_at", TieBreak: "m.id",
 	}
@@ -47,9 +50,9 @@ var (
 	// the channel type recorded on the entry.
 	LogList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"created_at": {Expr: "created_at", DefaultDir: listquery.Desc},
-			"status":     {Expr: "status"},
-			"channel":    {Expr: "channel_type"},
+			"created_at": {Expr: "created_at", DefaultDir: listquery.Desc, NotNull: true},
+			"status":     {Expr: "status", NotNull: true},
+			"channel":    {Expr: "channel_type", NotNull: true},
 		},
 		Default: "created_at", TieBreak: "id",
 	}
@@ -57,8 +60,8 @@ var (
 	// order by default.
 	CategoryList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"name":       {Expr: "k.name", Text: true},
-			"sort_order": {Expr: "k.sort"},
+			"name":       {Expr: "k.name", Text: true, NotNull: true},
+			"sort_order": {Expr: "k.sort", NotNull: true},
 		},
 		Default: "sort_order", TieBreak: "k.id",
 	}
@@ -68,7 +71,7 @@ var (
 	// append-only for the application role), so (ts, ctid) orders totally.
 	AuditList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"ts": {Expr: "a.ts", DefaultDir: listquery.Desc},
+			"ts": {Expr: "a.ts", DefaultDir: listquery.Desc, NotNull: true},
 		},
 		Default: "ts", TieBreak: "a.ctid", DefaultSize: 50,
 	}

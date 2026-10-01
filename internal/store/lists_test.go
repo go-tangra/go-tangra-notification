@@ -44,8 +44,45 @@ func TestListSpecs(t *testing.T) {
 	if r = ListRequest(listquery.Request{Sort: "bogus", PageSize: 5000}, ChannelList); r.Sort != "name" || r.PageSize != 25 {
 		t.Fatalf("fallback %+v", r)
 	}
-	if got := ListRequest(listquery.Request{Sort: "ts"}, AuditList).OrderBy(AuditList); got != "a.ts DESC NULLS LAST, a.ctid DESC" {
+	if got := ListRequest(listquery.Request{Sort: "ts"}, AuditList).OrderBy(AuditList); got != "a.ts DESC, a.ctid DESC" {
 		t.Fatalf("audit order %q", got)
+	}
+	// Every sortable field is over a NOT NULL column (032 perf), so no ORDER BY
+	// carries NULLS LAST and the (tenant_id, col) indexes serve both
+	// directions; only the template channel name (a LEFT JOIN) is nullable.
+	for name, s := range specs {
+		for f, fd := range s.Fields {
+			if nullable := name == "templates" && f == "channel"; fd.NotNull == nullable {
+				t.Errorf("%s.%s NotNull=%v", name, f, fd.NotNull)
+			}
+		}
+	}
+	if got := ListRequest(listquery.Request{}, LogList).OrderBy(LogList); got != "created_at DESC, id DESC" {
+		t.Fatalf("log default order %q", got)
+	}
+	if got := ListRequest(listquery.Request{Sort: "channel", Order: listquery.Desc}, TemplateList).OrderBy(TemplateList); got != "lower(c.name) DESC NULLS LAST, t.id DESC" {
+		t.Fatalf("template channel order %q", got)
+	}
+}
+
+func TestLogWhere(t *testing.T) {
+	from, to := time.Unix(1, 0), time.Unix(2, 0)
+	where, args := logWhere("t1", LogFilter{}, from, to)
+	if strings.Contains(where, "''") || strings.Contains(where, " OR ") || len(args) != 3 {
+		t.Fatalf("no filters: %q %v", where, args)
+	}
+	where, args = logWhere("t1", LogFilter{ChannelID: "c", TemplateID: "tp", Recipient: "a%b", Status: "failed", SenderID: "u"}, from, to)
+	for _, want := range []string{"channel_id::text = $4", "template_id::text = $5", "recipient ILIKE '%' || $6 || '%'", "status = $7", "sender_id = $8"} {
+		if !strings.Contains(where, want) {
+			t.Errorf("all filters: %q lacks %q", where, want)
+		}
+	}
+	if len(args) != 8 || args[5] != `a\%b` || args[7] != "u" {
+		t.Fatalf("args %v", args)
+	}
+	where, args = logWhere("t1", LogFilter{SenderID: "u"}, from, to)
+	if !strings.HasSuffix(where, " AND sender_id = $4") || len(args) != 4 {
+		t.Fatalf("sender only: %q %v", where, args)
 	}
 }
 
