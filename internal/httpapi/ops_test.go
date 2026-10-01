@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestBackupExportImport(t *testing.T) {
@@ -75,7 +76,8 @@ func TestStatsAuditHealth(t *testing.T) {
 	if len(items) != 1 || items[0].(map[string]any)["subject_name"] != "relay" {
 		t.Fatalf("audit: %v", page)
 	}
-	f.call(t, "GET", Prefix+"/audit?actor_id="+uA+"&from=2020-01-01T00:00:00Z&to=2030-01-01T00:00:00Z&limit=1", "", f.admin, 200, &page)
+	span := "&from=" + time.Now().Add(-30*24*time.Hour).UTC().Format(time.RFC3339) + "&to=" + time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	f.call(t, "GET", Prefix+"/audit?actor_id="+uA+span+"&limit=1", "", f.admin, 200, &page)
 	if len(page["items"].([]any)) != 1 {
 		t.Fatalf("audit filtered: %v", page)
 	}

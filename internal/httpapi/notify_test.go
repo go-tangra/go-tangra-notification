@@ -197,7 +197,7 @@ func TestSendAndLog(t *testing.T) {
 	if _, ok := list["items"].([]any)[0].(map[string]any)["rendered_body"]; ok {
 		t.Fatal("listing carried the body")
 	}
-	f.call(t, "GET", Prefix+"/notifications?status=failed&recipient=bo&channel_id="+cid+"&template_id="+tid+"&from=2020-01-01T00:00:00Z&to=2030-01-01T00:00:00Z&limit=1", "", f.admin, 200, &list)
+	f.call(t, "GET", Prefix+"/notifications?status=failed&recipient=bo&channel_id="+cid+"&template_id="+tid+"&from=2023-11-01T00:00:00Z&to=2023-12-01T00:00:00Z&limit=1", "", f.admin, 200, &list)
 	if n := len(list["items"].([]any)); n != 1 {
 		t.Fatalf("filtered %d", n)
 	}

@@ -79,16 +79,33 @@ var (
 // on the hypertables.
 const LogWindow = 7 * 24 * time.Hour
 
+// MaxSpan caps an explicit [from, to] window of the log and audit lists
+// (032 security review F-2): a wide from would otherwise force an exact
+// count and OFFSET over the whole hypertable on every page.
+const MaxSpan = 90 * 24 * time.Hour
+
+// ErrSpan refuses a window wider than MaxSpan; it names the from parameter
+// (validation_failed {param: from}) and never carries the value.
+var ErrSpan = &listquery.Error{Param: "from"}
+
 // Window completes a [from, to] filter: to defaults to now (plus a minute of
-// clock slack), from to LogWindow before to.
-func Window(from, to, now time.Time) (time.Time, time.Time) {
+// clock slack), from to LogWindow before to. A window from an explicit from
+// to to (now when absent) wider than MaxSpan is ErrSpan.
+func Window(from, to, now time.Time) (time.Time, time.Time, error) {
+	end := to
+	if end.IsZero() {
+		end = now
+	}
+	if !from.IsZero() && end.Sub(from) > MaxSpan {
+		return time.Time{}, time.Time{}, ErrSpan
+	}
 	if to.IsZero() {
 		to = now.Add(time.Minute)
 	}
 	if from.IsZero() {
 		from = to.Add(-LogWindow)
 	}
-	return from, to
+	return from, to, nil
 }
 
 // Visible restricts a list to the records the caller may read: every record

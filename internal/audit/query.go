@@ -89,7 +89,10 @@ func Query(ctx context.Context, q Querier, tenantID string, f Filter) (Page, err
 		}
 		cursor = time.Unix(0, n)
 	}
-	from, to := store.Window(f.From, f.To, time.Now())
+	from, to, err := store.Window(f.From, f.To, time.Now())
+	if err != nil {
+		return Page{}, err
+	}
 	rows, err := q.QueryAudit(ctx, tenantID, f.EventType, f.ActorID, from, to, cursor, f.Limit+1)
 	if err != nil {
 		return Page{}, err
@@ -112,7 +115,10 @@ func QueryPage(ctx context.Context, q Querier, tenantID string, f Filter, req li
 	if err := f.check(); err != nil {
 		return listquery.Page[Item]{}, err
 	}
-	from, to := store.Window(f.From, f.To, time.Now())
+	from, to, err := store.Window(f.From, f.To, time.Now())
+	if err != nil {
+		return listquery.Page[Item]{}, err
+	}
 	rows, total, applied, err := q.PageAudit(ctx, tenantID, f.EventType, f.ActorID, from, to, store.ListRequest(req, store.AuditList))
 	if err != nil {
 		return listquery.Page[Item]{}, err
