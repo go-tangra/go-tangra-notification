@@ -11,6 +11,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/repo"
@@ -187,6 +189,20 @@ func (s *Service) ListCategories(ctx context.Context, subj authz.Subjects) ([]Ca
 		out = append(out, categoryView(r))
 	}
 	return out, nil
+}
+
+// PageCategories returns one page of the tenant's categories (list
+// contract, store.CategoryList).
+func (s *Service) PageCategories(ctx context.Context, subj authz.Subjects, req listquery.Request) (listquery.Page[CategoryView], error) {
+	rows, total, applied, err := s.st.PageCategories(ctx, subj.TenantID, store.ListRequest(req, store.CategoryList))
+	if err != nil {
+		return listquery.Page[CategoryView]{}, err
+	}
+	out := make([]CategoryView, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, categoryView(r))
+	}
+	return listquery.NewPage(out, total, applied), nil
 }
 
 // UpdateCategory rewrites a category.
@@ -392,6 +408,30 @@ func (s *Service) List(ctx context.Context, subj authz.Subjects, f ListFilter, m
 		next = EncodeCursor(rows[len(rows)-1].CreatedAt, rows[len(rows)-1].ID)
 	}
 	return out, next, nil
+}
+
+// Page returns one page of messages (list contract, store.MessageList);
+// without manage only the caller's own (a caller without a user id has none).
+// The sender scope is part of the SQL filter, so the total counts only
+// messages the caller may see.
+func (s *Service) Page(ctx context.Context, subj authz.Subjects, f ListFilter, req listquery.Request, manage bool) (listquery.Page[MessageView], error) {
+	req = store.ListRequest(req, store.MessageList)
+	sf := store.MessageFilter{Status: f.Status, CategoryID: f.CategoryID, Q: f.Q}
+	if !manage {
+		sf.SenderID = subj.UserID
+		if sf.SenderID == "" {
+			return listquery.NewPage([]MessageView{}, 0, req.Clamp(0)), nil
+		}
+	}
+	rows, total, applied, err := s.st.PageMessages(ctx, subj.TenantID, sf, req)
+	if err != nil {
+		return listquery.Page[MessageView]{}, err
+	}
+	out := make([]MessageView, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, messageView(r))
+	}
+	return listquery.NewPage(out, total, applied), nil
 }
 
 // Update rewrites a draft or scheduled message.

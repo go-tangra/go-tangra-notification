@@ -6,6 +6,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
@@ -228,6 +230,29 @@ func (t *Templates) List(ctx context.Context, s authz.Subjects, channelID *strin
 		next = out[len(out)-1].Name
 	}
 	return out, next, nil
+}
+
+// Page returns one page of the templates the caller may read (list
+// contract, store.TemplateList): visibility is applied in SQL to the count
+// and the page alike, so the total never includes a hidden template.
+func (t *Templates) Page(ctx context.Context, s authz.Subjects, channelID *string, q string, req listquery.Request) (listquery.Page[TemplateView], error) {
+	vis, err := t.az.Visible(ctx, s, authz.Template)
+	if err != nil {
+		return listquery.Page[TemplateView]{}, err
+	}
+	rows, total, applied, err := t.st.PageTemplates(ctx, s.TenantID, channelID, q, vis, store.ListRequest(req, store.TemplateList))
+	if err != nil {
+		return listquery.Page[TemplateView]{}, err
+	}
+	out := make([]TemplateView, 0, len(rows))
+	for _, row := range rows {
+		p, err := t.az.PermissionsOn(ctx, s, authz.Template, row.ID)
+		if err != nil {
+			return listquery.Page[TemplateView]{}, err
+		}
+		out = append(out, templateView(row, p))
+	}
+	return listquery.NewPage(out, total, applied), nil
 }
 
 // Update rewrites a template the caller may write; re-binding needs read on

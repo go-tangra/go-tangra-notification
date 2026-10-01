@@ -2,7 +2,8 @@ package httpapi
 
 import (
 	"net/http"
-	"time"
+
+	"github.com/go-tangra/go-tangra/v4/listquery"
 
 	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
@@ -47,23 +48,25 @@ func (s *Server) RegisterNotifications(d NotifyDeps) {
 			return
 		}
 		q := r.URL.Query()
-		f := store.LogFilter{ChannelID: q.Get("channel_id"), TemplateID: q.Get("template_id"), Recipient: q.Get("recipient"), Status: q.Get("status"), Limit: limitParam(r)}
-		if v := q.Get("from"); v != "" {
-			f.From, _ = time.Parse(time.RFC3339, v)
-		}
-		if v := q.Get("to"); v != "" {
-			f.To, _ = time.Parse(time.RFC3339, v)
-		}
-		if f.CursorTS, f.CursorID, err = notify.DecodeCursor(q.Get("cursor")); err != nil {
-			s.fail(w, r, domainError(err))
+		f := store.LogFilter{ChannelID: q.Get("channel_id"), TemplateID: q.Get("template_id"), Recipient: q.Get("recipient"), Status: q.Get("status")}
+		if f.From, f.To, err = window(q); err != nil {
+			failParam(w, err)
 			return
 		}
-		items, next, err := d.Sender.ListLog(r.Context(), subj, f, hasPermission(r, d.Perms, "stats:read"))
-		if err != nil {
-			s.fail(w, r, domainError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "next_cursor": next})
+		all := hasPermission(r, d.Perms, "stats:read")
+		serveList(s, w, r, store.LogList, domainError,
+			func() ([]notify.LogView, string, error) {
+				lf := f
+				lf.Limit = limitParam(r)
+				var err error
+				if lf.CursorTS, lf.CursorID, err = notify.DecodeCursor(q.Get("cursor")); err != nil {
+					return nil, "", err
+				}
+				return d.Sender.ListLog(r.Context(), subj, lf, all)
+			},
+			func(req listquery.Request) (listquery.Page[notify.LogView], error) {
+				return d.Sender.PageLog(r.Context(), subj, f, all, req)
+			})
 	})
 	s.MustHandle("GET", Prefix+"/notifications/{id}", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)

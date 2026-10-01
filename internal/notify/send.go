@@ -10,6 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
@@ -460,14 +462,12 @@ func shortReason(r string) string {
 // ListLog pages the log newest first; callers without stats:read see their
 // own sends only.
 func (s *Sender) ListLog(ctx context.Context, subj authz.Subjects, f store.LogFilter, allSenders bool) ([]LogView, string, error) {
-	if !allSenders {
-		f.SenderID = subj.ActorID()
+	f, err := s.logFilter(subj, f, allSenders)
+	if err != nil {
+		return nil, "", err
 	}
 	if f.Limit <= 0 || f.Limit > 100 {
 		f.Limit = 50
-	}
-	if f.Status != "" && f.Status != "pending" && f.Status != "sent" && f.Status != "failed" {
-		return nil, "", invalid("unknown status", map[string]any{"field": "status"})
 	}
 	rows, err := s.st.LogPage(ctx, subj.TenantID, f)
 	if err != nil {
@@ -483,6 +483,41 @@ func (s *Sender) ListLog(ctx context.Context, subj authz.Subjects, f store.LogFi
 		next = EncodeCursor(last.CreatedAt, last.ID)
 	}
 	return out, next, nil
+}
+
+// logFilter forces the sender scope (callers without stats:read see their
+// own sends only), validates the status and completes the time window
+// (store.Window: the last 7 days without from/to).
+func (s *Sender) logFilter(subj authz.Subjects, f store.LogFilter, allSenders bool) (store.LogFilter, error) {
+	if !allSenders {
+		f.SenderID = subj.ActorID()
+	}
+	if f.Status != "" && f.Status != "pending" && f.Status != "sent" && f.Status != "failed" {
+		return f, invalid("unknown status", map[string]any{"field": "status"})
+	}
+	if !f.From.IsZero() && !f.To.IsZero() && f.To.Before(f.From) {
+		return f, invalid("to is before from", map[string]any{"field": "to"})
+	}
+	f.From, f.To = store.Window(f.From, f.To, s.now())
+	return f, nil
+}
+
+// PageLog returns one page of the log (list contract, store.LogList) within
+// the filter's window; callers without stats:read see their own sends only.
+func (s *Sender) PageLog(ctx context.Context, subj authz.Subjects, f store.LogFilter, allSenders bool, req listquery.Request) (listquery.Page[LogView], error) {
+	f, err := s.logFilter(subj, f, allSenders)
+	if err != nil {
+		return listquery.Page[LogView]{}, err
+	}
+	rows, total, applied, err := s.st.PageLog(ctx, subj.TenantID, f, store.ListRequest(req, store.LogList))
+	if err != nil {
+		return listquery.Page[LogView]{}, err
+	}
+	out := make([]LogView, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, logView(r))
+	}
+	return listquery.NewPage(out, total, applied), nil
 }
 
 // GetLog returns one entry with its body (own sends only without stats:read).

@@ -349,6 +349,22 @@ func (a *Authz) ReadableIDs(ctx context.Context, s Subjects, resourceType string
 	return ids, false, nil
 }
 
+// Visible is ReadableIDs as a list restriction for the page queries (feature
+// 032): every record for administrators, otherwise exactly the readable ids
+// (none when the caller holds no grant). Count and page apply it in SQL.
+func (a *Authz) Visible(ctx context.Context, s Subjects, resourceType string) (store.Visible, error) {
+	ids, all, err := a.ReadableIDs(ctx, s, resourceType)
+	if err != nil || all {
+		return store.Visible{All: all}, err
+	}
+	v := store.Visible{IDs: make([]string, 0, len(ids))}
+	for id := range ids {
+		v.IDs = append(v.IDs, id)
+	}
+	sort.Strings(v.IDs)
+	return v, nil
+}
+
 // GrantOwner records the creator-owner grant of a new resource.
 func (a *Authz) GrantOwner(ctx context.Context, tenantID, resourceType, resourceID, userID string) error {
 	if userID == "" {

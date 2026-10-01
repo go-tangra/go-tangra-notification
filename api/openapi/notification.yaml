@@ -19,8 +19,18 @@ components:
   parameters:
     csrf: { name: X-CSRF-Token, in: header, required: false, schema: { type: string } }
     id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-    cursor: { name: cursor, in: query, schema: { type: string } }
-    limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    # Legacy cursor paging (one more release; feature 032): only when none of
+    # page/page_size/sort/order is sent, otherwise 422 validation_failed
+    # {param: cursor}. limit has no schema default (the validator would add it
+    # to every request); the service defaults to 50.
+    cursor: { name: cursor, in: query, description: 'legacy cursor paging', schema: { type: string } }
+    limit: { name: limit, in: query, description: 'legacy page size (default 50)', schema: { type: integer, minimum: 1, maximum: 100 } }
+    # List contract (go-tangra specs/032-server-side-tables, contracts/http-list.md):
+    # response {items,total,page,page_size,sort,order}; a page beyond the end
+    # answers the last page; invalid values answer 422 validation_failed {param}.
+    page: { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+    pageSize: { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+    order: { name: order, in: query, schema: { type: string, enum: [asc, desc] } }
   schemas:
     Error: { type: object, required: [reason], properties: { reason: { type: string }, detail: { type: object } } }
     Name: { type: string, minLength: 1, maxLength: 100, pattern: '^[^\p{Cc}]+$' }
@@ -256,8 +266,8 @@ paths:
     get:
       operationId: listChannels
       x-freya-permission: channels:read
-      parameters: [{ name: type, in: query, schema: { $ref: '#/components/schemas/ChannelType' } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
-      responses: { '200': { description: 'channels the caller may read, with permissions; settings redacted' } }
+      parameters: [{ name: type, in: query, schema: { $ref: '#/components/schemas/ChannelType' } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [name, type, created_at] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      responses: { '200': { description: 'page of the channels the caller may read (total counts only those), with permissions; settings redacted' }, '422': { description: 'validation_failed {param}' } }
     post:
       operationId: createChannel
       x-freya-permission: channels:manage
@@ -291,7 +301,7 @@ paths:
     get:
       operationId: listTemplates
       x-freya-permission: templates:read
-      parameters: [{ name: channel_id, in: query, schema: { type: string, format: uuid } }, { name: q, in: query, schema: { type: string, maxLength: 100 } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      parameters: [{ name: channel_id, in: query, schema: { type: string, format: uuid } }, { name: q, in: query, schema: { type: string, maxLength: 100 } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [name, channel, updated_at] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
       responses: { '200': { description: 'templates the caller may read, with permissions' } }
     post:
       operationId: createTemplate
@@ -339,7 +349,7 @@ paths:
     get:
       operationId: listNotifications
       x-freya-permission: notifications:read
-      parameters: [{ name: channel_id, in: query, schema: { type: string, format: uuid } }, { name: template_id, in: query, schema: { type: string, format: uuid } }, { name: recipient, in: query, schema: { type: string, maxLength: 512 } }, { name: status, in: query, schema: { type: string, enum: [pending, sent, failed] } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      parameters: [{ name: channel_id, in: query, schema: { type: string, format: uuid } }, { name: template_id, in: query, schema: { type: string, format: uuid } }, { name: recipient, in: query, schema: { type: string, maxLength: 512 } }, { name: status, in: query, schema: { type: string, enum: [pending, sent, failed] } }, { name: from, in: query, description: 'default: 7 days before to', schema: { type: string, format: date-time } }, { name: to, in: query, description: 'default: now', schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [created_at, status, channel] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
       responses: { '200': { description: 'newest first; without stats:read only the callers own sends; rendered_body omitted' } }
   /api/notification/v1/notifications/{id}:
     get: { operationId: getNotification, x-freya-permission: notifications:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: 'LogEntry with rendered_body' }, '404': { description: not_found } } }
@@ -372,7 +382,11 @@ paths:
       responses: { '200': { description: '{relation, permissions, grants[]} for the caller, or for a subject when the caller holds share' } }
   # ---- categories ----------------------------------------------------------------
   /api/notification/v1/categories:
-    get: { operationId: listCategories, x-freya-permission: messages:read, responses: { '200': { description: 'ordered by sort, name' } } }
+    get:
+      operationId: listCategories
+      x-freya-permission: messages:read
+      parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [name, sort_order] } }, { $ref: '#/components/parameters/order' }]
+      responses: { '200': { description: 'page of categories (default order: sort_order)' }, '422': { description: 'validation_failed {param}' } }
     post:
       operationId: createCategory
       x-freya-permission: messages:manage
@@ -393,7 +407,7 @@ paths:
     get:
       operationId: listMessages
       x-freya-permission: messages:read
-      parameters: [{ name: status, in: query, schema: { type: string, enum: [draft, scheduled, publishing, published, revoked, archived] } }, { name: category_id, in: query, schema: { type: string, format: uuid } }, { name: q, in: query, schema: { type: string, maxLength: 100 } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      parameters: [{ name: status, in: query, schema: { type: string, enum: [draft, scheduled, publishing, published, revoked, archived] } }, { name: category_id, in: query, schema: { type: string, format: uuid } }, { name: q, in: query, schema: { type: string, maxLength: 100 } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [created_at, subject, status] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
       responses: { '200': { description: 'newest first; without messages:manage only the callers own messages' } }
     post:
       operationId: createMessage
@@ -488,7 +502,7 @@ paths:
     get:
       operationId: auditTrail
       x-freya-permission: stats:read
-      parameters: [{ name: event_type, in: query, schema: { type: string } }, { name: actor_id, in: query, schema: { type: string } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/cursor' }]
+      parameters: [{ name: event_type, in: query, schema: { type: string, maxLength: 64 } }, { name: actor_id, in: query, schema: { type: string, maxLength: 256 } }, { name: from, in: query, description: 'default: 7 days before to', schema: { type: string, format: date-time } }, { name: to, in: query, description: 'default: now', schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [ts] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }, { name: limit, in: query, description: 'legacy page size (default 50)', schema: { type: integer, minimum: 1, maximum: 200 } }]
       responses: { '200': { description: 'page of audit events (details never carry credentials or content; subject_name resolves live subjects)' } }
   /api/notification/v1/health:
     get: { operationId: health, x-freya-permission: stats:read, responses: { '200': { description: '{status, database, valkey, scheduler_last_tick, version}' } } }

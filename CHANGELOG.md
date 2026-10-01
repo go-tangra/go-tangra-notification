@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+- **Server-side pagination and sorting for every table (feature 032)**:
+  `GET /channels`, `/templates`, `/messages`, `/notifications`, `/categories`
+  and `/audit` take `page`, `page_size` (1–200), `sort` and `order` and answer
+  `{items, total, page, page_size, sort, order}`; a page beyond the end
+  answers the last page. Sort fields: channels `name|type|created_at`,
+  templates `name|channel|updated_at`, messages `created_at|subject|status`,
+  log `created_at|status|channel`, categories `name|sort_order`, audit `ts`.
+  Invalid values answer 422 `validation_failed` with `detail.param` (the
+  value is never echoed); malformed query parameters rejected by the OpenAPI
+  validator now answer the same 422 (was 400 `malformed_body`).
+- Channel and template visibility moved into SQL: the caller's readable ids
+  (all for tenant administrators) restrict both the count and the page, so a
+  member with partial grants sees exact totals and never counts or receives a
+  hidden record. Messages keep the sender scope and the log the own-sends
+  scope (without `stats:read`) in the count as well.
+- The log and audit lists cover the **last 7 days** when `from`/`to` are
+  absent (exact counts within a bounded window on the hypertables); `from`
+  and `to` widen or move it. This applies to the legacy cursor path too.
+- Legacy `cursor`/`limit` paging keeps its previous shape plus `total` for one
+  release; mixing it with the new parameters is 422 (`param: cursor`). gRPC,
+  backup walks and the inbox are unchanged. The `limit` parameter lost its
+  OpenAPI default (the validator would have added it to every request).
+- `GET /categories` is paged (default order `sort_order`, 25 per page).
+- Migration `0006_list_indexes`: `messages (tenant_id, lower(title), id)` and
+  `messages (tenant_id, sender_id, created_at DESC, id DESC)`.
+- UI (`@go-tangra/ui` ^4.3.0): channels, templates, messages, log, audit,
+  categories and permissions tables are server-paged and sortable with the
+  page, size and sort in the URL (`?channels.page=…`); selects load up to 200
+  channels / categories.
+- Dependency: `github.com/go-tangra/go-tangra/v4` v4.3.0 (`listquery`).
+
 - **Scheduled tasks for the scheduler module (feature 026)**: the module
   serves `scheduler.v1.TaskExecutor/ExecuteTask` (scheduler-v4 SDK) and
   executes `notification:send-test-email` (payload `recipient`, optional

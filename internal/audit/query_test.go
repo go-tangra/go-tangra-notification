@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 )
 
@@ -24,6 +26,52 @@ func (m *memQ) QueryAudit(_ context.Context, tenantID, eventType, actorID string
 		limit = len(m.rows)
 	}
 	return m.rows[:limit], nil
+}
+
+func (m *memQ) PageAudit(_ context.Context, tenantID, eventType, actorID string, from, to time.Time, req listquery.Request) ([]store.AuditRow, int, listquery.Request, error) {
+	m.got = []any{tenantID, eventType, actorID, from, to, req}
+	if m.err != nil {
+		return nil, 0, req, m.err
+	}
+	page, total, applied := listquery.Window(m.rows, req)
+	return page, total, applied, nil
+}
+
+func TestQueryPage(t *testing.T) {
+	base := time.Now()
+	q := &memQ{}
+	for i := 0; i < 5; i++ {
+		q.rows = append(q.rows, store.AuditRow{TS: base.Add(-time.Duration(i) * time.Second), TenantID: "t", EventType: "notification_sent", ActorKind: "user", ActorID: "u", Outcome: "ok"})
+	}
+	// A zero request pages with the AuditList defaults; no from/to → the 7-day window.
+	p, err := QueryPage(context.Background(), q, "t", Filter{}, listquery.Request{})
+	if err != nil || p.Total != 5 || len(p.Items) != 5 || p.Sort != "ts" || p.Order != listquery.Desc || p.PageSize != 50 {
+		t.Fatalf("%v %+v", err, p)
+	}
+	from, to := q.got[3].(time.Time), q.got[4].(time.Time)
+	if d := to.Sub(from); d != store.LogWindow {
+		t.Fatalf("window %v", d)
+	}
+	if string(p.Items[0].Details) != "{}" {
+		t.Fatalf("details %s", p.Items[0].Details)
+	}
+	// Beyond the last page answers the last page.
+	p, err = QueryPage(context.Background(), q, "t", Filter{EventType: "notification_sent", From: base.Add(-time.Hour), To: base}, listquery.Request{Page: 9, PageSize: 2, Sort: "ts", Order: listquery.Desc})
+	if err != nil || p.Page != 3 || len(p.Items) != 1 || p.Total != 5 {
+		t.Fatalf("%v %+v", err, p)
+	}
+	if !q.got[3].(time.Time).Equal(base.Add(-time.Hour)) || !q.got[4].(time.Time).Equal(base) {
+		t.Fatalf("explicit window %v", q.got)
+	}
+	for _, f := range []Filter{{EventType: "nope"}, {From: base, To: base.Add(-time.Second)}} {
+		if _, err := QueryPage(context.Background(), q, "t", f, listquery.Request{}); !errors.Is(err, ErrFilter) {
+			t.Errorf("%+v: %v", f, err)
+		}
+	}
+	q.err = errors.New("db")
+	if _, err := QueryPage(context.Background(), q, "t", Filter{}, listquery.Request{}); err == nil {
+		t.Fatal("expected error")
+	}
 }
 
 func TestQuery(t *testing.T) {

@@ -7,10 +7,12 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"time"
+
+	"github.com/go-tangra/go-tangra/v4/listquery"
 
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/stats"
+	"github.com/go-tangra/go-tangra-notification/v4/internal/store"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/transfer"
 )
 
@@ -113,26 +115,28 @@ func (s *Server) RegisterOps(d OpsDeps) {
 			return
 		}
 		q := r.URL.Query()
-		f := audit.Filter{EventType: q.Get("event_type"), ActorID: q.Get("actor_id"), Cursor: q.Get("cursor")}
-		if v := q.Get("from"); v != "" {
-			f.From, _ = time.Parse(time.RFC3339, v)
-		}
-		if v := q.Get("to"); v != "" {
-			f.To, _ = time.Parse(time.RFC3339, v)
-		}
-		if v := q.Get("limit"); v != "" {
-			f.Limit, _ = strconv.Atoi(v)
-		}
-		page, err := audit.Query(r.Context(), d.Audit, subj.TenantID, f)
-		if err != nil {
-			if errors.Is(err, audit.ErrFilter) {
-				Fail(w, r, nil, ErrValidation)
-				return
-			}
-			s.fail(w, r, domainError(err))
+		f := audit.Filter{EventType: q.Get("event_type"), ActorID: q.Get("actor_id")}
+		if f.From, f.To, err = window(q); err != nil {
+			failParam(w, err)
 			return
 		}
-		WriteJSON(w, http.StatusOK, page)
+		auditErr := func(err error) error {
+			if errors.Is(err, audit.ErrFilter) {
+				return ErrValidation
+			}
+			return domainError(err)
+		}
+		serveList(s, w, r, store.AuditList, auditErr,
+			func() ([]audit.Item, string, error) {
+				lf := f
+				lf.Cursor = q.Get("cursor")
+				lf.Limit, _ = strconv.Atoi(q.Get("limit"))
+				page, err := audit.Query(r.Context(), d.Audit, subj.TenantID, lf)
+				return page.Items, page.NextCursor, err
+			},
+			func(req listquery.Request) (listquery.Page[audit.Item], error) {
+				return audit.QueryPage(r.Context(), d.Audit, subj.TenantID, f, req)
+			})
 	})
 	s.MustHandle("GET", Prefix+"/health", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := subjects(r); err != nil {

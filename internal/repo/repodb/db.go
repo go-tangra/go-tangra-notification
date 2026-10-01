@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/go-tangra/go-tangra-notification/v4/internal/repo"
@@ -58,6 +59,13 @@ func (d *DB) ListChannels(ctx context.Context, tid, typ, after string, limit int
 	err = d.tenant(ctx, tid, func(tx pgx.Tx) error { out, err = store.ListChannels(ctx, tx, tid, typ, after, limit); return err })
 	return
 }
+func (d *DB) PageChannels(ctx context.Context, tid, typ string, vis store.Visible, req listquery.Request) (out []store.Channel, total int, applied listquery.Request, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error {
+		out, total, applied, err = store.PageChannels(ctx, tx, tid, typ, vis, req)
+		return err
+	})
+	return
+}
 func (d *DB) UpdateChannel(ctx context.Context, c store.Channel) error {
 	return d.tenant(ctx, c.TenantID, func(tx pgx.Tx) error { return store.UpdateChannel(ctx, tx, c) })
 }
@@ -83,6 +91,13 @@ func (d *DB) InsertTemplate(ctx context.Context, t store.Template) error {
 }
 func (d *DB) GetTemplate(ctx context.Context, tid, id string) (out store.Template, err error) {
 	err = d.tenant(ctx, tid, func(tx pgx.Tx) error { out, err = store.GetTemplate(ctx, tx, tid, id); return err })
+	return
+}
+func (d *DB) PageTemplates(ctx context.Context, tid string, ch *string, q string, vis store.Visible, req listquery.Request) (out []store.Template, total int, applied listquery.Request, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error {
+		out, total, applied, err = store.PageTemplates(ctx, tx, tid, ch, q, vis, req)
+		return err
+	})
 	return
 }
 func (d *DB) ListTemplates(ctx context.Context, tid string, ch *string, q, after string, limit int) (out []store.Template, err error) {
@@ -126,6 +141,13 @@ func (d *DB) SetLogOutcome(ctx context.Context, tid, id, status, errText, subjec
 }
 func (d *DB) GetLog(ctx context.Context, tid, id string) (out store.LogRow, err error) {
 	err = d.tenant(ctx, tid, func(tx pgx.Tx) error { out, err = store.GetLog(ctx, tx, tid, id); return err })
+	return
+}
+func (d *DB) PageLog(ctx context.Context, tid string, f store.LogFilter, req listquery.Request) (out []store.LogRow, total int, applied listquery.Request, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error {
+		out, total, applied, err = store.PageLog(ctx, tx, tid, f, req)
+		return err
+	})
 	return
 }
 func (d *DB) LogPage(ctx context.Context, tid string, f store.LogFilter) (out []store.LogRow, err error) {
@@ -174,6 +196,13 @@ func (d *DB) GetCategory(ctx context.Context, tid, id string) (out store.Categor
 	err = d.tenant(ctx, tid, func(tx pgx.Tx) error { out, err = store.GetCategory(ctx, tx, tid, id); return err })
 	return
 }
+func (d *DB) PageCategories(ctx context.Context, tid string, req listquery.Request) (out []store.Category, total int, applied listquery.Request, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error {
+		out, total, applied, err = store.PageCategories(ctx, tx, tid, req)
+		return err
+	})
+	return
+}
 func (d *DB) ListCategories(ctx context.Context, tid string) (out []store.Category, err error) {
 	err = d.tenant(ctx, tid, func(tx pgx.Tx) error { out, err = store.ListCategories(ctx, tx, tid); return err })
 	return
@@ -192,6 +221,13 @@ func (d *DB) InsertMessage(ctx context.Context, m store.Message) error {
 }
 func (d *DB) GetMessage(ctx context.Context, tid, id string) (out store.Message, err error) {
 	err = d.tenant(ctx, tid, func(tx pgx.Tx) error { out, err = store.GetMessage(ctx, tx, tid, id); return err })
+	return
+}
+func (d *DB) PageMessages(ctx context.Context, tid string, f store.MessageFilter, req listquery.Request) (out []store.Message, total int, applied listquery.Request, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error {
+		out, total, applied, err = store.PageMessages(ctx, tx, tid, f, req)
+		return err
+	})
 	return
 }
 func (d *DB) ListMessages(ctx context.Context, tid string, f store.MessageFilter) (out []store.Message, err error) {
@@ -256,6 +292,13 @@ func (d *DB) MessageRecipients(ctx context.Context, tid, mid, status, after stri
 
 func (d *DB) InsertAuditRows(ctx context.Context, rows []store.AuditRow) error {
 	return d.system(ctx, func(tx pgx.Tx) error { return store.InsertAuditRows(ctx, tx, rows) })
+}
+func (d *DB) PageAudit(ctx context.Context, tid, et, actor string, from, to time.Time, req listquery.Request) (out []store.AuditRow, total int, applied listquery.Request, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error {
+		out, total, applied, err = store.PageAudit(ctx, tx, tid, et, actor, from, to, req)
+		return err
+	})
+	return
 }
 func (d *DB) QueryAudit(ctx context.Context, tid, et, actor string, from, to, cursor time.Time, limit int) (out []store.AuditRow, err error) {
 	err = d.tenant(ctx, tid, func(tx pgx.Tx) error {
