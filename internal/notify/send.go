@@ -466,6 +466,9 @@ func (s *Sender) ListLog(ctx context.Context, subj authz.Subjects, f store.LogFi
 	if err != nil {
 		return nil, "", err
 	}
+	if !allSenders && f.SenderID == "" {
+		return []LogView{}, "", nil // no actor, no own sends (fail closed)
+	}
 	if f.Limit <= 0 || f.Limit > 100 {
 		f.Limit = 50
 	}
@@ -509,6 +512,11 @@ func (s *Sender) PageLog(ctx context.Context, subj authz.Subjects, f store.LogFi
 	f, err := s.logFilter(subj, f, allSenders)
 	if err != nil {
 		return listquery.Page[LogView]{}, err
+	}
+	if !allSenders && f.SenderID == "" {
+		// No actor, no own sends: an empty sender filter would add no
+		// predicate and list every sender's entries (fail closed).
+		return listquery.NewPage([]LogView{}, 0, store.ListRequest(req, store.LogList).Clamp(0)), nil
 	}
 	rows, total, applied, err := s.st.PageLog(ctx, subj.TenantID, f, store.ListRequest(req, store.LogList))
 	if err != nil {
