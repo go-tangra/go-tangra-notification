@@ -254,6 +254,42 @@ func TestListLogWindow(t *testing.T) {
 	}
 }
 
+// TestListSpanCap: an explicit from/to window wider than 90 days answers
+// 422 validation_failed {param: from} on the log and audit lists, on the
+// paged and the legacy cursor path, without echoing the value; exactly 90
+// days passes (security review F-2).
+func TestListSpanCap(t *testing.T) {
+	f := newFx(t)
+	rfc := func(t time.Time) string { return url.QueryEscape(t.UTC().Format(time.RFC3339)) }
+	for _, c := range []struct {
+		path string
+		now  time.Time
+	}{{"/notifications", f.now}, {"/audit", time.Now()}} {
+		to := c.now.Add(time.Hour)
+		wide := "from=" + rfc(to.Add(-91*24*time.Hour)) + "&to=" + rfc(to)
+		for _, q := range []string{
+			wide, wide + "&page=1", wide + "&limit=10",
+			"from=1970-01-01T00:00:00Z", "from=1970-01-01T00:00:00Z&limit=5",
+		} {
+			w := f.do("GET", Prefix+c.path+"?"+q, "", f.admin)
+			var body struct {
+				Reason string         `json:"reason"`
+				Detail map[string]any `json:"detail"`
+			}
+			_ = json.Unmarshal(w.Body.Bytes(), &body)
+			if w.Code != 422 || body.Reason != "validation_failed" || body.Detail["param"] != "from" || strings.Contains(w.Body.String(), "1970") {
+				t.Errorf("%s?%s: %d %s", c.path, q, w.Code, w.Body)
+			}
+		}
+		ok := "from=" + rfc(to.Add(-90*24*time.Hour)) + "&to=" + rfc(to)
+		for _, q := range []string{ok, ok + "&limit=10"} {
+			if w := f.do("GET", Prefix+c.path+"?"+q, "", f.admin); w.Code != 200 {
+				t.Errorf("%s?%s (90 days): %d %s", c.path, q, w.Code, w.Body)
+			}
+		}
+	}
+}
+
 // TestListAuditPaging: audit pages newest first; walking every page returns
 // each event exactly once and the total matches.
 func TestListAuditPaging(t *testing.T) {

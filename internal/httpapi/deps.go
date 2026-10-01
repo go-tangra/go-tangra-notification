@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/notify"
@@ -70,7 +72,10 @@ func domainError(err error) error {
 	var ve *notify.ValidationError
 	var iu *notify.InUseError
 	var mr *notify.MissingRequiredError
+	var le *listquery.Error
 	switch {
+	case errors.As(err, &le):
+		return &DetailError{Err: ErrValidation, Detail: map[string]any{"param": le.Param}}
 	case errors.As(err, &mr):
 		return &DetailError{Err: ErrMissingRequiredField, Detail: map[string]any{"variable": mr.Variable}}
 	case errors.Is(err, notify.ErrSystemTemplate):

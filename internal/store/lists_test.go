@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -50,16 +51,37 @@ func TestListSpecs(t *testing.T) {
 
 func TestWindowAndVisible(t *testing.T) {
 	now := time.Unix(1_700_000_000, 0)
-	from, to := Window(time.Time{}, time.Time{}, now)
-	if !to.Equal(now.Add(time.Minute)) || to.Sub(from) != LogWindow {
-		t.Fatalf("default %v %v", from, to)
+	from, to, err := Window(time.Time{}, time.Time{}, now)
+	if err != nil || !to.Equal(now.Add(time.Minute)) || to.Sub(from) != LogWindow {
+		t.Fatalf("default %v %v %v", from, to, err)
 	}
 	explicit := now.Add(-30 * 24 * time.Hour)
-	if from, to = Window(explicit, time.Time{}, now); !from.Equal(explicit) || !to.Equal(now.Add(time.Minute)) {
-		t.Fatalf("from only %v %v", from, to)
+	if from, to, err = Window(explicit, time.Time{}, now); err != nil || !from.Equal(explicit) || !to.Equal(now.Add(time.Minute)) {
+		t.Fatalf("from only %v %v %v", from, to, err)
 	}
-	if from, to = Window(time.Time{}, explicit, now); !to.Equal(explicit) || to.Sub(from) != LogWindow {
-		t.Fatalf("to only %v %v", from, to)
+	if from, to, err = Window(time.Time{}, explicit, now); err != nil || !to.Equal(explicit) || to.Sub(from) != LogWindow {
+		t.Fatalf("to only %v %v %v", from, to, err)
+	}
+	if MaxSpan != 90*24*time.Hour {
+		t.Fatalf("MaxSpan %v", MaxSpan)
+	}
+	// Exactly MaxSpan passes, one day more is ErrSpan naming from (both with
+	// an explicit to and with to defaulting to now).
+	if from, to, err = Window(now.Add(-MaxSpan), now, now); err != nil || to.Sub(from) != MaxSpan {
+		t.Fatalf("90 days %v %v %v", from, to, err)
+	}
+	if _, _, err = Window(now.Add(-MaxSpan), time.Time{}, now); err != nil {
+		t.Fatalf("90 days, to absent: %v", err)
+	}
+	for _, to := range []time.Time{now, {}} {
+		_, _, err = Window(now.Add(-MaxSpan-24*time.Hour), to, now)
+		var le *listquery.Error
+		if !errors.As(err, &le) || le.Param != "from" {
+			t.Fatalf("91 days (to %v): %v", to, err)
+		}
+	}
+	if _, _, err = Window(time.Unix(0, 0), time.Unix(0, 0).Add(MaxSpan), now); err != nil {
+		t.Fatalf("old but narrow window: %v", err)
 	}
 	if (Visible{}).Allows("x") {
 		t.Fatal("zero Visible must show nothing")

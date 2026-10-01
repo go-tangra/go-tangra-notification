@@ -199,6 +199,9 @@ func TestLists(t *testing.T) {
 		{"/channels?sort=settings_sealed", "sort"}, {"/channels?order=up", "order"}, {"/channels?page=0", "page"}, {"/templates?page_size=201", "page_size"},
 		{"/messages?sort=content", "sort"}, {"/notifications?sort=recipient", "sort"}, {"/categories?page=x", "page"}, {"/audit?sort=details", "sort"},
 		{"/channels?cursor=a&page=1", "cursor"},
+		// A window wider than 90 days (security review F-2), paged and legacy.
+		{"/notifications?from=1970-01-01T00:00:00Z", "from"}, {"/notifications?from=1970-01-01T00:00:00Z&limit=5", "from"},
+		{"/audit?from=1970-01-01T00:00:00Z&page=1", "from"}, {"/audit?from=1970-01-01T00:00:00Z&limit=5", "from"},
 	} {
 		code, body := owner.JSON(http.MethodGet, api+c.path, nil)
 		detail, _ := body["detail"].(map[string]any)

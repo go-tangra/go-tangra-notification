@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Audit/log query span capped at 90 days** (032 security review F-2):
+  `GET /notifications` and `GET /audit` refuse a `from`..`to` window wider
+  than 90 days (`to` defaults to now) with 422 `validation_failed`
+  `{param: from}`, on the paged and the legacy cursor path, so an explicit
+  `from=1970-01-01` can no longer force an exact count and OFFSET over the
+  whole hypertable. Without `from`/`to` the window stays the last 7 days.
 - **Server-side pagination and sorting for every table (feature 032)**:
   `GET /channels`, `/templates`, `/messages`, `/notifications`, `/categories`
   and `/audit` take `page`, `page_size` (1–200), `sort` and `order` and answer

@@ -498,8 +498,9 @@ func (s *Sender) logFilter(subj authz.Subjects, f store.LogFilter, allSenders bo
 	if !f.From.IsZero() && !f.To.IsZero() && f.To.Before(f.From) {
 		return f, invalid("to is before from", map[string]any{"field": "to"})
 	}
-	f.From, f.To = store.Window(f.From, f.To, s.now())
-	return f, nil
+	var err error
+	f.From, f.To, err = store.Window(f.From, f.To, s.now())
+	return f, err
 }
 
 // PageLog returns one page of the log (list contract, store.LogList) within
