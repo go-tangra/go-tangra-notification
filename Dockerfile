@@ -42,7 +42,10 @@ LABEL org.opencontainers.image.source="https://github.com/go-tangra/go-tangra-no
       org.opencontainers.image.title="go-tangra-notification" \
       org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}"
-RUN apk add --no-cache ca-certificates postgresql-client && adduser -D -u 10001 app
+# /state is the mount point of the enrolment state (the join bundle's named
+# volume), owned by the service user so a fresh volume is writable.
+RUN apk add --no-cache ca-certificates postgresql-client && adduser -D -u 10001 app \
+    && install -d -o app -g app -m 0700 /state
 COPY --from=build /out/notificationsvc /usr/local/bin/
 COPY deploy /app/deploy
 WORKDIR /app
