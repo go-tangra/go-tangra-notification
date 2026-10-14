@@ -1,0 +1,21 @@
+# Freya service-to-service policy for notification (rendered for this core's
+# trust domain): deny by default; the gateway forwards browser traffic, the
+# platform services send through notification.v1 and the scheduler module
+# runs the notification:* tasks.
+version: notification-join-1
+rules:
+  - id: gateway-forwards
+    from: ["spiffe://${TRUST_DOMAIN}/svc/gateway"]
+    to: ["notification"]
+    operations: ["*"]
+    effect: allow
+  - id: modules-send
+    from: ["spiffe://${TRUST_DOMAIN}/svc/warden", "spiffe://${TRUST_DOMAIN}/svc/auth", "spiffe://${TRUST_DOMAIN}/svc/lcm", "spiffe://${TRUST_DOMAIN}/svc/signing", "spiffe://${TRUST_DOMAIN}/svc/hr"]
+    to: ["notification"]
+    operations: ["/notification.v1.Notifier/Send", "/notification.v1.Notifier/SendTest", "/notification.v1.Events/Publish"]
+    effect: allow
+  - id: scheduler-execute
+    from: ["spiffe://${TRUST_DOMAIN}/svc/scheduler"]
+    to: ["notification"]
+    operations: ["/scheduler.v1.TaskExecutor/ExecuteTask"]
+    effect: allow

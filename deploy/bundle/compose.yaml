@@ -1,0 +1,64 @@
+# notification join bundle, rendered by the gateway's add-module wizard.
+#   docker compose up -d
+# Values come from .env (written by the gateway: core addresses, generated
+# passwords and keys, and the host inputs you gave). private/ holds the
+# single-use enrolment token, the mesh CA and this bundle's own TLS material.
+name: tangra-notification
+services:
+  notification-db:
+    image: timescale/timescaledb:2.17.2-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: notification
+      POSTGRES_PASSWORD: ${GEN_PASSWORD_1}
+      NOTIFICATION_APP_PASSWORD: ${GEN_PASSWORD_2}
+    # The server key must belong to the postgres user: copy it before start.
+    entrypoint: ["sh", "-c", "install -d -o postgres -m 0700 /tls-pg && install -o postgres -m 0600 /tls/notification-db.key /tls-pg/server.key && install -o postgres -m 0644 /tls/notification-db.crt /tls-pg/server.crt && exec docker-entrypoint.sh \"$$@\"", "--"]
+    command: ["postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/tls-pg/server.crt", "-c", "ssl_key_file=/tls-pg/server.key"]
+    volumes:
+      - notification-db:/var/lib/postgresql/data
+      - ./private/tls:/tls:ro
+      - ./init-db.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification"]
+      interval: 5s
+      retries: 30
+  # Live-event streams and rate-limit counters: TLS 1.3 only, one ACL user.
+  notification-valkey:
+    image: valkey/valkey:8
+    restart: unless-stopped
+    environment:
+      VALKEY_PASSWORD: ${GEN_PASSWORD_3}
+    # The server key must belong to the valkey user: copy it before start.
+    entrypoint: ["sh", "-c", "install -d -o valkey -m 0700 /tls-vk && install -o valkey -m 0600 /tls/notification-valkey.key /tls-vk/server.key && install -o valkey -m 0644 /tls/notification-valkey.crt /tls-vk/server.crt && install -o valkey -m 0644 /tls/ca.pem /tls-vk/ca.pem && exec docker-entrypoint.sh \"$$@\"", "--"]
+    command: ["valkey-server", "--port", "0", "--tls-port", "6379", "--tls-protocols", "TLSv1.3", "--tls-auth-clients", "no",
+      "--tls-cert-file", "/tls-vk/server.crt", "--tls-key-file", "/tls-vk/server.key", "--tls-ca-cert-file", "/tls-vk/ca.pem",
+      "--user", "default", "off", "--user", "notification", "on", ">${GEN_PASSWORD_3}", "~*", "&*", "+@all"]
+    volumes:
+      - ./private/tls:/tls:ro
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli --tls --cacert /tls-vk/ca.pem -h notification-valkey --user notification --pass \"$$VALKEY_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      retries: 30
+  notification:
+    image: ${MODULE_IMAGE}:${MODULE_VERSION}
+    restart: unless-stopped
+    command: ["-config", "/app/config.yaml"]
+    environment:
+      NOTIFICATION_KEK: ${GEN_KEY_1}
+      FREYA_ADVERTISE_HOST: ${MODULE_ADVERTISE_HOST}
+    ports:
+      - "${MODULE_BIND_IP}:9943:9943"
+      - "${MODULE_BIND_IP}:9944:9944"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./policy.yaml:/app/policy.yaml:ro
+      - ./private/enrollment.token:/tokens/enrollment.token:ro
+      - ./private/tls/ca.pem:/tls/ca.pem:ro
+      - notification-state:/state
+    depends_on:
+      notification-db: { condition: service_healthy }
+      notification-valkey: { condition: service_healthy }
+volumes:
+  notification-db: {}
+  notification-state: {}

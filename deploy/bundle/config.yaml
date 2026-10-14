@@ -1,0 +1,42 @@
+# notification configuration, rendered by the gateway's add-module wizard:
+# every ${...} below was filled from the core's own configuration, so the
+# issuer, trust domain and addresses match the core exactly.
+service_name: notification
+trust_domain: ${TRUST_DOMAIN}
+env: production
+identity:
+  provider: provided
+enroll:
+  enabled: true
+  enroll_url: ${LCM_ENROLL_URL}
+  lcm_grpc: ${LCM_GRPC}
+  tenant_id: ${MESH_TENANT_ID}
+  token_file: /tokens/enrollment.token
+  state_file: /state/svid.json
+authz: { source: file, path: /app/policy.yaml }
+server: { grpc_addr: 0.0.0.0:9943, http_addr: 0.0.0.0:9944 }
+admin: { addr: 127.0.0.1:9590 }
+discovery:
+  static:
+    gateway: ["${GATEWAY_GRPC}"]
+    auth: ["${AUTH_GRPC}"]
+limits:
+  max_request_bytes: 16842752 # backup uploads (16 MiB + slack)
+db:
+  dsn: postgres://notification_app:${GEN_PASSWORD_2}@notification-db:5432/notification?sslmode=verify-full&sslrootcert=/tls/ca.pem
+  migrate_dsn: postgres://postgres:${GEN_PASSWORD_1}@notification-db:5432/notification?sslmode=verify-full&sslrootcert=/tls/ca.pem
+  max_conns: 16
+valkey:
+  addresses: ["notification-valkey:6379"]
+  username: notification
+  password: ${GEN_PASSWORD_3}
+  ca_file: /tls/ca.pem
+kek: { source: env, env: NOTIFICATION_KEK }
+smtp: { dial_timeout_seconds: 30 }
+# The platform relay (auth invitations, warden share links) is not set up by
+# the wizard: add platform_email (password_file on a mounted secret) here.
+scheduler: { interval_seconds: 15, lease_seconds: 60 }
+# Set enabled: true (and discovery.static.scheduler) to register the
+# notification:* scheduled tasks with the scheduler module.
+task_scheduler: { enabled: false, service: scheduler }
+gateway: { service: gateway, issuer: ${GATEWAY_ISSUER} }
