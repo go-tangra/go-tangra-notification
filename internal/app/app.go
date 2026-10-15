@@ -20,6 +20,7 @@ import (
 	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
 	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
 	"github.com/go-tangra/go-tangra-lcm/sdk/v4/pkg/lcmidentity"
+	"github.com/go-tangra/go-tangra-notification/v4/docs"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-notification/v4/internal/channel"
@@ -39,6 +40,7 @@ import (
 	"github.com/go-tangra/go-tangra-notification/v4/pkg/notificationmanifest"
 	"github.com/go-tangra/go-tangra-portal/sdk/v4/pkg/gatewayclient"
 	"github.com/go-tangra/go-tangra/v4"
+	"github.com/go-tangra/go-tangra/v4/helpdocs"
 )
 
 // Options override infrastructure (tests) and attach optional parts.
@@ -88,9 +90,12 @@ type App struct {
 	Scheduler *messages.Scheduler
 	Members   messages.Directory
 	Perms     httpapi.PermissionChecker
-	lastTick  atomic.Int64
-	closers   []func()
-	workers   []func(ctx context.Context)
+	// Docs is the embedded help bundle (docs/help) served to the gateway;
+	// its digest is announced at registration.
+	Docs     *helpdocs.Bundle
+	lastTick atomic.Int64
+	closers  []func()
+	workers  []func(ctx context.Context)
 }
 
 // Build validates cfg and connects every dependency; nothing is served yet.
@@ -108,6 +113,11 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	}
 	built := &App{Cfg: cfg, Log: log}
 	a = built
+	// The help pages ship in the binary; CI lints them, so a bundle that does
+	// not load is a broken build: refuse to start.
+	if a.Docs, err = helpdocs.Load(docs.Help(), notificationmanifest.Module); err != nil {
+		return nil, fmt.Errorf("notification: help docs: %w", err)
+	}
 	defer func() {
 		if err != nil {
 			built.Close()
@@ -207,6 +217,10 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	if a.HTTP, err = httpapi.NewHandler(a.Freya, hopts...); err != nil {
 		return nil, err
 	}
+	// Help bundle for the gateway only (its verified service identity, behind
+	// the Freya security chain); mounted before the catch-all, which would
+	// otherwise shadow it.
+	a.Freya.HTTP().Handle(helpdocs.BundlePath, helpdocs.NewHandler(a.Docs, helpdocs.AllowServices(cfg.Gateway.Service)))
 	a.Freya.HTTP().HandlePrefix("/", a.HTTP.Handler())
 	if o.Register != nil {
 		if err := o.Register(a); err != nil {
@@ -325,6 +339,7 @@ func (a *App) register(ctx context.Context) {
 			continue
 		}
 		client, err = gatewayclient.New(conn, gatewayclient.Options{Manifest: man, HTTPURL: "https://" + httpEP.Host, GRPCTarget: grpcEP.Host, Logger: a.Log,
+			DocsDigest: a.Docs.Digest, // the gateway fetches the help bundle when it changes
 			OnState: func(s gatewayclient.State) {
 				a.Log.Info("gateway lease", "registered", s.Registered, "lease", s.LeaseID, "err", s.Err)
 			}})
