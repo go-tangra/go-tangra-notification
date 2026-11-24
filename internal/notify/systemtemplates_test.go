@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"errors"
+	"maps"
 	"sort"
 	"strings"
 	"testing"
@@ -38,6 +39,11 @@ func TestBuiltinTemplates(t *testing.T) {
 		"hr.request_revoked":         {"AbsenceType,Days,EmployeeName,EndDate,Reason,RequestURL,ReviewerName,StartDate", "AbsenceType,Days,EndDate,RequestURL,StartDate", ""},
 		"hr.signing_failed":          {"AbsenceType,EmployeeName,EndDate,Outcome,RecipientName,RequestURL,StartDate", "AbsenceType,EmployeeName,EndDate,Outcome,RequestURL,StartDate", ""},
 		"hr.allowance_overdrawn":     {"AbsenceType,EmployeeName,Remaining,RequestURL,Year", "AbsenceType,EmployeeName,Remaining,RequestURL,Year", ""},
+		"teleport.invite":            {"cluster_id,cluster_name,display_name,expires_at,invite_url,teleport_username", "cluster_name,display_name,expires_at,invite_url,teleport_username", "invite_url"},
+		"teleport.alert": {"cluster_id,cluster_name,condition,count,display_name,event_code,event_id,event_type,hostname,kind,offline_since,resource,resource_id,rule_id,rule_name,summary,time,user,window_minutes",
+			"cluster_name,condition,display_name,time", ""},
+		"teleport.cluster_unreachable": {"cluster_id,cluster_name,display_name,expires_at,last_contact_at,status,status_reason", "cluster_name,display_name,status,status_reason", ""},
+		"teleport.credential_expiring": {"cluster_id,cluster_name,credential,display_name,expires_at,last_contact_at,status,status_reason", "cluster_name,display_name,status,status_reason", ""},
 	}
 	if len(SystemTemplates) != len(want) {
 		t.Fatalf("%d system templates", len(SystemTemplates))
@@ -212,5 +218,108 @@ func TestHRTemplates(t *testing.T) {
 	sent, _, err := c.RenderRedacted(context.Background(), vars, nil)
 	if err != nil || strings.Contains(sent.Body, "Reason given") || !strings.HasPrefix(sent.Subject, "Leave request: Maria") {
 		t.Fatalf("no reason: %v %+v", err, sent)
+	}
+}
+
+// teleportRender renders a teleport template as SendKey does: every declared
+// variable defaults to empty, then the caller's values apply.
+func teleportRender(t *testing.T, key string, vars map[string]string) (sent, stored render.Output) {
+	t.Helper()
+	var st SystemTemplate
+	for _, s := range SystemTemplates {
+		if s.Key == key {
+			st = s
+		}
+	}
+	if st.Key == "" {
+		t.Fatalf("no template %s", key)
+	}
+	for _, r := range st.Required {
+		if _, ok := vars[r]; !ok {
+			t.Fatalf("%s: sample lacks required %s", key, r)
+		}
+	}
+	c, err := render.Parse(st.Subject, st.Body, render.KindHTML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := map[string]string{}
+	for _, v := range st.Variables {
+		values[v] = ""
+	}
+	for k, v := range vars {
+		values[k] = v
+	}
+	sent, stored, err = c.RenderRedacted(context.Background(), values, st.Secret)
+	if err != nil {
+		t.Fatalf("%s: %v", key, err)
+	}
+	return sent, stored
+}
+
+// TestTeleportTemplates: the four teleport keys render with exactly the
+// variables go-tangra-teleport sends (provisioning invite, alert engine for
+// audit events and resource_offline, cluster status and credential expiry),
+// escape what Teleport reports, and keep the one-time invite link out of the
+// stored copy.
+func TestTeleportTemplates(t *testing.T) {
+	cluster := map[string]string{"cluster_id": "c1", "display_name": "Prod <eu>", "cluster_name": "teleport.example.org"}
+	with := func(extra map[string]string) map[string]string {
+		m := maps.Clone(cluster)
+		maps.Copy(m, extra)
+		return m
+	}
+
+	invite := "https://teleport.example.org/web/invite/0123456789abcdef"
+	sent, stored := teleportRender(t, "teleport.invite", with(map[string]string{"invite_url": invite, "expires_at": "2026-11-25T10:00:00Z", "teleport_username": "maria"}))
+	if sent.Subject != "Your Teleport account on Prod <eu>" || !strings.Contains(sent.Body, `href="`+invite+`"`) || !strings.Contains(sent.Body, "<strong>maria</strong>") ||
+		!strings.Contains(sent.Body, "Prod &lt;eu&gt;") || !strings.Contains(sent.Body, "2026-11-25T10:00:00Z") || !strings.Contains(sent.Body, "through the portal") {
+		t.Fatalf("invite sent %+v", sent)
+	}
+	if strings.Contains(stored.Body, invite) || strings.Contains(stored.Body, "0123456789abcdef") || !strings.Contains(stored.Body, render.Redacted) || !strings.Contains(stored.Body, "maria") {
+		t.Fatalf("invite stored %+v", stored)
+	}
+
+	event := with(map[string]string{"condition": "teleport_event", "rule_id": "r1", "rule_name": "Root logins", "event_id": "e1", "event_type": "user.login",
+		"event_code": "T1000I", "user": "root", "resource": "", "summary": "<b>root</b> logged in", "time": "2026-11-24T09:00:00Z", "count": "1", "window_minutes": "0"})
+	sent, _ = teleportRender(t, "teleport.alert", event)
+	if sent.Subject != "Teleport alert Root logins: Prod <eu>" || !strings.Contains(sent.Body, "user.login (T1000I)") || !strings.Contains(sent.Body, "User: root") ||
+		!strings.Contains(sent.Body, "&lt;b&gt;root&lt;/b&gt;") || strings.Contains(sent.Body, "events within") || strings.Contains(sent.Body, "Resource:") {
+		t.Fatalf("event alert %+v", sent)
+	}
+	event["count"], event["window_minutes"] = "5", "10"
+	if sent, _ = teleportRender(t, "teleport.alert", event); !strings.Contains(sent.Body, "5 events within 10 minutes") {
+		t.Fatalf("burst alert %+v", sent)
+	}
+	offline := with(map[string]string{"condition": "resource_offline", "rule_id": "r2", "rule_name": "Nodes", "resource_id": "s1", "resource": "db-1", "kind": "node",
+		"hostname": "db-1.lan", "offline_since": "2026-11-24T08:00:00Z", "time": "2026-11-24T08:15:00Z"})
+	sent, _ = teleportRender(t, "teleport.alert", offline)
+	if !strings.Contains(sent.Body, "Resource: db-1 (node) on db-1.lan") || !strings.Contains(sent.Body, "Offline since: 2026-11-24T08:00:00Z") || strings.Contains(sent.Body, "Event:") {
+		t.Fatalf("offline alert %+v", sent)
+	}
+	delete(offline, "rule_id")
+	delete(offline, "rule_name") // resources.NotifyAlerter sends no rule
+	if sent, _ = teleportRender(t, "teleport.alert", offline); sent.Subject != "Teleport alert: Prod <eu>" || !strings.Contains(sent.Body, "An alert was raised") {
+		t.Fatalf("ruleless alert %+v", sent)
+	}
+
+	status := with(map[string]string{"status": "unreachable", "status_reason": "No contact since 08:00."})
+	sent, _ = teleportRender(t, "teleport.cluster_unreachable", with(map[string]string{"status": "unreachable", "status_reason": "No contact since 08:00.",
+		"last_contact_at": "2026-11-24T08:00:00Z", "expires_at": "2027-01-01T00:00:00Z"}))
+	if sent.Subject != "Teleport cluster unreachable: Prod <eu>" || !strings.Contains(sent.Body, "Last contact: 2026-11-24T08:00:00Z") || !strings.Contains(sent.Body, "No contact since 08:00.") {
+		t.Fatalf("unreachable %+v", sent)
+	}
+	if sent, _ = teleportRender(t, "teleport.cluster_unreachable", status); strings.Contains(sent.Body, "Last contact") {
+		t.Fatalf("unreachable without contact %+v", sent)
+	}
+
+	sent, _ = teleportRender(t, "teleport.credential_expiring", with(map[string]string{"status": "credential_expiring", "status_reason": "Rotate the credential.", "expires_at": "2026-12-01T00:00:00Z"}))
+	if sent.Subject != "Teleport credential expiring: Prod <eu>" || !strings.Contains(sent.Body, "management credential") || !strings.Contains(sent.Body, "expiry: 2026-12-01T00:00:00Z") ||
+		!strings.Contains(sent.Body, "cannot manage the cluster") {
+		t.Fatalf("management credential %+v", sent)
+	}
+	sent, _ = teleportRender(t, "teleport.credential_expiring", with(map[string]string{"status": "healthy", "status_reason": "Sign in again.", "expires_at": "2026-12-01T00:00:00Z", "credential": "access_identity"}))
+	if !strings.Contains(sent.Body, "access identity for portal terminals") || !strings.Contains(sent.Body, "portal terminals stop working") || strings.Contains(sent.Body, "management credential") {
+		t.Fatalf("access identity %+v", sent)
 	}
 }

@@ -232,3 +232,33 @@ func TestSendKeyOutcome(t *testing.T) {
 	}
 	_ = store.ErrNotFound
 }
+
+// TestSendKeyTeleportInvite: svc/teleport sends teleport.invite by key with
+// the variables provisioning passes; the one-time link is delivered but
+// redacted in the log, and the recipient must be an e-mail address (the
+// caller resolves the tangra user id, as hr and signing do).
+func TestSendKeyTeleportInvite(t *testing.T) {
+	f := keyFx(t)
+	ctx := context.Background()
+	subj := authz.ServiceSubjects(tA, "spiffe://example.org/svc/teleport")
+	in := KeyInput{Key: "teleport.invite", Recipient: "ann@example.org", CorrelationID: "u1", Variables: map[string]string{
+		"invite_url": "https://teleport.example.org/web/invite/TP-INVITE-1", "expires_at": "2026-11-25T10:00:00Z", "teleport_username": "ann",
+		"cluster_id": "c1", "display_name": "Prod", "cluster_name": "teleport.example.org"}}
+	v, err := f.snd.SendKey(ctx, subj, "teleport", in)
+	if err != nil || v.Status != "sent" {
+		t.Fatalf("send %+v %v", v, err)
+	}
+	if row, err := f.ms.GetLog(ctx, tA, v.ID); err != nil || strings.Contains(row.RenderedBody, "TP-INVITE-1") || !strings.Contains(row.RenderedBody, "[redacted]") {
+		t.Fatalf("log row %+v %v", row, err)
+	}
+	if sent := f.email.sent[len(f.email.sent)-1]; !strings.Contains(sent.HTMLBody, "TP-INVITE-1") || sent.To != "ann@example.org" {
+		t.Fatalf("delivered %+v", sent)
+	}
+	in.Recipient = "0b6f3c1e-2a4d-4c8e-9f10-123456789abc"
+	if _, err := f.snd.SendKey(ctx, subj, "teleport", in); err == nil || !strings.Contains(err.Error(), "recipient") {
+		t.Fatalf("user id recipient: %v", err)
+	}
+	if _, err := f.snd.SendKey(ctx, subj, "hr", in); !errors.Is(err, ErrKeyNamespace) {
+		t.Fatalf("foreign namespace: %v", err)
+	}
+}
