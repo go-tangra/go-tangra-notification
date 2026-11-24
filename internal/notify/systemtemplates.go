@@ -278,6 +278,69 @@ var SystemTemplates = []SystemTemplate{
 		Variables: []string{"EmployeeName", "AbsenceType", "Year", "Remaining", "RequestURL"},
 		Required:  []string{"EmployeeName", "AbsenceType", "Year", "Remaining", "RequestURL"},
 	},
+	{
+		// teleport (go-tangra-teleport contracts/events-and-tasks.md): the
+		// one-time invite link of a provisioned Teleport user. The caller
+		// resolves the tangra user to an address; cluster_id is sent but not
+		// shown.
+		Key:     "teleport.invite",
+		Subject: `Your Teleport account on {{.display_name}}`,
+		Body: `<p>Hello,</p>
+<p>A Teleport user, <strong>{{.teleport_username}}</strong>, was created for you on the cluster <strong>{{.display_name}}</strong> ({{.cluster_name}}). Open the link below to set your password and multi-factor authentication.</p>
+<p><a href="{{.invite_url}}">Set up my Teleport account</a></p>
+<p>If the link does not open, copy this address into your browser:<br>{{.invite_url}}</p>
+<p>The link works once and expires at {{.expires_at}}. You can also use Teleport through the portal.</p>
+<p>If you did not expect this message, tell your administrator.</p>`,
+		Variables: []string{"invite_url", "expires_at", "teleport_username", "cluster_id", "display_name", "cluster_name"},
+		Required:  []string{"invite_url", "expires_at", "teleport_username", "display_name", "cluster_name"},
+		Secret:    []string{"invite_url"},
+	},
+	{
+		// An alert rule matched a Teleport audit event (event_* variables,
+		// count and window_minutes) or a module condition such as
+		// resource_offline (resource_id, kind, hostname, offline_since).
+		// Optional parts render only when given.
+		Key:     "teleport.alert",
+		Subject: `Teleport alert{{if .rule_name}} {{.rule_name}}{{end}}: {{.display_name}}`,
+		Body: `<p>Hello,</p>
+<p>{{if .rule_name}}The alert rule <strong>{{.rule_name}}</strong> was triggered{{else}}An alert was raised{{end}} on the Teleport cluster <strong>{{.display_name}}</strong> ({{.cluster_name}}) at {{.time}}.</p>
+{{if .summary}}<p>{{.summary}}</p>
+{{end}}<ul>
+<li>Condition: {{.condition}}</li>
+{{if .event_type}}<li>Event: {{.event_type}}{{if .event_code}} ({{.event_code}}){{end}}</li>
+{{end}}{{if .user}}<li>User: {{.user}}</li>
+{{end}}{{if .resource}}<li>Resource: {{.resource}}{{if .kind}} ({{.kind}}){{end}}{{if .hostname}} on {{.hostname}}{{end}}</li>
+{{end}}{{if .offline_since}}<li>Offline since: {{.offline_since}}</li>
+{{end}}{{if and .count (ne .count "1")}}<li>{{.count}} events within {{.window_minutes}} minutes</li>
+{{end}}</ul>
+<p>Open the Teleport module in the portal for details.</p>`,
+		Variables: []string{"condition", "rule_id", "rule_name", "cluster_id", "display_name", "cluster_name", "event_id", "event_type", "event_code",
+			"user", "resource", "summary", "time", "count", "window_minutes", "resource_id", "kind", "hostname", "offline_since"},
+		Required: []string{"condition", "display_name", "cluster_name", "time"},
+	},
+	{
+		Key:     "teleport.cluster_unreachable",
+		Subject: `Teleport cluster unreachable: {{.display_name}}`,
+		Body: `<p>Hello,</p>
+<p>The portal can no longer reach the Teleport cluster <strong>{{.display_name}}</strong> ({{.cluster_name}}).{{if .last_contact_at}} Last contact: {{.last_contact_at}}.{{end}}</p>
+{{if .status_reason}}<p>{{.status_reason}}</p>
+{{end}}<p>Status: {{.status}}. Check the cluster's address and the network path from the portal.</p>`,
+		Variables: []string{"cluster_id", "display_name", "cluster_name", "status", "status_reason", "last_contact_at", "expires_at"},
+		Required:  []string{"display_name", "cluster_name", "status", "status_reason"},
+	},
+	{
+		// The management credential, or (credential=access_identity) the
+		// access identity for portal terminals, nears or passed its expiry.
+		Key:     "teleport.credential_expiring",
+		Subject: `Teleport credential expiring: {{.display_name}}`,
+		Body: `<p>Hello,</p>
+<p>The {{if eq .credential "access_identity"}}access identity for portal terminals{{else}}management credential{{end}} of the Teleport cluster <strong>{{.display_name}}</strong> ({{.cluster_name}}) is about to expire or has expired{{if .expires_at}} (expiry: {{.expires_at}}){{end}}.</p>
+{{if .status_reason}}<p>{{.status_reason}}</p>
+{{end}}<p>Replace it in time: {{if eq .credential "access_identity"}}portal terminals stop working{{else}}the portal cannot manage the cluster{{end}} once it has expired.</p>
+<p>Status: {{.status}}.</p>`,
+		Variables: []string{"cluster_id", "display_name", "cluster_name", "status", "status_reason", "last_contact_at", "expires_at", "credential"},
+		Required:  []string{"display_name", "cluster_name", "status", "status_reason"},
+	},
 }
 
 // SeedResult counts what EnsureSystemTemplates did.

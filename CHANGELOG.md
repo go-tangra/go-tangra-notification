@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Teleport system templates**: `teleport.invite` (one-time `invite_url`,
+  redacted in the log), `teleport.alert`, `teleport.cluster_unreachable` and
+  `teleport.credential_expiring` are seeded in the platform tenant at start,
+  so the Teleport module's sends no longer answer NotFound `template_key`.
+  The development policy admits `svc/teleport` on the send RPCs. As for every
+  system send, the recipient must be an e-mail address: the caller resolves
+  the tangra user.
 - **Audit/log query span capped at 90 days** (032 security review F-2):
   `GET /notifications` and `GET /audit` refuse a `from`..`to` window wider
   than 90 days (`to` defaults to now) with 422 `validation_failed`
