@@ -39,6 +39,7 @@ func TestBuiltinTemplates(t *testing.T) {
 		"hr.request_revoked":         {"AbsenceType,Days,EmployeeName,EndDate,Reason,RequestURL,ReviewerName,StartDate", "AbsenceType,Days,EndDate,RequestURL,StartDate", ""},
 		"hr.signing_failed":          {"AbsenceType,EmployeeName,EndDate,Outcome,RecipientName,RequestURL,StartDate", "AbsenceType,EmployeeName,EndDate,Outcome,RequestURL,StartDate", ""},
 		"hr.allowance_overdrawn":     {"AbsenceType,EmployeeName,Remaining,RequestURL,Year", "AbsenceType,EmployeeName,Remaining,RequestURL,Year", ""},
+		"deployer.deployment_finished": {"certificate,duration,failed,finished_at,job_id,link,results,status,succeeded,target,total,triggered_by", "status,succeeded,target,total,triggered_by", ""},
 		"teleport.invite":            {"cluster_id,cluster_name,display_name,expires_at,invite_url,teleport_username", "cluster_name,display_name,expires_at,invite_url,teleport_username", "invite_url"},
 		"teleport.alert": {"cluster_id,cluster_name,condition,count,display_name,event_code,event_id,event_type,hostname,kind,offline_since,resource,resource_id,rule_id,rule_name,summary,time,user,window_minutes",
 			"cluster_name,condition,display_name,time", ""},
@@ -321,5 +322,23 @@ func TestTeleportTemplates(t *testing.T) {
 	sent, _ = teleportRender(t, "teleport.credential_expiring", with(map[string]string{"status": "healthy", "status_reason": "Sign in again.", "expires_at": "2026-12-01T00:00:00Z", "credential": "access_identity"}))
 	if !strings.Contains(sent.Body, "access identity for portal terminals") || !strings.Contains(sent.Body, "portal terminals stop working") || strings.Contains(sent.Body, "management credential") {
 		t.Fatalf("access identity %+v", sent)
+	}
+}
+
+func TestDeployerDeploymentFinishedRenders(t *testing.T) {
+	vars := map[string]string{"target": "edge <lb>", "status": "partial", "triggered_by": "auto_renewal", "total": "3", "succeeded": "2", "failed": "1",
+		"certificate": "www.example.com", "results": "nginx-1 — completed\nf5-prod — failed: connection refused", "link": "https://portal.test/deployer/jobs/j1"}
+	sent, _ := teleportRender(t, "deployer.deployment_finished", vars)
+	if sent.Subject != "Deployment partial: edge <lb>" {
+		t.Fatalf("subject %q", sent.Subject)
+	}
+	for _, want := range []string{"edge &lt;lb&gt;", "2 of 3 succeeded, 1 failed", "f5-prod — failed: connection refused", "Certificate: www.example.com", `href="https://portal.test/deployer/jobs/j1"`} {
+		if !strings.Contains(sent.Body, want) {
+			t.Errorf("body lacks %q:\n%s", want, sent.Body)
+		}
+	}
+	vars["failed"], vars["status"], vars["certificate"], vars["link"] = "0", "completed", "", ""
+	if sent, _ = teleportRender(t, "deployer.deployment_finished", vars); strings.Contains(sent.Body, "failed</li>") || strings.Contains(sent.Body, "Certificate:") || strings.Contains(sent.Body, "Open the deployment") {
+		t.Fatalf("optional parts must not render:\n%s", sent.Body)
 	}
 }
