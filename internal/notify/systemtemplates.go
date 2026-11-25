@@ -103,6 +103,26 @@ var SystemTemplates = []SystemTemplate{
 		Required:  []string{"days", "count", "certificates"},
 	},
 	{
+		// deployer: every job of a target run finished (status completed,
+		// partial, failed or cancelled). results is one line per
+		// configuration ("name — status: message"); link opens the run.
+		Key:     "deployer.deployment_finished",
+		Subject: `Deployment {{.status}}: {{.target}}`,
+		Body: `<p>Hello,</p>
+<p>The deployment to the target <strong>{{.target}}</strong> finished with status <strong>{{.status}}</strong>{{if .finished_at}} at {{.finished_at}}{{end}}.</p>
+<ul>
+<li>Triggered by: {{.triggered_by}}</li>
+{{if .certificate}}<li>Certificate: {{.certificate}}</li>
+{{end}}<li>Configurations: {{.succeeded}} of {{.total}} succeeded{{if and .failed (ne .failed "0")}}, {{.failed}} failed{{end}}</li>
+{{if .duration}}<li>Duration: {{.duration}}</li>
+{{end}}</ul>
+{{if .results}}<div style="white-space: pre-wrap">{{.results}}</div>
+{{end}}{{if .link}}<p><a href="{{.link}}">Open the deployment</a></p>
+{{end}}<p>You receive this because you administer deployments and the target sends status notifications.</p>`,
+		Variables: []string{"target", "status", "triggered_by", "certificate", "total", "succeeded", "failed", "finished_at", "duration", "results", "link", "job_id"},
+		Required:  []string{"target", "status", "triggered_by", "total", "succeeded"},
+	},
+	{
 		// signing (feature 027): variables are names, links and reasons only —
 		// never field values. Links open the portal (sign-in required).
 		Key:     "signing.invitation",

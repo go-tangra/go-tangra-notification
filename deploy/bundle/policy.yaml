@@ -10,7 +10,7 @@ rules:
     operations: ["*"]
     effect: allow
   - id: modules-send
-    from: ["spiffe://${TRUST_DOMAIN}/svc/warden", "spiffe://${TRUST_DOMAIN}/svc/auth", "spiffe://${TRUST_DOMAIN}/svc/lcm", "spiffe://${TRUST_DOMAIN}/svc/signing", "spiffe://${TRUST_DOMAIN}/svc/hr"]
+    from: ["spiffe://${TRUST_DOMAIN}/svc/warden", "spiffe://${TRUST_DOMAIN}/svc/auth", "spiffe://${TRUST_DOMAIN}/svc/lcm", "spiffe://${TRUST_DOMAIN}/svc/signing", "spiffe://${TRUST_DOMAIN}/svc/hr", "spiffe://${TRUST_DOMAIN}/svc/teleport", "spiffe://${TRUST_DOMAIN}/svc/deployer"]
     to: ["notification"]
     operations: ["/notification.v1.Notifier/Send", "/notification.v1.Notifier/SendTest", "/notification.v1.Events/Publish"]
     effect: allow
